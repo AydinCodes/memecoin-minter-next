@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { WalletButton } from '../wallet/wallet-button';
+import WalletButton from '../wallet/wallet-button';
 
 export default function Navbar() {
   return (
