@@ -1,0 +1,734 @@
+// ===== next-env.d.ts =====
+
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+
+
+// ===== next.config.ts =====
+
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+
+
+// ===== src/app/guides/page.tsx =====
+
+export default function Guides() {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a]">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <h1 className="text-4xl font-bold text-center mb-10">
+            <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
+              Guides & Resources
+            </span>
+          </h1>
+          
+          <div className="space-y-12">
+            <div className="bg-[#171717] rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-semibold text-white mb-4">How to Create a Solana Token</h2>
+              <div className="prose prose-invert max-w-none">
+                <ol className="list-decimal pl-5 space-y-4">
+                  <li>
+                    <strong>Connect Your Wallet</strong>
+                    <p className="text-gray-400">
+                      Click the "Connect Wallet" button in the top right corner and connect your Phantom, Solflare, or other compatible Solana wallet.
+                    </p>
+                  </li>
+                  <li>
+                    <strong>Fill in Token Details</strong>
+                    <p className="text-gray-400">
+                      Enter your token's name, symbol, supply, and other details. Upload a logo image (1000x1000px recommended).
+                    </p>
+                  </li>
+                  <li>
+                    <strong>Configure Token Options</strong>
+                    <p className="text-gray-400">
+                      Choose whether to include social links and creator information. Select which authorities to revoke (recommended for investor trust).
+                    </p>
+                  </li>
+                  <li>
+                    <strong>Launch Your Token</strong>
+                    <p className="text-gray-400">
+                      Click "Launch Token" and approve the transaction in your wallet. Your token will be created on the Solana blockchain.
+                    </p>
+                  </li>
+                  <li>
+                    <strong>Create Liquidity</strong>
+                    <p className="text-gray-400">
+                      After creating your token, consider setting up a liquidity pool on Raydium or another Solana DEX to make your token tradable.
+                    </p>
+                  </li>
+                </ol>
+              </div>
+            </div>
+            
+            <div className="bg-[#171717] rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-semibold text-white mb-4">Token Authorities Explained</h2>
+              <div className="prose prose-invert max-w-none">
+                <p className="text-gray-400">
+                  Solana tokens have three types of authorities that control different aspects of the token:
+                </p>
+                <ul className="list-disc pl-5 space-y-3 mt-4">
+                  <li>
+                    <strong>Mint Authority</strong>
+                    <p className="text-gray-400">
+                      Controls the ability to create (mint) new tokens. Revoking this authority creates a fixed supply token that cannot be inflated.
+                    </p>
+                  </li>
+                  <li>
+                    <strong>Freeze Authority</strong>
+                    <p className="text-gray-400">
+                      Controls the ability to freeze token accounts, preventing transfers. Revoking this ensures no one can freeze holders' tokens.
+                    </p>
+                  </li>
+                  <li>
+                    <strong>Update Authority</strong>
+                    <p className="text-gray-400">
+                      Controls the ability to modify token metadata (name, symbol, image, etc.). Revoking makes the token's metadata immutable.
+                    </p>
+                  </li>
+                </ul>
+                <p className="text-gray-400 mt-4">
+                  For maximum credibility with your community, we recommend revoking all authorities.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+// ===== src/app/create-token/page.tsx =====
+
+import TokenForm from '@/components/token/token-form';
+
+export default function CreateToken() {
+  return (
+    <div className="min-h-screen bg-[#0a0a0a]">
+      <TokenForm />
+    </div>
+  );
+}
+
+// ===== src/app/layout.tsx =====
+
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import { Providers } from "./providers";
+import Navbar from "@/components/layout/navbar";
+import Footer from "@/components/layout/footer";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "SolMinter - Create Solana Tokens Easily",
+  description: "Create, launch, and manage Solana tokens with ease. Your one-stop solution for Solana meme coin creation.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <head>
+        <link 
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" 
+          rel="stylesheet"
+        />
+      </head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#0a0a0a] text-white`}
+      >
+        <Providers>
+          <div className="min-h-screen flex flex-col">
+            <Navbar />
+            <main className="flex-grow">{children}</main>
+            <Footer />
+          </div>
+        </Providers>
+      </body>
+    </html>
+  );
+}
+
+// ===== src/app/page.tsx =====
+
+import Link from 'next/link';
+
+export default function Home() {
+  return (
+    <div className="min-h-screen bg-[#0a0a0a]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="text-center">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+            <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
+              SolMinter
+            </span>
+          </h1>
+          <p className="text-xl md:text-2xl text-gray-400 mb-8 max-w-3xl mx-auto">
+            Create, launch, and manage Solana tokens with ease. 
+            Your one-stop solution for Solana meme coin creation.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12">
+            <Link href="/create-token" className="bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium py-3 px-8 rounded-full hover:shadow-lg transition-all">
+              Create Token
+            </Link>
+            <Link href="/guides" className="bg-transparent border border-purple-500 text-purple-500 font-medium py-3 px-8 rounded-full hover:bg-purple-500 hover:text-white hover:shadow-lg transition-all">
+              Learn More
+            </Link>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="feature-card bg-[#171717] p-6 rounded-xl shadow-lg">
+              <div className="icon-circle w-16 h-16 bg-purple-500 bg-opacity-20 rounded-full flex items-center justify-center mb-4 mx-auto">
+                <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-2">Easy Token Creation</h2>
+              <p className="text-gray-400">Create your Solana token with just a few clicks. No coding required.</p>
+            </div>
+            
+            <div className="feature-card bg-[#171717] p-6 rounded-xl shadow-lg">
+              <div className="icon-circle w-16 h-16 bg-blue-500 bg-opacity-20 rounded-full flex items-center justify-center mb-4 mx-auto">
+                <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-2">Secure & Trusted</h2>
+              <p className="text-gray-400">Built on Solana for fast transactions and high security standards.</p>
+            </div>
+            
+            <div className="feature-card bg-[#171717] p-6 rounded-xl shadow-lg">
+              <div className="icon-circle w-16 h-16 bg-green-500 bg-opacity-20 rounded-full flex items-center justify-center mb-4 mx-auto">
+                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-2">Lightning Fast</h2>
+              <p className="text-gray-400">Launch your token in seconds with minimal fees on the Solana blockchain.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};  
+
+// ===== src/app/providers.tsx =====
+
+'use client';
+
+import { WalletContextProvider } from '@/components/wallet/wallet-provider';
+import { ReactNode } from 'react';
+
+export function Providers({ children }: { children: ReactNode }) {
+  return <WalletContextProvider>{children}</WalletContextProvider>;
+}
+
+// ===== src/components/token/token-form.tsx =====
+
+'use client';
+
+import { useState } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
+
+export default function TokenForm() {
+  const { publicKey, connected } = useWallet();
+  const [formData, setFormData] = useState({
+    name: '',
+    symbol: '',
+    decimals: 9,
+    supply: 1000000000,
+    description: '',
+    logo: null as File | null,
+    revokeMint: true,
+    revokeFreeze: true,
+    revokeUpdate: true,
+    socialLinks: false,
+    creatorInfo: false
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    
+    if (type === 'checkbox') {
+      const checkbox = e.target as HTMLInputElement;
+      setFormData({
+        ...formData,
+        [name]: checkbox.checked
+      });
+    } else if (type === 'number') {
+      setFormData({
+        ...formData,
+        [name]: parseInt(value)
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFormData({
+        ...formData,
+        logo: e.target.files[0]
+      });
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Form submitted:', formData);
+    // Here you would integrate with your token creation logic
+  };
+
+  return (
+    <div id="create-token" className="opacity-100 py-8">
+      <div className="title-box text-center mb-8">
+        <div className="title-text text-3xl md:text-4xl font-bold text-white mb-3">
+          Solana Token Creator
+        </div>
+        <div className="title-desc text-gray-400">
+          <span className="span-1 block">Create and deploy your Solana coin effortlessly in seconds.</span>
+          <span className="span-2 block">Reach the world and scale without limits!</span>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="token-creation-box max-w-3xl mx-auto bg-[#171717] rounded-xl p-6 shadow-xl">
+        <div className="form-section mb-8">
+          <div className="form-field mb-4">
+            <label className="field-label block text-gray-300 mb-2">Token Name *</label>
+            <input 
+              placeholder="Ex: Moon Coin" 
+              className="field-input w-full bg-[#222] border border-gray-700 rounded-lg p-3 text-white" 
+              type="text" 
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              required
+            />
+            <span className="field-constraint text-xs text-gray-500 mt-1 block">Max 32 characters in your name</span>
+          </div>
+
+          <div className="form-field mb-4">
+            <label className="field-label block text-gray-300 mb-2">Token Symbol *</label>
+            <input 
+              placeholder="Ex: MOON" 
+              className="field-input w-full bg-[#222] border border-gray-700 rounded-lg p-3 text-white" 
+              type="text" 
+              name="symbol"
+              value={formData.symbol}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+
+          <div className="form-field mb-4">
+            <label className="field-label block text-gray-300 mb-2">Decimals *</label>
+            <input 
+              placeholder="Ex: 9" 
+              className="field-input w-full bg-[#222] border border-gray-700 rounded-lg p-3 text-white" 
+              type="number" 
+              name="decimals"
+              value={formData.decimals}
+              onChange={handleInputChange}
+              required
+            />
+            <span className="field-constraint text-xs text-gray-500 mt-1 block">Change the number of decimals for your token</span>
+          </div>
+
+          <div className="form-field mb-4">
+            <label className="field-label block text-gray-300 mb-2">Supply *</label>
+            <input 
+              placeholder="Ex: 1000000000" 
+              className="field-input w-full bg-[#222] border border-gray-700 rounded-lg p-3 text-white" 
+              type="number" 
+              name="supply"
+              value={formData.supply}
+              onChange={handleInputChange}
+              required
+            />
+            <span className="field-constraint text-xs text-gray-500 mt-1 block">The initial number of available tokens that will be created in your wallet</span>
+          </div>
+
+          <div className="logo-wrapper grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+            <div className="logo-box">
+              <span className="label-text block text-gray-300 mb-2">Logo *</span>
+              <div className="img-input-wrapper border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-purple-500 transition-colors" onClick={() => document.querySelector<HTMLInputElement>('.form-img')?.click()}>
+                <span className="material-symbols-rounded text-3xl mb-2 text-gray-400 block">upload</span>
+                <span className="text-1 block text-gray-300 mb-1">Drag and drop here to upload</span>
+                <div className="text-2 text-xs text-gray-500">.png, .jpg 1000x1000 px</div>
+                <input 
+                  accept=".png, .jpg, .jpeg" 
+                  className="form-img hidden" 
+                  type="file"
+                  onChange={handleFileChange}
+                  required
+                />
+              </div>
+              <span className="field-constraint text-xs text-gray-500 mt-1 block">Add logo for your token</span>
+            </div>
+            
+            <div className="logo-preview flex items-center justify-center">
+              {formData.logo ? (
+                <img 
+                  src={URL.createObjectURL(formData.logo)} 
+                  alt="Token Logo Preview" 
+                  className="max-h-40 rounded-lg border border-gray-700"
+                />
+              ) : (
+                <div className="text-gray-500 text-sm">Logo preview will appear here</div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-field mb-4">
+            <label className="field-label block text-gray-300 mb-2">Description *</label>
+            <textarea 
+              placeholder="Here you can describe your token" 
+              className="field-input w-full bg-[#222] border border-gray-700 rounded-lg p-3 text-white h-24" 
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="form-divider border-t border-gray-700 my-6"></div>
+
+        <div className="form-section mb-8">
+          <div className="toggle-section mb-4">
+            <div className="toggle-section-header flex justify-between items-center mb-2">
+              <div className="toggle-header-left flex items-center">
+                <div className="toggle-wrapper mr-3">
+                  <input 
+                    id="creatorInfo" 
+                    type="checkbox" 
+                    name="creatorInfo"
+                    checked={formData.creatorInfo}
+                    onChange={handleInputChange}
+                    className="hidden"
+                  />
+                  <div 
+                    className={`toggle w-12 h-6 rounded-full p-1 cursor-pointer ${formData.creatorInfo ? 'bg-purple-600' : 'bg-gray-700'}`}
+                    onClick={() => setFormData({...formData, creatorInfo: !formData.creatorInfo})}
+                  >
+                    <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.creatorInfo ? 'translate-x-6' : ''}`}></div>
+                  </div>
+                </div>
+                <div className="toggle-label text-gray-300">Creator's Info (Optional)</div>
+              </div>
+              <div className="toggle-cost text-purple-500">+0.1 SOL</div>
+            </div>
+            <div className="toggle-section-description text-xs text-gray-500">
+              Change the information of the creator in the metadata. By default, it is SolMinter.
+            </div>
+          </div>
+
+          <div className="toggle-section mb-4">
+            <div className="toggle-section-header flex justify-between items-center mb-2">
+              <div className="toggle-header-left flex items-center">
+                <div className="toggle-wrapper mr-3">
+                  <input 
+                    id="socialLinks" 
+                    type="checkbox" 
+                    name="socialLinks"
+                    checked={formData.socialLinks}
+                    onChange={handleInputChange}
+                    className="hidden"
+                  />
+                  <div 
+                    className={`toggle w-12 h-6 rounded-full p-1 cursor-pointer ${formData.socialLinks ? 'bg-purple-600' : 'bg-gray-700'}`}
+                    onClick={() => setFormData({...formData, socialLinks: !formData.socialLinks})}
+                  >
+                    <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.socialLinks ? 'translate-x-6' : ''}`}></div>
+                  </div>
+                </div>
+                <div className="toggle-label text-gray-300">Add Social Links & Tags</div>
+              </div>
+              <div className="toggle-cost text-purple-500">+0.1 SOL</div>
+            </div>
+            <div className="toggle-section-description text-xs text-gray-500">
+              Add links to your token metadata.
+            </div>
+          </div>
+        </div>
+
+        <div className="form-divider border-t border-gray-700 my-6"></div>
+
+        <div className="form-section mb-8">
+          <div className="form-section-title text-xl text-white mb-4">Revoke Authorities (Investor's Booster)</div>
+          
+          <div className="form-section-authorities space-y-4">
+            <div className="form-checkbox-field">
+              <div className="form-checkbox-header flex justify-between items-center mb-1">
+                <div className="flex items-center">
+                  <div className="form-checkbox-label text-gray-300 mr-3">Revoke Freeze</div>
+                  <div 
+                    className={`checkbox w-5 h-5 border ${formData.revokeFreeze ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
+                    onClick={() => setFormData({...formData, revokeFreeze: !formData.revokeFreeze})}
+                  >
+                    {formData.revokeFreeze && (
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="form-checkbox-description text-xs text-gray-500">
+                No one will be able to freeze holders' token accounts anymore
+              </div>
+              <div className="form-checkbox-cost text-xs text-purple-500 mt-1">+0.1 SOL</div>
+            </div>
+
+            <div className="form-checkbox-field">
+              <div className="form-checkbox-header flex justify-between items-center mb-1">
+                <div className="flex items-center">
+                  <div className="form-checkbox-label text-gray-300 mr-3">Revoke Mint</div>
+                  <div 
+                    className={`checkbox w-5 h-5 border ${formData.revokeMint ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
+                    onClick={() => setFormData({...formData, revokeMint: !formData.revokeMint})}
+                  >
+                    {formData.revokeMint && (
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="form-checkbox-description text-xs text-gray-500">
+                No one will be able to create more tokens anymore
+              </div>
+              <div className="form-checkbox-cost text-xs text-purple-500 mt-1">+0.1 SOL</div>
+            </div>
+
+            <div className="form-checkbox-field">
+              <div className="form-checkbox-header flex justify-between items-center mb-1">
+                <div className="flex items-center">
+                  <div className="form-checkbox-label text-gray-300 mr-3">Revoke Update</div>
+                  <div 
+                    className={`checkbox w-5 h-5 border ${formData.revokeUpdate ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
+                    onClick={() => setFormData({...formData, revokeUpdate: !formData.revokeUpdate})}
+                  >
+                    {formData.revokeUpdate && (
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="form-checkbox-description text-xs text-gray-500">
+                No one will be able to modify token metadata anymore
+              </div>
+              <div className="form-checkbox-cost text-xs text-purple-500 mt-1">+0.1 SOL</div>
+            </div>
+          </div>
+          
+          <div className="form-section-description text-xs text-gray-500 mt-4">
+            Solana Token has 3 authorities: Freeze Authority, Mint Authority, and Update Authority. Revoke them to attract more investors.
+          </div>
+        </div>
+
+        <div className="submit-section flex flex-col md:flex-row justify-between items-center mt-8">
+          <button 
+            type="submit" 
+            className={`submit-btn bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium py-3 px-8 rounded-full hover:shadow-lg transition-all w-full md:w-auto mb-4 md:mb-0 ${!connected ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={!connected}
+          >
+            {connected ? 'Launch Token' : 'Connect Wallet to Launch'}
+          </button>
+          
+          <div className="token-fees-container text-right">
+            <div className="fees-label text-gray-400 text-sm">Total Fees:</div>
+            <div className="flex items-center">
+            <div className="fees-original text-gray-500 text-sm">0.2+<del>0.6 SOL</del></div>
+              <div className="fees-discounted text-purple-500 text-xl font-semibold ml-2">0.3 SOL</div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ===== src/components/layout/navbar.tsx =====
+
+'use client';
+
+import Link from 'next/link';
+import { WalletButton } from '../wallet/wallet-button';
+
+export default function Navbar() {
+  return (
+    <div className="nav-container bg-[#111] border-b border-gray-800 py-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center">
+          <Link href="/" className="logo-container flex items-center">
+            <div className="logo-img">
+              <span className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">SolMinter</span>
+            </div>
+          </Link>
+          
+          <nav className="main-nav hidden md:flex space-x-6">
+            <Link href="/" className="nav-link text-gray-300 hover:text-white transition-colors">
+              Home
+            </Link>
+            <Link href="/create-token" className="nav-link text-gray-300 hover:text-white transition-colors">
+              Create Token
+            </Link>
+            <a 
+              href="https://raydium.io/liquidity/create-pool" 
+              className="nav-link text-gray-300 hover:text-white transition-colors"
+              rel="noopener noreferrer" 
+              target="_blank"
+            >
+              Liquidity Pool
+            </a>
+            <a 
+              href="https://raydium.io/swap" 
+              className="nav-link text-gray-300 hover:text-white transition-colors"
+              rel="noopener noreferrer" 
+              target="_blank"
+            >
+              Manage Liquidity
+            </a>
+            <Link href="/guides" className="nav-link text-gray-300 hover:text-white transition-colors">
+              Guides
+            </Link>
+          </nav>
+          
+          <div className="wallet-dropdown">
+            <WalletButton />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== src/components/layout/footer.tsx =====
+
+'use client';
+
+import Link from 'next/link';
+
+export default function Footer() {
+  return (
+    <div className="footer-container bg-[#111] border-t border-gray-800 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col md:flex-row justify-between items-center">
+          <Link href="/" className="logo-container mb-4 md:mb-0">
+            <div className="logo-img">
+              <span className="text-xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">SolMinter</span>
+            </div>
+          </Link>
+          
+          <div className="bottom-bar flex flex-col md:flex-row items-center">
+            <div className="copyright-bar text-gray-500 text-sm mb-2 md:mb-0">
+              <span>© SolMinter 2025</span>
+            </div>
+            
+            <div className="policies-bar flex ml-0 md:ml-6">
+              <Link href="/terms" className="policy-link text-gray-500 hover:text-white text-sm transition-colors">
+                Terms of Service
+              </Link>
+              <span className="separator mx-2 text-gray-600">|</span>
+              <Link href="/privacy" className="policy-link text-gray-500 hover:text-white text-sm transition-colors">
+                Privacy Policy
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== src/components/wallet/wallet-button.tsx =====
+
+'use client';
+
+import { FC } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+
+export const WalletButton: FC = () => {
+  const { publicKey } = useWallet();
+  
+  return (
+    <div className="wallet-button">
+      <WalletMultiButton className="wallet-display hover:bg-opacity-90 transition-all" />
+    </div>
+  );
+};
+
+// ===== src/components/wallet/wallet-provider.tsx =====
+
+'use client';
+
+import { FC, ReactNode, useMemo } from 'react';
+import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
+import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { clusterApiUrl } from '@solana/web3.js';
+
+// Default styles that can be overridden by your app
+import '@solana/wallet-adapter-react-ui/styles.css';
+
+interface WalletContextProviderProps {
+  children: ReactNode;
+}
+
+export const WalletContextProvider: FC<WalletContextProviderProps> = ({ children }) => {
+  // The network can be set to 'devnet', 'testnet', or 'mainnet-beta'.
+  const network = WalletAdapterNetwork.Devnet;
+
+  // You can also provide a custom RPC endpoint.
+  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+
+  // Only include Phantom wallet adapter to minimize dependency issues
+  const wallets = useMemo(
+    () => [
+      new PhantomWalletAdapter(),
+    ],
+    [network]
+  );
+
+  return (
+    <ConnectionProvider endpoint={endpoint}>
+      <WalletProvider wallets={wallets} autoConnect>
+        <WalletModalProvider>{children}</WalletModalProvider>
+      </WalletProvider>
+    </ConnectionProvider>
+  );
+};
+

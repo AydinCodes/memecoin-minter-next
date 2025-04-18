@@ -9,7 +9,7 @@ export const WalletButton: FC = () => {
   
   return (
     <div className="wallet-button">
-      <WalletMultiButton className="btn bg-gradient-to-r from-purple-500 to-blue-500 text-white font-medium py-2 px-4 rounded-full hover:shadow-lg transition-all" />
+      <WalletMultiButton className="wallet-display hover:bg-opacity-90 transition-all" />
     </div>
   );
 };
