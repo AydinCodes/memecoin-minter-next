@@ -27,7 +27,19 @@ export default function TokenFormAuthorities({
     const checkbox = document.getElementById(field) as HTMLInputElement;
     if (checkbox) {
       checkbox.checked = !formData[field];
+      // Create a proper change event that includes name and checked properties
       const event = new Event('change', { bubbles: true });
+      
+      // Add properties to the event object using Object.defineProperty
+      Object.defineProperty(event, 'target', {
+        writable: false,
+        value: {
+          name: field,
+          type: 'checkbox',
+          checked: !formData[field]
+        }
+      });
+      
       checkbox.dispatchEvent(event);
     }
   };
@@ -46,7 +58,12 @@ export default function TokenFormAuthorities({
                 type="checkbox" 
                 name="revokeFreeze"
                 checked={formData.revokeFreeze}
-                onChange={() => {}} // Add an empty handler to avoid React warnings
+                onChange={(e) => {
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    revokeFreeze: e.target.checked
+                  }));
+                }}
                 className="hidden" // Keep hidden but track state
               />
               <div 
@@ -76,7 +93,12 @@ export default function TokenFormAuthorities({
                 type="checkbox" 
                 name="revokeMint"
                 checked={formData.revokeMint}
-                onChange={() => {}} // Add an empty handler to avoid React warnings
+                onChange={(e) => {
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    revokeMint: e.target.checked
+                  }));
+                }}
                 className="hidden" // Keep hidden but track state
               />
               <div 
@@ -106,7 +128,12 @@ export default function TokenFormAuthorities({
                 type="checkbox" 
                 name="revokeUpdate"
                 checked={formData.revokeUpdate}
-                onChange={() => {}} // Add an empty handler to avoid React warnings
+                onChange={(e) => {
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    revokeUpdate: e.target.checked
+                  }));
+                }}
                 className="hidden" // Keep hidden but track state
               />
               <div 

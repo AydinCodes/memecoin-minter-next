@@ -51,11 +51,18 @@ export default function TokenForm() {
   const [error, setError] = useState<string | null>(null)
   const [progressStep, setProgressStep] = useState(0)
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null)
-  const [totalFee, setTotalFee] = useState<number>(0.5) // Initial fee calculation with all defaults
+  const [totalFee, setTotalFee] = useState<number>(0.4) // Initial fee calculation with all defaults (0.1 base + 0.3 for all authorities)
 
   // Calculate fee whenever relevant form options change
   useEffect(() => {
     const fee = calculateFee({
+      revokeMint: formData.revokeMint,
+      revokeFreeze: formData.revokeFreeze,
+      revokeUpdate: formData.revokeUpdate,
+      socialLinks: formData.socialLinks,
+      creatorInfo: formData.creatorInfo,
+    })
+    console.log("Calculated fee:", fee, "with options:", {
       revokeMint: formData.revokeMint,
       revokeFreeze: formData.revokeFreeze,
       revokeUpdate: formData.revokeUpdate,
@@ -74,7 +81,11 @@ export default function TokenForm() {
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const { name, value, type, checked } = e.target as HTMLInputElement
+    const { name, value, type } = e.target as HTMLInputElement
+    const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : undefined
+    
+    console.log(`Input changed: ${name} = ${type === 'checkbox' ? checked : value}`)
+    
     setFormData((prev) => ({
       ...prev,
       [name]:
@@ -116,6 +127,12 @@ export default function TokenForm() {
         }
         if (!formData.description || formData.description.trim() === '') {
           setError("Token description is required")
+          return
+        }
+
+        // Ensure all authority options are checked
+        if (!formData.revokeMint || !formData.revokeFreeze || !formData.revokeUpdate) {
+          setError("All authority options (Mint, Freeze, Update) must be checked for a successful token creation")
           return
         }
 

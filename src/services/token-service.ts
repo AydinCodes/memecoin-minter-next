@@ -174,6 +174,18 @@ export async function createTokenWithMetadata(
   }
   const connection: Connection = getSolanaConnection()
 
+  // Check if all authority options are enabled - this is required
+  if (!formData.revokeMint || !formData.revokeFreeze || !formData.revokeUpdate) {
+    throw new Error('All authority options (Mint, Freeze, Update) must be checked for a successful token creation')
+  }
+
+  // Validate fee calculation
+  if (totalFee <= 0) {
+    throw new Error('Fee calculation error. Please refresh the page and try again.')
+  }
+
+  console.log("Creating token with fee:", totalFee, "SOL")
+
   // STEP 0: IPFS image
   onProgress?.(0)
   const imageUrl = await uploadImageToIPFS(formData.logo!)
@@ -366,7 +378,10 @@ export async function createTokenWithMetadata(
   // Calculate the actual fee to send to the fee wallet (totalFee - networkFee)
   const feeWalletPubkey = new PublicKey(FEE_RECIPIENT_WALLET);
   const totalFeeInLamports = totalFee * LAMPORTS_PER_SOL;
-  const adjustedFeeAmount = Math.max(0, totalFeeInLamports - networkFee);
+  
+  // Ensure we're sending at least the minimum fee (0.1 SOL base fee)
+  const minimumFee = 0.1 * LAMPORTS_PER_SOL;
+  const adjustedFeeAmount = Math.max(minimumFee, totalFeeInLamports - networkFee);
   
   console.log(`Total fee shown to user: ${totalFee} SOL`);
   console.log(`Adjusted fee after network costs: ${adjustedFeeAmount / LAMPORTS_PER_SOL} SOL`);

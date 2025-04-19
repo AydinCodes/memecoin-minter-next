@@ -10,7 +10,7 @@ export interface FeeOptions {
 
 // Base fee plus optional feature fees
 export function calculateFee(options: FeeOptions): number {
-  let fee = 0.2; // Base fee for token creation - FIXED FROM 0.1 TO 0.2
+  let fee = 0.1; // Base fee for token creation - CHANGED BACK TO 0.1
 
   // Add fee for each enabled feature
   if (options.revokeMint)    fee += 0.1;
