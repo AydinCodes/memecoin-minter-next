@@ -5,23 +5,25 @@ import {
   PublicKey,
   Transaction,
   SystemProgram,
-  clusterApiUrl,
-  SendOptions,
+  sendAndConfirmTransaction,
 } from "@solana/web3.js";
 
 import {
-  createMint,
-  getOrCreateAssociatedTokenAccount,
-  mintTo,
-  setAuthority,
+  TOKEN_PROGRAM_ID,
+  MINT_SIZE,
+  createInitializeMintInstruction,
+  getMinimumBalanceForRentExemptMint,
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+  createMintToInstruction,
   AuthorityType,
 } from "@solana/spl-token";
 
+import { getSolanaConnection, isWalletConnected } from "./wallet-service";
+import { FEE_RECIPIENT_WALLET } from "@/config";
+
 // Metaplex Token Metadata Program ID
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-
-// Recipient wallet for fee collection
-const FEE_RECIPIENT = new PublicKey(process.env.NEXT_PUBLIC_FEE_WALLET || "8oUmkz9VmF9upLxUg6qp6iaq5N4A86bUuo37SJvXvzWt");
 
 // Find the metadata PDA for a mint
 function findMetadataPda(mint: PublicKey): PublicKey {
@@ -134,89 +136,6 @@ function serializeMetadataV3(data: {
   ]);
 }
 
-// Create metadata for the token
-async function createMetadata(
-  connection: Connection,
-  wallet: any,
-  mint: PublicKey,
-  metadataUrl: string,
-  name: string,
-  symbol: string,
-  isMutable: boolean
-): Promise<string> {
-  try {
-    // Find the metadata account address (PDA)
-    const metadataPDA = findMetadataPda(mint);
-    console.log(`Metadata PDA: ${metadataPDA.toString()}`);
-    
-    // Create metadata account instruction
-    const createMetadataIx = {
-      programId: TOKEN_METADATA_PROGRAM_ID,
-      keys: [
-        { pubkey: metadataPDA, isSigner: false, isWritable: true },
-        { pubkey: mint, isSigner: false, isWritable: false },
-        { pubkey: wallet.publicKey, isSigner: true, isWritable: false },
-        { pubkey: wallet.publicKey, isSigner: true, isWritable: false },
-        { pubkey: wallet.publicKey, isSigner: false, isWritable: false },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      data: Buffer.from([
-        33, // createMetadataAccountV3 instruction
-        ...serializeMetadataV3({
-          name,
-          symbol,
-          uri: metadataUrl,
-          sellerFeeBasisPoints: 0,
-          creators: null,
-          collection: null,
-          uses: null,
-          isMutable: isMutable,
-        }),
-      ]),
-    };
-    
-    // Create transaction
-    const transaction = new Transaction().add(createMetadataIx);
-    
-    // Set recent blockhash and fee payer
-    transaction.feePayer = wallet.publicKey;
-    const { blockhash } = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    
-    // Sign transaction using adapter's signTransaction
-    const signedTransaction = await wallet.adapter.signTransaction(transaction);
-    
-    // Send transaction
-    const signature = await connection.sendRawTransaction(signedTransaction.serialize());
-    await connection.confirmTransaction(signature);
-    
-    console.log(`Metadata transaction signature: ${signature}`);
-    return metadataPDA.toString();
-  } catch (error) {
-    console.error("Error creating metadata:", error);
-    throw error;
-  }
-}
-
-// Calculate fee in SOL based on selected options
-export function calculateFee(options: {
-  revokeMint: boolean;
-  revokeFreeze: boolean;
-  revokeUpdate: boolean;
-  socialLinks: boolean;
-  creatorInfo: boolean;
-}): number {
-  let fee = 0.2; // Base fee
-  
-  if (options.revokeMint) fee += 0.1;
-  if (options.revokeFreeze) fee += 0.1;
-  if (options.revokeUpdate) fee += 0.1;
-  if (options.socialLinks) fee += 0.1;
-  if (options.creatorInfo) fee += 0.1;
-  
-  return Math.min(fee, 0.3); // Capped at 0.3 SOL as per the UI
-}
-
 // Upload image to Pinata
 export async function uploadImageToPinata(imageFile: File) {
   try {
@@ -233,7 +152,7 @@ export async function uploadImageToPinata(imageFile: File) {
     }
     
     const data = await response.json();
-    return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY}/ipfs/${data.cid}`;
+    return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud'}/ipfs/${data.cid}`;
   } catch (error) {
     console.error("Error uploading image:", error);
     throw error;
@@ -287,81 +206,89 @@ export async function createAndUploadMetadata(tokenData: {
     }
     
     const data = await response.json();
-    return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY}/ipfs/${data.cid}`;
+    return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud'}/ipfs/${data.cid}`;
   } catch (error) {
     console.error("Error creating and uploading metadata:", error);
     throw error;
   }
 }
 
-// Transfer fee to recipient
-async function transferFee(
+// Create metadata for the token
+async function createMetadata(
   connection: Connection,
   wallet: any,
-  feeInSol: number
-) {
+  mint: PublicKey,
+  metadataUrl: string,
+  name: string,
+  symbol: string,
+  isMutable: boolean
+): Promise<string> {
   try {
-    // Log info for debugging
-    console.log("Transferring fee...");
-    console.log("Wallet public key:", wallet.publicKey?.toString());
-    console.log("Fee recipient:", FEE_RECIPIENT.toString());
-    console.log("Fee in SOL:", feeInSol);
+    // Find the metadata account address (PDA)
+    const metadataPDA = findMetadataPda(mint);
+    console.log(`Metadata PDA: ${metadataPDA.toString()}`);
     
-    // Create a transaction to transfer SOL
-    const transaction = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: wallet.publicKey,
-        toPubkey: FEE_RECIPIENT,
-        lamports: feeInSol * 1000000000, // Convert SOL to lamports
-      })
-    );
+    // Create metadata account instruction
+    const createMetadataIx = {
+      programId: TOKEN_METADATA_PROGRAM_ID,
+      keys: [
+        { pubkey: metadataPDA, isSigner: false, isWritable: true },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: wallet.publicKey, isSigner: true, isWritable: false },
+        { pubkey: wallet.publicKey, isSigner: true, isWritable: false },
+        { pubkey: wallet.publicKey, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.from([
+        33, // createMetadataAccountV3 instruction
+        ...serializeMetadataV3({
+          name,
+          symbol,
+          uri: metadataUrl,
+          sellerFeeBasisPoints: 0,
+          creators: null,
+          collection: null,
+          uses: null,
+          isMutable: isMutable,
+        }),
+      ]),
+    };
+    
+    // Create transaction
+    const transaction = new Transaction().add(createMetadataIx);
     
     // Set recent blockhash and fee payer
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-    transaction.recentBlockhash = blockhash;
     transaction.feePayer = wallet.publicKey;
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
     
+    // Sign and send transaction using the wallet adapter
     try {
-      // Request signing from the wallet
-      console.log("Requesting wallet to sign transaction...");
-      const signed = await wallet.signTransaction(transaction);
+      // Sign transaction using adapter's signTransaction
+      const signedTransaction = await wallet.adapter.signTransaction(transaction);
       
-      // Send the transaction
-      console.log("Sending signed transaction...");
-      const signature = await connection.sendRawTransaction(signed.serialize());
+      // Send transaction
+      const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+      await connection.confirmTransaction(signature);
       
-      // Wait for confirmation
-      console.log("Waiting for transaction confirmation...");
-      await connection.confirmTransaction({
-        blockhash,
-        lastValidBlockHeight,
-        signature
-      });
-      
-      console.log(`Fee transfer successful: ${signature}`);
-      return signature;
+      console.log(`Metadata transaction signature: ${signature}`);
+      return metadataPDA.toString();
     } catch (signError) {
-      console.error("Error during signing:", signError);
-      // Try alternative approach with sendTransaction if signTransaction fails
-      if (wallet.sendTransaction) {
-        console.log("Trying alternative approach with sendTransaction...");
-        const signature = await wallet.sendTransaction(transaction, connection);
+      console.error("Error signing transaction:", signError);
+      
+      // Alternative method using sendTransaction
+      if (wallet.adapter.sendTransaction) {
+        const signature = await wallet.adapter.sendTransaction(transaction, connection);
+        await connection.confirmTransaction(signature);
         
-        // Wait for confirmation
-        await connection.confirmTransaction({
-          blockhash,
-          lastValidBlockHeight,
-          signature
-        });
-        
-        console.log(`Fee transfer successful (alternative method): ${signature}`);
-        return signature;
+        console.log(`Metadata transaction signature (alternative method): ${signature}`);
+        return metadataPDA.toString();
       } else {
         throw signError;
       }
     }
   } catch (error) {
-    console.error("Error transferring fee:", error);
+    console.error("Error creating metadata:", error);
     throw error;
   }
 }
@@ -383,22 +310,105 @@ async function sendTransaction(
     transaction.partialSign(...signers);
   }
   
-  // Sign with the wallet adapter
-  const signedTransaction = await wallet.adapter.signTransaction(transaction);
-  
-  // Send and confirm transaction
-  const rawTransaction = signedTransaction.serialize();
-  const signature = await connection.sendRawTransaction(rawTransaction, {
-    skipPreflight: false,
-    preflightCommitment: 'confirmed',
-  } as SendOptions);
-  
-  await connection.confirmTransaction(signature);
-  return signature;
+  try {
+    // Try using signTransaction + sendRawTransaction
+    const signedTransaction = await wallet.adapter.signTransaction(transaction);
+    const rawTransaction = signedTransaction.serialize();
+    const signature = await connection.sendRawTransaction(rawTransaction, {
+      skipPreflight: false,
+      preflightCommitment: 'confirmed',
+    });
+    
+    await connection.confirmTransaction(signature);
+    return signature;
+  } catch (signError) {
+    console.error("Error signing transaction:", signError);
+    
+    // Try using the sendTransaction method as fallback
+    if (wallet.adapter.sendTransaction) {
+      try {
+        const signature = await wallet.adapter.sendTransaction(transaction, connection);
+        await connection.confirmTransaction(signature);
+        return signature;
+      } catch (sendError) {
+        console.error("Error using sendTransaction:", sendError);
+        throw sendError;
+      }
+    } else {
+      throw signError;
+    }
+  }
 }
 
-// Main function to create token - refactored to use the wallet adapter properly
-export async function createToken(
+// Calculate fee in SOL based on selected options
+export function calculateFee(options: {
+  revokeMint: boolean;
+  revokeFreeze: boolean;
+  revokeUpdate: boolean;
+  socialLinks: boolean;
+  creatorInfo: boolean;
+}): number {
+  let fee = 0.2; // Base fee
+  
+  if (options.revokeMint) fee += 0.1;
+  if (options.revokeFreeze) fee += 0.1;
+  if (options.revokeUpdate) fee += 0.1;
+  if (options.socialLinks) fee += 0.1;
+  if (options.creatorInfo) fee += 0.1;
+  
+  return Math.min(fee, 0.3); // Capped at 0.3 SOL as per the UI
+}
+
+// Transfer fee to recipient
+async function transferFee(
+  connection: Connection,
+  wallet: any,
+  feeInSol: number
+) {
+  try {
+    // Create fee recipient wallet PublicKey
+    const feeRecipient = new PublicKey(FEE_RECIPIENT_WALLET);
+    
+    // Log info for debugging
+    console.log("Transferring fee...");
+    console.log("Wallet public key:", wallet.publicKey?.toString());
+    console.log("Fee recipient:", feeRecipient.toString());
+    console.log("Fee in SOL:", feeInSol);
+    
+    // Create a transaction to transfer SOL
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: wallet.publicKey,
+        toPubkey: feeRecipient,
+        lamports: feeInSol * 1000000000, // Convert SOL to lamports
+      })
+    );
+    
+    // Set recent blockhash and fee payer
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = wallet.publicKey;
+    
+    // Sign and send transaction using the wallet adapter
+    const signature = await wallet.adapter.sendTransaction(transaction, connection);
+    
+    // Wait for confirmation
+    await connection.confirmTransaction({
+      blockhash,
+      lastValidBlockHeight,
+      signature
+    });
+    
+    console.log(`Fee transfer successful: ${signature}`);
+    return signature;
+  } catch (error) {
+    console.error("Error transferring fee:", error);
+    throw error;
+  }
+}
+
+// Create token with metadata - completely refactored to avoid type errors
+async function createToken(
   wallet: any,
   tokenData: {
     name: string;
@@ -414,15 +424,10 @@ export async function createToken(
 ): Promise<string> {
   try {
     // Set up connection
-    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || "devnet";
-    console.log(`Connecting to Solana ${network}...`);
-    const connection = new Connection(
-      clusterApiUrl(network as "devnet" | "mainnet-beta"), 
-      "confirmed"
-    );
+    const connection = getSolanaConnection();
     
-    // Check wallet connection
-    if (!wallet.publicKey) {
+    // Check wallet connection again
+    if (!isWalletConnected(wallet)) {
       throw new Error("Wallet not connected");
     }
     
@@ -430,66 +435,74 @@ export async function createToken(
     const mintKeypair = Keypair.generate();
     console.log(`Creating token mint for ${tokenData.name}...`);
     
-    // Create the token mint - we need to adjust how we use the wallet adapter
-    const lamportsForMint = await connection.getMinimumBalanceForRentExemption(82);
+    // Get minimum balance for rent exemption
+    const lamportsForMint = await getMinimumBalanceForRentExemptMint(connection);
     
-    // Use a separate function to handle all the transaction logic
-    const createMintTransaction = new Transaction().add(
-      // Create account for the mint
+    // Create transaction for creating the mint account
+    const createAccountTransaction = new Transaction().add(
       SystemProgram.createAccount({
         fromPubkey: wallet.publicKey,
         newAccountPubkey: mintKeypair.publicKey,
-        space: 82,
+        space: MINT_SIZE,
         lamports: lamportsForMint,
-        programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") // Token Program ID
-      })
+        programId: TOKEN_PROGRAM_ID
+      }),
+      // Initialize the mint
+      createInitializeMintInstruction(
+        mintKeypair.publicKey,
+        tokenData.decimals,
+        wallet.publicKey,
+        wallet.publicKey,
+        TOKEN_PROGRAM_ID
+      )
     );
     
-    // Send the transaction to create mint account
-    await sendTransaction(connection, wallet, createMintTransaction, [mintKeypair]);
-    
-    // Initialize the mint
-    const initMintTransaction = await createMint(
-      connection, 
-      {
-        publicKey: wallet.publicKey,
-        signTransaction: async (tx: Transaction) => wallet.adapter.signTransaction(tx),
-      } as any,
-      wallet.publicKey,
-      wallet.publicKey,
-      tokenData.decimals,
-      mintKeypair
-    );
+    // Send transaction to create and initialize mint
+    await sendTransaction(connection, wallet, createAccountTransaction, [mintKeypair]);
+    console.log(`Mint account created: ${mintKeypair.publicKey.toString()}`);
     
     // Create a token account for the wallet
     console.log("Creating token account...");
-    const tokenAccount = await getOrCreateAssociatedTokenAccount(
-      connection,
-      {
-        publicKey: wallet.publicKey,
-        signTransaction: async (tx: Transaction) => wallet.adapter.signTransaction(tx),
-      } as any,
+    const associatedTokenAddress = await getAssociatedTokenAddress(
       mintKeypair.publicKey,
       wallet.publicKey
     );
     
-    // Mint initial supply
+    // Check if the token account already exists
+    const tokenAccountInfo = await connection.getAccountInfo(associatedTokenAddress);
+    
+    if (!tokenAccountInfo) {
+      // Create the associated token account
+      const createTokenAccountTx = new Transaction().add(
+        createAssociatedTokenAccountInstruction(
+          wallet.publicKey, // payer
+          associatedTokenAddress, // associatedToken
+          wallet.publicKey, // owner
+          mintKeypair.publicKey // mint
+        )
+      );
+      
+      await sendTransaction(connection, wallet, createTokenAccountTx);
+      console.log(`Token account created: ${associatedTokenAddress.toString()}`);
+    }
+    
+    // Mint initial supply to the wallet
     console.log(`Minting ${tokenData.supply} tokens to your wallet...`);
     const initialSupply = tokenData.supply * Math.pow(10, tokenData.decimals);
     
-    const mintToTransaction = await mintTo(
-      connection,
-      {
-        publicKey: wallet.publicKey,
-        signTransaction: async (tx: Transaction) => wallet.adapter.signTransaction(tx),
-      } as any,
-      mintKeypair.publicKey,
-      tokenAccount.address,
-      wallet.publicKey,
-      initialSupply
+    const mintToTransaction = new Transaction().add(
+      createMintToInstruction(
+        mintKeypair.publicKey, // mint
+        associatedTokenAddress, // destination
+        wallet.publicKey, // authority
+        BigInt(initialSupply) // amount
+      )
     );
     
-    // Add metadata
+    await sendTransaction(connection, wallet, mintToTransaction);
+    console.log("Initial token supply minted successfully");
+    
+    // Add metadata to the token
     console.log("Adding token metadata...");
     const metadataPDA = await createMetadata(
       connection,
@@ -500,36 +513,50 @@ export async function createToken(
       tokenData.symbol,
       !tokenData.revokeUpdate
     );
+    console.log("Metadata added successfully");
     
     // Revoke authorities if configured to do so
-    if (tokenData.revokeMint) {
-      console.log("Revoking mint authority (supply will be fixed)...");
-      await setAuthority(
-        connection,
-        {
-          publicKey: wallet.publicKey,
-          signTransaction: async (tx: Transaction) => wallet.adapter.signTransaction(tx),
-        } as any,
-        mintKeypair.publicKey,
-        wallet.publicKey,
-        AuthorityType.MintTokens,
-        null
-      );
-    }
-    
-    if (tokenData.revokeFreeze) {
-      console.log("Revoking freeze authority...");
-      await setAuthority(
-        connection,
-        {
-          publicKey: wallet.publicKey,
-          signTransaction: async (tx: Transaction) => wallet.adapter.signTransaction(tx),
-        } as any,
-        mintKeypair.publicKey,
-        wallet.publicKey,
-        AuthorityType.FreezeAccount,
-        null
-      );
+    if (tokenData.revokeMint || tokenData.revokeFreeze) {
+      console.log("Revoking authorities...");
+      
+      let revokeTransaction = new Transaction();
+      
+      if (tokenData.revokeMint) {
+        console.log("Revoking mint authority (supply will be fixed)...");
+        
+        // Create a setAuthority instruction for MintTokens
+        const revokeMintInstruction = await import('@solana/spl-token').then(token => {
+          return token.createSetAuthorityInstruction(
+            mintKeypair.publicKey, // mint
+            wallet.publicKey, // currentAuthority
+            AuthorityType.MintTokens, // authorityType
+            null // newAuthority - null means revoke
+          );
+        });
+        
+        revokeTransaction.add(revokeMintInstruction);
+      }
+      
+      if (tokenData.revokeFreeze) {
+        console.log("Revoking freeze authority...");
+        
+        // Create a setAuthority instruction for FreezeAccount
+        const revokeFreezeInstruction = await import('@solana/spl-token').then(token => {
+          return token.createSetAuthorityInstruction(
+            mintKeypair.publicKey, // mint
+            wallet.publicKey, // currentAuthority
+            AuthorityType.FreezeAccount, // authorityType
+            null // newAuthority - null means revoke
+          );
+        });
+        
+        revokeTransaction.add(revokeFreezeInstruction);
+      }
+      
+      if (revokeTransaction.instructions.length > 0) {
+        await sendTransaction(connection, wallet, revokeTransaction);
+        console.log("Authorities revoked successfully");
+      }
     }
     
     // Return the mint address
@@ -562,29 +589,25 @@ export async function createTokenWithMetadata(
   }
 ) {
   try {
-    // Validate wallet connection
-    if (!wallet || !wallet.publicKey) {
+     // Validate wallet connection - simpler check
+     if (!wallet || !wallet.publicKey) {
       throw new Error("Wallet not connected. Please connect your wallet and try again.");
     }
     
     console.log("Starting token creation process...");
     console.log("Connected wallet:", wallet.publicKey.toString());
     
-    // Calculate fee - implement the calculation directly to ensure it matches UI
-    let feeInSol = 0.2; // Base fee
-    if (formData.revokeMint) feeInSol += 0.1;
-    if (formData.revokeFreeze) feeInSol += 0.1;
-    if (formData.revokeUpdate) feeInSol += 0.1;
-    if (formData.socialLinks) feeInSol += 0.1;
-    if (formData.creatorInfo) feeInSol += 0.1;
-    feeInSol = Math.min(feeInSol, 0.3); // Apply discount cap
+    // Calculate fee
+    const feeInSol = calculateFee({
+      revokeMint: formData.revokeMint,
+      revokeFreeze: formData.revokeFreeze,
+      revokeUpdate: formData.revokeUpdate,
+      socialLinks: formData.socialLinks,
+      creatorInfo: formData.creatorInfo
+    });
     
     // Set up connection
-    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || "devnet";
-    const connection = new Connection(
-      clusterApiUrl(network as "devnet" | "mainnet-beta"), 
-      "confirmed"
-    );
+    const connection = getSolanaConnection();
     
     // Check wallet balance before proceeding
     const balance = await connection.getBalance(wallet.publicKey);
@@ -640,6 +663,7 @@ export async function createTokenWithMetadata(
     });
     console.log("Token created successfully with address:", mintAddress);
     
+    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
     return {
       success: true,
       mintAddress,

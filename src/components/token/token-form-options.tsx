@@ -21,6 +21,23 @@ export default function TokenFormOptions({
   setFormData,
   handleInputChange
 }: TokenFormOptionsProps) {
+  // Toggle function that also updates the input checkbox
+  const toggleOption = (option: 'socialLinks' | 'creatorInfo') => {
+    // Update the formData state
+    setFormData((prev: any) => ({
+      ...prev, 
+      [option]: !prev[option]
+    }));
+    
+    // Also simulate changing the checkbox by dispatching an event
+    const checkbox = document.getElementById(option) as HTMLInputElement;
+    if (checkbox) {
+      checkbox.checked = !formData[option];
+      const event = new Event('change', { bubbles: true });
+      checkbox.dispatchEvent(event);
+    }
+  };
+
   return (
     <div className="form-section mb-8">
       <div className="toggle-section mb-4">
@@ -37,7 +54,7 @@ export default function TokenFormOptions({
               />
               <div 
                 className={`toggle w-12 h-6 rounded-full p-1 cursor-pointer ${formData.creatorInfo ? 'bg-purple-600' : 'bg-gray-700'}`}
-                onClick={() => setFormData((prev: any) => ({...prev, creatorInfo: !prev.creatorInfo}))}
+                onClick={() => toggleOption('creatorInfo')}
               >
                 <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.creatorInfo ? 'translate-x-6' : ''}`}></div>
               </div>
@@ -65,7 +82,7 @@ export default function TokenFormOptions({
               />
               <div 
                 className={`toggle w-12 h-6 rounded-full p-1 cursor-pointer ${formData.socialLinks ? 'bg-purple-600' : 'bg-gray-700'}`}
-                onClick={() => setFormData((prev: any) => ({...prev, socialLinks: !prev.socialLinks}))}
+                onClick={() => toggleOption('socialLinks')}
               >
                 <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.socialLinks ? 'translate-x-6' : ''}`}></div>
               </div>

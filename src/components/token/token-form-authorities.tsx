@@ -15,6 +15,23 @@ export default function TokenFormAuthorities({
   formData,
   setFormData
 }: TokenFormAuthoritiesProps) {
+  // Handle checkbox click with proper event simulation
+  const handleCheckboxClick = (field: 'revokeMint' | 'revokeFreeze' | 'revokeUpdate') => {
+    // Update the formData state
+    setFormData((prev: any) => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
+    
+    // Find the related hidden checkbox and simulate a change event
+    const checkbox = document.getElementById(field) as HTMLInputElement;
+    if (checkbox) {
+      checkbox.checked = !formData[field];
+      const event = new Event('change', { bubbles: true });
+      checkbox.dispatchEvent(event);
+    }
+  };
+
   return (
     <div className="form-section mb-8">
       <div className="form-section-title text-xl text-white mb-4">Revoke Authorities (Investor's Booster)</div>
@@ -24,9 +41,17 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Freeze</div>
+              <input 
+                id="revokeFreeze" 
+                type="checkbox" 
+                name="revokeFreeze"
+                checked={formData.revokeFreeze}
+                onChange={() => {}} // Add an empty handler to avoid React warnings
+                className="hidden" // Keep hidden but track state
+              />
               <div 
                 className={`checkbox w-5 h-5 border ${formData.revokeFreeze ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
-                onClick={() => setFormData((prev: any) => ({...prev, revokeFreeze: !prev.revokeFreeze}))}
+                onClick={() => handleCheckboxClick('revokeFreeze')}
               >
                 {formData.revokeFreeze && (
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -46,9 +71,17 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Mint</div>
+              <input 
+                id="revokeMint" 
+                type="checkbox" 
+                name="revokeMint"
+                checked={formData.revokeMint}
+                onChange={() => {}} // Add an empty handler to avoid React warnings
+                className="hidden" // Keep hidden but track state
+              />
               <div 
                 className={`checkbox w-5 h-5 border ${formData.revokeMint ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
-                onClick={() => setFormData((prev: any) => ({...prev, revokeMint: !prev.revokeMint}))}
+                onClick={() => handleCheckboxClick('revokeMint')}
               >
                 {formData.revokeMint && (
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -68,9 +101,17 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Update</div>
+              <input 
+                id="revokeUpdate" 
+                type="checkbox" 
+                name="revokeUpdate"
+                checked={formData.revokeUpdate}
+                onChange={() => {}} // Add an empty handler to avoid React warnings
+                className="hidden" // Keep hidden but track state
+              />
               <div 
                 className={`checkbox w-5 h-5 border ${formData.revokeUpdate ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
-                onClick={() => setFormData((prev: any) => ({...prev, revokeUpdate: !prev.revokeUpdate}))}
+                onClick={() => handleCheckboxClick('revokeUpdate')}
               >
                 {formData.revokeUpdate && (
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

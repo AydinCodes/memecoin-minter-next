@@ -11,14 +11,25 @@ export const getSolanaConnection = (): Connection => {
 
 // Check if wallet is properly connected
 export const isWalletConnected = (wallet: any): boolean => {
-  return !!wallet && !!wallet.publicKey && !!wallet.adapter && !!wallet.adapter.connected;
-};
+    // Debug log to help diagnose issues
+    console.log("Wallet connection check:", {
+      walletExists: !!wallet,
+      publicKeyExists: wallet ? !!wallet.publicKey : false,
+      adapterExists: wallet ? !!wallet.adapter : false,
+      adapterConnected: wallet?.adapter ? !!wallet.adapter.connected : false
+    });
+    
+    // For some wallets, adapter.connected might not be reliable
+    // Consider a wallet connected if it has a wallet object and a public key
+    return !!wallet && !!wallet.publicKey;
+  };
 
 // Get the wallet's SOL balance
 export const getWalletBalance = async (publicKey: PublicKey): Promise<number> => {
   try {
     const connection = getSolanaConnection();
     const balance = await connection.getBalance(publicKey);
+    console.log(`Wallet balance: ${balance / 1_000_000_000} SOL`);
     return balance / 1_000_000_000; // Convert lamports to SOL
   } catch (error) {
     console.error('Error getting wallet balance:', error);
