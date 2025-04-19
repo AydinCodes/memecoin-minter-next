@@ -1,41 +1,32 @@
 'use client';
 
-import { ReactNode, useMemo } from 'react';
-import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
-import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-// Import individual wallet adapters instead of the combined package
-import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
-import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
-import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { clusterApiUrl } from '@solana/web3.js';
+import { ReactNode, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 
-// Default styles that can be overridden by your app
-import '@solana/wallet-adapter-react-ui/styles.css';
+// Create a client-only wrapper component
+const WalletConnectionProvider = ({ children }: { children: ReactNode }) => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  return <>{children}</>;
+};
+
+// Dynamically import the wallet components with ssr: false
+const ClientWalletProvider = dynamic(
+  () => import('../components/wallet/wallet-provider-client').then(module => module.ClientWalletProvider),
+  {
+    ssr: false,
+    loading: () => <WalletConnectionProvider><div>{/* Loading placeholder */}</div></WalletConnectionProvider>
+  }
+);
 
 export function Providers({ children }: { children: ReactNode }) {
-  // Get the network from environment variables
-  const networkEnv = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
-  const network = networkEnv === 'mainnet-beta' 
-    ? WalletAdapterNetwork.Mainnet
-    : WalletAdapterNetwork.Devnet;
-
-  // Set up the RPC endpoint
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
-
-  // Add only the wallet adapters you have individually installed
-  const wallets = useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter()
-    ],
-    [network]
-  );
-
   return (
-    <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>{children}</WalletModalProvider>
-      </WalletProvider>
-    </ConnectionProvider>
+    <ClientWalletProvider>
+      {children}
+    </ClientWalletProvider>
   );
 }

@@ -66,13 +66,18 @@ export default function TokenForm() {
   };
 
   const calculateTotalFee = () => {
-    return calculateFee({
-      revokeMint: formData.revokeMint,
-      revokeFreeze: formData.revokeFreeze,
-      revokeUpdate: formData.revokeUpdate,
-      socialLinks: formData.socialLinks,
-      creatorInfo: formData.creatorInfo
-    });
+    // Base fee is 0.2 SOL
+    let fee = 0.2;
+    
+    // Add 0.1 SOL for each selected option
+    if (formData.revokeMint) fee += 0.1;
+    if (formData.revokeFreeze) fee += 0.1;
+    if (formData.revokeUpdate) fee += 0.1;
+    if (formData.socialLinks) fee += 0.1;
+    if (formData.creatorInfo) fee += 0.1;
+    
+    // Apply discount cap at 0.3 SOL (as shown in the UI)
+    return Math.min(fee, 0.3);
   };
 
   const validateForm = () => {
