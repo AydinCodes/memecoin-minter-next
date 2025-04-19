@@ -118,7 +118,7 @@ function serializeMetadataV3(data: {
  * Orchestrates:
  * 0: IPFS image
  * 1: IPFS metadata JSON
- * 2: feature‑fee transfer
+ * 2: feature‐fee transfer
  * 3: create mint + ATA + mintTo
  * 4: create on‑chain metadata
  * 5: revoke authorities
@@ -152,7 +152,7 @@ export async function createTokenWithMetadata(
   }
   const metadataUrl = await uploadMetadataToIPFS(metadataPayload)
 
-  // STEP 2: feature‑fee transfer
+  // STEP 2: feature‐fee transfer
   onProgress?.(2)
   const feeSOL = calculateFee({
     revokeMint: formData.revokeMint,

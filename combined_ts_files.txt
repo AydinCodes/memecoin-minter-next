@@ -983,40 +983,44 @@ export default function TokenFormOptions({
 
 // ===== src/components/token/token-form.tsx =====
 
-"use client";
+// src/components/token/token-form.tsx
 
-import { useState, useCallback } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useConnection } from "@solana/wallet-adapter-react";
+"use client"
+
+import { useState, useCallback } from "react"
+import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import {
   createTokenWithMetadata,
-  calculateFee,
-} from "@/services/token-service";
-import { validateTokenForm } from "@/utils/token-validation";
-import { isWalletConnected } from "@/services/wallet-service";
-import TokenCreationSuccess from "./token-creation-success";
-import SocialLinksForm from "./social-links-form";
-import TokenFormBasic from "./token-form-basic";
-import TokenFormOptions from "./token-form-options";
-import TokenFormAuthorities from "./token-form-authorities";
-import Loading from "../ui/loading";
+  FormDataType,
+  TokenResult,
+} from "@/services/token-service"
+import { calculateFee } from "@/services/fee-service"
+import TokenCreationSuccess from "./token-creation-success"
+import Loading from "../ui/loading"
+import TokenFormBasic from "./token-form-basic"
+import TokenFormOptions from "./token-form-options"
+import TokenFormAuthorities from "./token-form-authorities"
+
+const STEPS = [
+  "Uploading token image…",
+  "Creating token metadata…",
+  "Processing payment…",
+  "Creating mint & ATA & mintTo…",
+  "Adding on‐chain metadata…",
+  "Configuring token authorities…",
+]
 
 export default function TokenForm() {
-  const { publicKey, connected, wallet } = useWallet();
-  const { connection } = useConnection();
+  const walletAdapter = useWallet()
+  const { connection } = useConnection()
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [tokenCreationResult, setTokenCreationResult] = useState<any>(null);
-  const [currentStep, setCurrentStep] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataType>({
     name: "",
     symbol: "",
     decimals: 9,
-    supply: 1000000000,
+    supply: 1_000_000_000,
     description: "",
-    logo: null as File | null,
+    logo: null,
     revokeMint: true,
     revokeFreeze: true,
     revokeUpdate: true,
@@ -1026,293 +1030,138 @@ export default function TokenForm() {
     twitter: "",
     telegram: "",
     discord: "",
-  });
+  })
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [progressStep, setProgressStep] = useState(0)
+  const [tokenResult, setTokenResult] = useState<TokenResult | null>(null)
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const { name, value, type } = e.target;
-
-    if (type === "checkbox") {
-      const checkbox = e.target as HTMLInputElement;
-      setFormData({
-        ...formData,
-        [name]: checkbox.checked,
-      });
-    } else if (type === "number") {
-      setFormData({
-        ...formData,
-        [name]: parseInt(value),
-      });
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value,
-      });
-    }
-  };
+    const { name, value, type, checked } = e.target as HTMLInputElement
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        type === "checkbox"
+          ? checked
+          : type === "number"
+          ? parseInt(value)
+          : value,
+    }))
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFormData({
-        ...formData,
-        logo: e.target.files[0],
-      });
+      setFormData((prev) => ({ ...prev, logo: e.target.files![0] }))
     }
-  };
-
-  const calculateTotalFee = () => {
-    return calculateFee({
-      revokeMint: formData.revokeMint,
-      revokeFreeze: formData.revokeFreeze,
-      revokeUpdate: formData.revokeUpdate,
-      socialLinks: formData.socialLinks,
-      creatorInfo: formData.creatorInfo,
-    });
-  };
-
-  // Debugging function to check form and wallet state
-  const debugFormState = () => {
-    console.log("Form Data:", formData);
-    console.log("Wallet Connected:", connected);
-    console.log("Wallet:", wallet);
-    console.log("Public Key:", publicKey?.toString());
-    console.log("Is Wallet Connected:", isWalletConnected(wallet));
-  };
+  }
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
-      e.preventDefault();
-      debugFormState(); // Log debugging info
+      e.preventDefault()
+      setError(null)
 
-      setError(null);
-      console.log("Form submission started");
-
-      // Check if wallet is connected
-      if (!connected || !wallet) {
-        setError("Please connect your wallet first");
-        console.log("Wallet not connected");
-        return;
+      if (!walletAdapter.connected) {
+        setError("Please connect your wallet first")
+        return
       }
-
-      // Simplified wallet connection check
-      if (!publicKey) {
-        setError("Please connect your wallet first");
-        console.log("No public key found");
-        return;
-      }
-
-      // Validate form
       if (!formData.logo) {
-        setError("Please upload a logo image for your token");
-        console.log("Logo missing");
-        return;
+        setError("Please upload a logo image")
+        return
       }
 
-      if (!formData.name || formData.name.trim() === "") {
-        setError("Token name is required");
-        console.log("Name missing");
-        return;
-      }
+      setIsSubmitting(true)
+      setProgressStep(0)
 
-      if (!formData.symbol || formData.symbol.trim() === "") {
-        setError("Token symbol is required");
-        console.log("Symbol missing");
-        return;
-      }
-
-      if (!formData.description || formData.description.trim() === "") {
-        setError("Token description is required");
-        console.log("Description missing");
-        return;
-      }
-
-      // Check balance
       try {
-        console.log("Checking balance...");
-        const balance = await connection.getBalance(publicKey!);
-        const requiredBalance = calculateTotalFee() * 1000000000; // Convert SOL to lamports
-        console.log(
-          `Balance: ${
-            balance / 1000000000
-          } SOL, Required: ${calculateTotalFee()} SOL`
-        );
-
-        if (balance < requiredBalance) {
-          setError(
-            `Insufficient SOL balance. You need at least ${calculateTotalFee()} SOL.`
-          );
-          console.log("Insufficient balance");
-          return;
-        }
-
-        // Start token creation process
-        setIsSubmitting(true);
-        console.log("Starting token creation process...");
-
-        // Define the steps for the loading component
-        const steps = [
-          "Uploading token image...",
-          "Creating token metadata...",
-          "Processing payment...",
-          "Creating token on Solana...",
-          "Configuring token authorities...",
-        ];
-
-        try {
-          // Step 1: Upload image
-          setCurrentStep(steps[0]);
-          console.log("Step 1: Uploading image...");
-
-          // Step 2: Create metadata
-          setCurrentStep(steps[1]);
-          console.log("Step 2: Creating metadata...");
-
-          // Step 3: Process payment
-          setCurrentStep(steps[2]);
-          console.log("Step 3: Processing payment...");
-
-          // Step 4: Create token
-          setCurrentStep(steps[3]);
-          console.log("Step 4: Creating token...");
-
-          // Step 5: Configure authorities
-          setCurrentStep(steps[4]);
-          console.log("Step 5: Configuring authorities...");
-
-          // Combined process
-          const result = await createTokenWithMetadata(wallet, formData);
-          console.log("Token creation successful:", result);
-          setTokenCreationResult(result);
-        } catch (error: any) {
-          console.error("Error creating token:", error);
-          setError(
-            error?.message || "An unknown error occurred during token creation."
-          );
-        } finally {
-          setIsSubmitting(false);
-          setCurrentStep(null);
-        }
-      } catch (error: any) {
-        console.error("Error in form submission:", error);
-        setError(error?.message || "An unknown error occurred");
-        setIsSubmitting(false);
+        const result = await createTokenWithMetadata(
+          walletAdapter,
+          formData,
+          (step) => setProgressStep(step)
+        )
+        setTokenResult(result)
+      } catch (err: any) {
+        setError(err.message || "Unknown error")
+      } finally {
+        setIsSubmitting(false)
       }
     },
-    [connection, publicKey, wallet, connected, formData]
-  );
+    [walletAdapter, formData]
+  )
 
-  // If token creation was successful, show success component
-  if (tokenCreationResult) {
-    return <TokenCreationSuccess result={tokenCreationResult} />;
+  if (tokenResult) {
+    return <TokenCreationSuccess result={tokenResult} />
   }
 
-  // If submitting, show loading with steps
   if (isSubmitting) {
     return (
       <Loading
         message="Creating your token..."
-        steps={[
-          "Uploading token image...",
-          "Creating token metadata...",
-          "Processing payment...",
-          "Creating token on Solana...",
-          "Configuring token authorities...",
-        ]}
+        steps={STEPS}
+        currentStepIndex={progressStep}
       />
-    );
+    )
   }
 
   return (
-    <div id="create-token" className="opacity-100 py-8">
-      <div className="title-box text-center mb-8">
-        <div className="title-text text-3xl md:text-4xl font-bold text-white mb-3">
-          Solana Token Creator
-        </div>
-        <div className="title-desc text-gray-400">
-          <span className="span-1 block">
-            Create and deploy your Solana coin effortlessly in seconds.
-          </span>
-          <span className="span-2 block">
-            Reach the world and scale without limits!
-          </span>
-        </div>
-      </div>
-
+    <form
+      onSubmit={handleSubmit}
+      className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl"
+    >
       {error && (
-        <div className="error-alert max-w-3xl mx-auto mb-4 bg-red-500 bg-opacity-20 border border-red-500 rounded-lg p-3 text-white">
-          {error}
-        </div>
+        <div className="text-red-400 bg-red-800/30 p-3 rounded">{error}</div>
       )}
 
-      <form
-        onSubmit={handleSubmit}
-        className="token-creation-box max-w-3xl mx-auto bg-[#171717] rounded-xl p-6 shadow-xl"
+      <TokenFormBasic
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleFileChange={handleFileChange}
+      />
+
+      <TokenFormOptions
+        formData={formData}
+        setFormData={setFormData}
+        handleInputChange={handleInputChange}
+      />
+
+      <TokenFormAuthorities
+        formData={formData}
+        setFormData={setFormData}
+      />
+
+      {/* Display dynamic feature‐fee total */}
+      <div className="flex justify-between items-center text-gray-300">
+        <span>Total feature fee:</span>
+        <span className="text-purple-500 font-semibold">
+          {calculateFee({
+            revokeMint: formData.revokeMint,
+            revokeFreeze: formData.revokeFreeze,
+            revokeUpdate: formData.revokeUpdate,
+            socialLinks: formData.socialLinks,
+            creatorInfo: formData.creatorInfo,
+          })}{" "}
+          SOL
+        </span>
+      </div>
+      <div className="text-xs text-gray-500">
+        (Network transaction fees are separate and go to validators)
+      </div>
+
+      <button
+        type="submit"
+        disabled={!walletAdapter.connected}
+        className={`w-full py-3 rounded-full text-white font-medium transition ${
+          walletAdapter.connected
+            ? "bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90"
+            : "bg-gray-600 cursor-not-allowed"
+        }`}
       >
-        {/* Basic token information section */}
-        <TokenFormBasic
-          formData={formData}
-          handleInputChange={handleInputChange}
-          handleFileChange={handleFileChange}
-        />
-
-        <div className="form-divider border-t border-gray-700 my-6"></div>
-
-        {/* Optional features section */}
-        <TokenFormOptions
-          formData={formData}
-          setFormData={setFormData}
-          handleInputChange={handleInputChange}
-        />
-
-        <div className="form-divider border-t border-gray-700 my-6"></div>
-
-        {/* Authorities section */}
-        <TokenFormAuthorities formData={formData} setFormData={setFormData} />
-
-        {/* Submit section */}
-        <div className="submit-section flex flex-col md:flex-row justify-between items-center mt-8">
-          <button
-            type="submit"
-            className={`submit-btn bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium py-3 px-8 rounded-full hover:shadow-lg transition-all w-full md:w-auto mb-4 md:mb-0 ${
-              !connected || isSubmitting
-                ? "opacity-50 cursor-not-allowed"
-                : "cursor-pointer hover:scale-105 active:scale-95"
-            }`}
-            disabled={!connected || isSubmitting}
-            onClick={(e) => {
-              console.log("Button clicked!");
-              if (connected && !isSubmitting) {
-                // Add visual feedback
-                const btn = e.currentTarget;
-                btn.classList.add("animate-pulse");
-                setTimeout(() => btn.classList.remove("animate-pulse"), 500);
-              }
-              handleSubmit(e);
-            }}
-          >
-            {isSubmitting
-              ? "Creating Token..."
-              : connected
-              ? "Launch Token"
-              : "Connect Wallet to Launch"}
-          </button>
-
-          <div className="token-fees-container text-right">
-            <div className="fees-label text-gray-400 text-sm">Total Fees:</div>
-            <div className="flex items-center">
-              <div className="fees-original text-gray-500 text-sm">
-                0.2+<del>0.6 SOL</del>
-              </div>
-              <div className="fees-discounted text-purple-500 text-xl font-semibold ml-2">
-                {calculateTotalFee()} SOL
-              </div>
-            </div>
-          </div>
-        </div>
-      </form>
-    </div>
-  );
+        {walletAdapter.connected ? "Launch Token" : "Connect Wallet"}
+      </button>
+    </form>
+  )
 }
 
 
@@ -1807,83 +1656,71 @@ export default function TokenFormBasic({
 
 // ===== src/components/ui/loading.tsx =====
 
-'use client';
+// src/components/ui/loading.tsx
 
-import { useState, useEffect } from 'react';
+'use client'
+
+import React from 'react'
 
 interface LoadingProps {
-  message?: string;
-  steps?: string[];
+  message?: string
+  steps?: string[]
+  /** If provided, controls which step is active; disables auto‐advance */
+  currentStepIndex?: number
 }
 
-export default function Loading({ message = 'Loading...', steps }: LoadingProps) {
-  const [currentStep, setCurrentStep] = useState(0);
-  
-  useEffect(() => {
-    if (!steps || steps.length === 0) return;
-    
-    const interval = setInterval(() => {
-      setCurrentStep((prev) => {
-        if (prev >= steps.length - 1) {
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 3000);
-    
-    return () => clearInterval(interval);
-  }, [steps]);
-  
-  if (!steps || steps.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8">
-        <div className="relative w-16 h-16 mb-4">
-          <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-purple-500 border-opacity-30"></div>
-          <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-transparent border-t-purple-500 animate-spin"></div>
-        </div>
-        <div className="text-white text-lg">{message}</div>
-      </div>
-    );
-  }
-  
+export default function Loading({
+  message = 'Loading...',
+  steps = [],
+  currentStepIndex,
+}: LoadingProps) {
+  const stepIndex = currentStepIndex != null ? currentStepIndex : 0
+
   return (
     <div className="flex flex-col items-center justify-center p-8">
       <div className="relative w-16 h-16 mb-6">
-        <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-purple-500 border-opacity-30"></div>
-        <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-transparent border-t-purple-500 animate-spin"></div>
+        <div className="absolute inset-0 rounded-full border-4 border-purple-500 border-opacity-30"></div>
+        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-purple-500 animate-spin"></div>
       </div>
-      
+
       <div className="text-white text-lg mb-6">{message}</div>
-      
-      <div className="w-full max-w-md bg-[#222] rounded-lg p-4">
-        <ul className="space-y-3">
-          {steps.map((step, index) => (
-            <li 
-              key={index} 
-              className={`flex items-center ${index <= currentStep ? 'text-white' : 'text-gray-500'}`}
+
+      <ul className="w-full max-w-md space-y-3">
+        {steps.map((step, idx) => {
+          const isDone = idx < stepIndex
+          const isActive = idx === stepIndex
+
+          return (
+            <li
+              key={idx}
+              className={`flex items-center text-sm ${
+                isDone
+                  ? 'text-white'
+                  : isActive
+                  ? 'text-white'
+                  : 'text-gray-500'
+              }`}
             >
-              {index < currentStep ? (
+              {isDone ? (
                 <span className="w-6 h-6 mr-3 flex items-center justify-center bg-green-500 rounded-full text-white">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
+                  ✓
                 </span>
-              ) : index === currentStep ? (
-                <span className="w-6 h-6 mr-3 flex-shrink-0 flex items-center justify-center border-2 border-purple-500 rounded-full">
+              ) : isActive ? (
+                <span className="w-6 h-6 mr-3 flex items-center justify-center border-2 border-purple-500 rounded-full">
                   <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>
                 </span>
               ) : (
-                <span className="w-6 h-6 mr-3 flex-shrink-0 flex items-center justify-center border-2 border-gray-600 rounded-full"></span>
+                <span className="w-6 h-6 mr-3 flex items-center justify-center border-2 border-gray-600 rounded-full"></span>
               )}
-              
               <span>{step}</span>
             </li>
-          ))}
-        </ul>
-      </div>
+          )
+        })}
+      </ul>
     </div>
-  );
+  )
 }
+
 
 // ===== src/components/layout/navbar.tsx =====
 
@@ -2162,18 +1999,67 @@ export function ClientWalletProvider({ children }: ClientWalletProviderProps) {
   );
 }
 
+// ===== src/services/ipfs-service.ts =====
+
+// src/services/ipfs-service.ts
+
+export async function uploadImageToIPFS(file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const res = await fetch('/api/upload-image', {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!res.ok) {
+    throw new Error(`Image upload failed: ${res.statusText}`)
+  }
+
+  const { cid } = await res.json()
+  return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY}/ipfs/${cid}`
+}
+
+export interface MetadataPayload {
+  name: string
+  symbol: string
+  description: string
+  image: string
+  website?: string
+  twitter?: string
+  telegram?: string
+  discord?: string
+}
+
+export async function uploadMetadataToIPFS(
+  payload: MetadataPayload
+): Promise<string> {
+  const res = await fetch('/api/upload-metadata', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Metadata upload failed: ${res.statusText}`)
+  }
+
+  const { cid } = await res.json()
+  return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY}/ipfs/${cid}`
+}
+
+
 // ===== src/services/token-service.ts =====
 
 // src/services/token-service.ts
+
 import {
   Connection,
-  Keypair,
   PublicKey,
   Transaction,
   SystemProgram,
-  sendAndConfirmTransaction,
-} from "@solana/web3.js";
-
+  Keypair,
+} from '@solana/web3.js'
 import {
   TOKEN_PROGRAM_ID,
   MINT_SIZE,
@@ -2182,666 +2068,367 @@ import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
   createMintToInstruction,
+  createSetAuthorityInstruction,
   AuthorityType,
-} from "@solana/spl-token";
+} from '@solana/spl-token'
+import type { WalletContextState } from '@solana/wallet-adapter-react'
 
-import { getSolanaConnection, isWalletConnected } from "./wallet-service";
-import { FEE_RECIPIENT_WALLET } from "@/config";
+import { getSolanaConnection } from './wallet-service'
+import {
+  uploadImageToIPFS,
+  uploadMetadataToIPFS,
+  MetadataPayload,
+} from './ipfs-service'
+import { calculateFee } from './fee-service'
+import { TOKEN_METADATA_PROGRAM_ID } from '@/config'
 
-// Metaplex Token Metadata Program ID
-const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-
-// Find the metadata PDA for a mint
-function findMetadataPda(mint: PublicKey): PublicKey {
-  const [pda] = PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("metadata"),
-      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-      mint.toBuffer(),
-    ],
-    TOKEN_METADATA_PROGRAM_ID
-  );
-  return pda;
+/** Your form data shape */
+export interface FormDataType {
+  name: string
+  symbol: string
+  decimals: number
+  supply: number
+  description: string
+  logo: File | null
+  revokeMint: boolean
+  revokeFreeze: boolean
+  revokeUpdate: boolean
+  socialLinks: boolean
+  creatorInfo: boolean
+  website: string
+  twitter: string
+  telegram: string
+  discord: string
 }
 
-// Helper function to serialize a string for the Metaplex metadata instruction
+/** What we return once done */
+export interface TokenResult {
+  mintAddress: string
+  metadataUrl: string
+  imageUrl: string
+  explorerUrl: string
+}
+
+/** Helper: serialize a UTF‑8 string with u32‑length prefix (LE) */
 function serializeString(value: string): Uint8Array {
-  const buffer = Buffer.from(value);
-  const length = Buffer.alloc(4);
-  length.writeUInt32LE(buffer.length, 0);
-  return Buffer.concat([length, buffer]);
+  const buf = Buffer.from(value, 'utf8')
+  const len = Buffer.alloc(4)
+  len.writeUInt32LE(buf.length, 0)
+  return Buffer.concat([len, buf])
 }
 
-// Helper function to serialize metadata for the Metaplex createMetadataAccountV3 instruction
+/**
+ * Helper: build the metadata bytes for createMetadataAccountV3
+ * (instruction discriminator = 33)
+ */
 function serializeMetadataV3(data: {
-  name: string;
-  symbol: string;
-  uri: string;
-  sellerFeeBasisPoints: number;
-  creators: { address: string; verified: boolean; share: number }[] | null;
-  collection: { key: string; verified: boolean } | null;
-  uses: any | null;
-  isMutable: boolean;
-}): Uint8Array {
-  // Name
-  const nameBuffer = serializeString(data.name);
-  
-  // Symbol
-  const symbolBuffer = serializeString(data.symbol);
-  
-  // URI
-  const uriBuffer = serializeString(data.uri);
-  
-  // Seller fee basis points (u16)
-  const sellerFeeBasisPointsBuffer = Buffer.alloc(2);
-  sellerFeeBasisPointsBuffer.writeUInt16LE(data.sellerFeeBasisPoints, 0);
-  
-  // Creators (Option<Vec<Creator>>)
-  let creatorsBuffer;
-  if (data.creators === null) {
-    creatorsBuffer = Buffer.from([0]); // None
-  } else {
-    const creatorsVec = Buffer.concat(
-      data.creators.map((creator) => {
-        const address = new PublicKey(creator.address).toBuffer();
-        const verified = Buffer.from([creator.verified ? 1 : 0]);
-        const share = Buffer.from([creator.share]);
-        return Buffer.concat([address, verified, share]);
-      })
-    );
-    
-    const creatorsLength = Buffer.alloc(4);
-    creatorsLength.writeUInt32LE(data.creators.length, 0);
-    
-    creatorsBuffer = Buffer.concat([
-      Buffer.from([1]), // Some
-      creatorsLength,
-      creatorsVec,
-    ]);
-  }
-  
-  // Collection (Option<Collection>)
-  let collectionBuffer;
-  if (data.collection === null) {
-    collectionBuffer = Buffer.from([0]); // None
-  } else {
-    collectionBuffer = Buffer.concat([
-      Buffer.from([1]), // Some
-      new PublicKey(data.collection.key).toBuffer(),
-      Buffer.from([data.collection.verified ? 1 : 0]),
-    ]);
-  }
-  
-  // Uses (Option<Uses>)
-  let usesBuffer;
-  if (data.uses === null) {
-    usesBuffer = Buffer.from([0]); // None
-  } else {
-    // Implement if needed - for now we don't use this
-    usesBuffer = Buffer.from([0]); // None
-  }
-  
-  // Collection Details (Option<CollectionDetails>)
-  // We don't use this, so set to None
-  const collectionDetailsBuffer = Buffer.from([0]);
-  
-  // isMutable
-  const isMutableBuffer = Buffer.from([data.isMutable ? 1 : 0]);
-  
-  // Combine all into the expected format
-  return Buffer.concat([
-    nameBuffer,
-    symbolBuffer,
-    uriBuffer,
-    sellerFeeBasisPointsBuffer,
-    creatorsBuffer,
-    collectionBuffer,
-    usesBuffer,
-    collectionDetailsBuffer,
-    isMutableBuffer,
-  ]);
-}
-
-// Upload image to Pinata
-export async function uploadImageToPinata(imageFile: File) {
-  try {
-    const formData = new FormData();
-    formData.append('file', imageFile);
-    
-    const response = await fetch('/api/upload-image', {
-      method: 'POST',
-      body: formData,
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Error uploading image: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud'}/ipfs/${data.cid}`;
-  } catch (error) {
-    console.error("Error uploading image:", error);
-    throw error;
-  }
-}
-
-// Create and upload metadata
-export async function createAndUploadMetadata(tokenData: {
-  name: string;
-  symbol: string;
-  description: string;
-  imageUrl: string;
-  decimals: number;
-  supply: number;
-  website?: string;
-  twitter?: string;
-  telegram?: string;
-  discord?: string;
-}) {
-  try {
-    const metadata = {
-      name: tokenData.name,
-      symbol: tokenData.symbol,
-      description: tokenData.description,
-      image: tokenData.imageUrl,
-      showName: true,
-      website: tokenData.website || "",
-      twitter: tokenData.twitter || "",
-      telegram: tokenData.telegram || "",
-      discord: tokenData.discord || "",
-      tokenInfo: {
-        chain: "Solana",
-        totalSupply: tokenData.supply,
-        circulatingSupply: tokenData.supply,
-        decimals: tokenData.decimals
-      },
-      createdOn: "SolMinter"
-    };
-    
-    // Upload metadata to Pinata
-    const response = await fetch('/api/upload-metadata', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(metadata),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Error uploading metadata: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud'}/ipfs/${data.cid}`;
-  } catch (error) {
-    console.error("Error creating and uploading metadata:", error);
-    throw error;
-  }
-}
-
-// Create metadata for the token
-async function createMetadata(
-  connection: Connection,
-  wallet: any,
-  mint: PublicKey,
-  metadataUrl: string,
-  name: string,
-  symbol: string,
+  name: string
+  symbol: string
+  uri: string
+  sellerFeeBasisPoints: number
+  creators: null
+  collection: null
+  uses: null
   isMutable: boolean
-): Promise<string> {
-  try {
-    // Find the metadata account address (PDA)
-    const metadataPDA = findMetadataPda(mint);
-    console.log(`Metadata PDA: ${metadataPDA.toString()}`);
-    
-    // Create metadata account instruction
-    const createMetadataIx = {
-      programId: TOKEN_METADATA_PROGRAM_ID,
-      keys: [
-        { pubkey: metadataPDA, isSigner: false, isWritable: true },
-        { pubkey: mint, isSigner: false, isWritable: false },
-        { pubkey: wallet.publicKey, isSigner: true, isWritable: false },
-        { pubkey: wallet.publicKey, isSigner: true, isWritable: false },
-        { pubkey: wallet.publicKey, isSigner: false, isWritable: false },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      data: Buffer.from([
-        33, // createMetadataAccountV3 instruction
-        ...serializeMetadataV3({
-          name,
-          symbol,
-          uri: metadataUrl,
-          sellerFeeBasisPoints: 0,
-          creators: null,
-          collection: null,
-          uses: null,
-          isMutable: isMutable,
-        }),
-      ]),
-    };
-    
-    // Create transaction
-    const transaction = new Transaction().add(createMetadataIx);
-    
-    // Set recent blockhash and fee payer
-    transaction.feePayer = wallet.publicKey;
-    const { blockhash } = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    
-    // Sign and send transaction using the wallet adapter
-    try {
-      // Sign transaction using adapter's signTransaction
-      const signedTransaction = await wallet.adapter.signTransaction(transaction);
-      
-      // Send transaction
-      const signature = await connection.sendRawTransaction(signedTransaction.serialize());
-      await connection.confirmTransaction(signature);
-      
-      console.log(`Metadata transaction signature: ${signature}`);
-      return metadataPDA.toString();
-    } catch (signError) {
-      console.error("Error signing transaction:", signError);
-      
-      // Alternative method using sendTransaction
-      if (wallet.adapter.sendTransaction) {
-        const signature = await wallet.adapter.sendTransaction(transaction, connection);
-        await connection.confirmTransaction(signature);
-        
-        console.log(`Metadata transaction signature (alternative method): ${signature}`);
-        return metadataPDA.toString();
-      } else {
-        throw signError;
-      }
-    }
-  } catch (error) {
-    console.error("Error creating metadata:", error);
-    throw error;
-  }
+}): Uint8Array {
+  const nameB = serializeString(data.name)
+  const symbolB = serializeString(data.symbol)
+  const uriB = serializeString(data.uri)
+
+  // seller fee (u16 little‑endian)
+  const feeBuf = Buffer.alloc(2)
+  feeBuf.writeUInt16LE(data.sellerFeeBasisPoints, 0)
+
+  // creators = None
+  const creatorsBuf = Buffer.from([0])
+
+  // collection = None
+  const collectionBuf = Buffer.from([0])
+
+  // uses = None
+  const usesBuf = Buffer.from([0])
+
+  // collectionDetails = None
+  const colDetailsBuf = Buffer.from([0])
+
+  // isMutable
+  const mutBuf = Buffer.from([data.isMutable ? 1 : 0])
+
+  return Buffer.concat([
+    nameB,
+    symbolB,
+    uriB,
+    feeBuf,
+    creatorsBuf,
+    collectionBuf,
+    usesBuf,
+    colDetailsBuf,
+    mutBuf,
+  ])
 }
 
-// Helper function for sending transactions with the wallet adapter
-async function sendTransaction(
-  connection: Connection,
-  wallet: any,
-  transaction: Transaction,
-  signers: Keypair[] = []
-) {
-  // Add recent blockhash
-  const { blockhash } = await connection.getLatestBlockhash();
-  transaction.recentBlockhash = blockhash;
-  transaction.feePayer = wallet.publicKey;
-  
-  // If there are additional signers, sign with them first
-  if (signers.length > 0) {
-    transaction.partialSign(...signers);
+/**
+ * Orchestrates:
+ * 0: IPFS image
+ * 1: IPFS metadata JSON
+ * 2: feature‑fee transfer
+ * 3: create mint + ATA + mintTo
+ * 4: create on‑chain metadata
+ * 5: revoke authorities
+ */
+export async function createTokenWithMetadata(
+  walletAdapter: WalletContextState,
+  formData: FormDataType,
+  onProgress?: (step: number) => void
+): Promise<TokenResult> {
+  const { publicKey, signTransaction, connected } = walletAdapter
+  if (!connected || !publicKey) {
+    throw new Error('Wallet not connected. Please connect your wallet first.')
   }
-  
-  try {
-    // Try using signTransaction + sendRawTransaction
-    const signedTransaction = await wallet.adapter.signTransaction(transaction);
-    const rawTransaction = signedTransaction.serialize();
-    const signature = await connection.sendRawTransaction(rawTransaction, {
-      skipPreflight: false,
-      preflightCommitment: 'confirmed',
-    });
-    
-    await connection.confirmTransaction(signature);
-    return signature;
-  } catch (signError) {
-    console.error("Error signing transaction:", signError);
-    
-    // Try using the sendTransaction method as fallback
-    if (wallet.adapter.sendTransaction) {
-      try {
-        const signature = await wallet.adapter.sendTransaction(transaction, connection);
-        await connection.confirmTransaction(signature);
-        return signature;
-      } catch (sendError) {
-        console.error("Error using sendTransaction:", sendError);
-        throw sendError;
-      }
-    } else {
-      throw signError;
-    }
-  }
-}
+  const connection: Connection = getSolanaConnection()
 
-// Calculate fee in SOL based on selected options
-export function calculateFee(options: {
-  revokeMint: boolean;
-  revokeFreeze: boolean;
-  revokeUpdate: boolean;
-  socialLinks: boolean;
-  creatorInfo: boolean;
-}): number {
-  let fee = 0.2; // Base fee
-  
-  if (options.revokeMint) fee += 0.1;
-  if (options.revokeFreeze) fee += 0.1;
-  if (options.revokeUpdate) fee += 0.1;
-  if (options.socialLinks) fee += 0.1;
-  if (options.creatorInfo) fee += 0.1;
-  
-  return Math.min(fee, 0.3); // Capped at 0.3 SOL as per the UI
-}
+  // STEP 0: IPFS image
+  onProgress?.(0)
+  const imageUrl = await uploadImageToIPFS(formData.logo!)
 
-// Transfer fee to recipient
-async function transferFee(
-  connection: Connection,
-  wallet: any,
-  feeInSol: number
-) {
-  try {
-    // Create fee recipient wallet PublicKey
-    const feeRecipient = new PublicKey(FEE_RECIPIENT_WALLET);
-    
-    // Log info for debugging
-    console.log("Transferring fee...");
-    console.log("Wallet public key:", wallet.publicKey?.toString());
-    console.log("Fee recipient:", feeRecipient.toString());
-    console.log("Fee in SOL:", feeInSol);
-    
-    // Create a transaction to transfer SOL
-    const transaction = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: wallet.publicKey,
-        toPubkey: feeRecipient,
-        lamports: feeInSol * 1000000000, // Convert SOL to lamports
-      })
-    );
-    
-    // Set recent blockhash and fee payer
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = wallet.publicKey;
-    
-    // Sign and send transaction using the wallet adapter
-    const signature = await wallet.adapter.sendTransaction(transaction, connection);
-    
-    // Wait for confirmation
-    await connection.confirmTransaction({
-      blockhash,
-      lastValidBlockHeight,
-      signature
-    });
-    
-    console.log(`Fee transfer successful: ${signature}`);
-    return signature;
-  } catch (error) {
-    console.error("Error transferring fee:", error);
-    throw error;
+  // STEP 1: IPFS metadata JSON
+  onProgress?.(1)
+  const metadataPayload: MetadataPayload = {
+    name: formData.name,
+    symbol: formData.symbol,
+    description: formData.description,
+    image: imageUrl,
+    website: formData.website,
+    twitter: formData.twitter,
+    telegram: formData.telegram,
+    discord: formData.discord,
   }
-}
+  const metadataUrl = await uploadMetadataToIPFS(metadataPayload)
 
-// Create token with metadata - completely refactored to avoid type errors
-async function createToken(
-  wallet: any,
-  tokenData: {
-    name: string;
-    symbol: string;
-    decimals: number;
-    supply: number;
-    description: string;
-    metadataUrl: string;
-    revokeMint: boolean;
-    revokeFreeze: boolean;
-    revokeUpdate: boolean;
-  }
-): Promise<string> {
-  try {
-    // Set up connection
-    const connection = getSolanaConnection();
-    
-    // Check wallet connection again
-    if (!isWalletConnected(wallet)) {
-      throw new Error("Wallet not connected");
-    }
-    
-    // Generate a keypair for the mint
-    const mintKeypair = Keypair.generate();
-    console.log(`Creating token mint for ${tokenData.name}...`);
-    
-    // Get minimum balance for rent exemption
-    const lamportsForMint = await getMinimumBalanceForRentExemptMint(connection);
-    
-    // Create transaction for creating the mint account
-    const createAccountTransaction = new Transaction().add(
-      SystemProgram.createAccount({
-        fromPubkey: wallet.publicKey,
-        newAccountPubkey: mintKeypair.publicKey,
-        space: MINT_SIZE,
-        lamports: lamportsForMint,
-        programId: TOKEN_PROGRAM_ID
+  // STEP 2: feature‑fee transfer
+  onProgress?.(2)
+  const feeSOL = calculateFee({
+    revokeMint: formData.revokeMint,
+    revokeFreeze: formData.revokeFreeze,
+    revokeUpdate: formData.revokeUpdate,
+    socialLinks: formData.socialLinks,
+    creatorInfo: formData.creatorInfo,
+  })
+  const feeTx = new Transaction().add(
+    SystemProgram.transfer({
+      fromPubkey: publicKey,
+      toPubkey: new PublicKey(process.env.NEXT_PUBLIC_FEE_WALLET!),
+      lamports: feeSOL * 1e9,
+    })
+  )
+  feeTx.feePayer = publicKey
+  feeTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedFeeTx = await signTransaction!(feeTx)
+  const feeSig = await connection.sendRawTransaction(signedFeeTx.serialize())
+  await connection.confirmTransaction(feeSig)
+
+  // STEP 3: create mint, ATA, mintTo
+  onProgress?.(3)
+  const mintKeypair = Keypair.generate()
+  const rentExempt = await getMinimumBalanceForRentExemptMint(connection)
+
+  // 3a) create & init mint
+  const initMintTx = new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: publicKey,
+      newAccountPubkey: mintKeypair.publicKey,
+      space: MINT_SIZE,
+      lamports: rentExempt,
+      programId: TOKEN_PROGRAM_ID,
+    }),
+    createInitializeMintInstruction(
+      mintKeypair.publicKey,
+      formData.decimals,
+      publicKey,
+      publicKey,
+      TOKEN_PROGRAM_ID
+    )
+  )
+  initMintTx.feePayer = publicKey
+  initMintTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+  initMintTx.partialSign(mintKeypair)
+
+  const signedInitMintTx = await signTransaction!(initMintTx)
+  const initMintSig = await connection.sendRawTransaction(
+    signedInitMintTx.serialize()
+  )
+  await connection.confirmTransaction(initMintSig)
+
+  // 3b) ATA
+  const ata = await getAssociatedTokenAddress(
+    mintKeypair.publicKey,
+    publicKey
+  )
+  const createAtaTx = new Transaction().add(
+    createAssociatedTokenAccountInstruction(
+      publicKey,
+      ata,
+      publicKey,
+      mintKeypair.publicKey
+    )
+  )
+  createAtaTx.feePayer = publicKey
+  createAtaTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedCreateAtaTx = await signTransaction!(createAtaTx)
+  const createAtaSig = await connection.sendRawTransaction(
+    signedCreateAtaTx.serialize()
+  )
+  await connection.confirmTransaction(createAtaSig)
+
+  // 3c) mintTo
+  const mintAmount =
+    BigInt(formData.supply) * BigInt(10 ** formData.decimals)
+  const mintToTx = new Transaction().add(
+    createMintToInstruction(
+      mintKeypair.publicKey,
+      ata,
+      publicKey,
+      mintAmount
+    )
+  )
+  mintToTx.feePayer = publicKey
+  mintToTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedMintToTx = await signTransaction!(mintToTx)
+  const mintToSig = await connection.sendRawTransaction(
+    signedMintToTx.serialize()
+  )
+  await connection.confirmTransaction(mintToSig)
+
+  // STEP 4: on‑chain metadata (V3 manual)
+  onProgress?.(4)
+  // derive metadata PDA
+  const metadataProgramId = new PublicKey(TOKEN_METADATA_PROGRAM_ID)
+  const [metadataPDA] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from('metadata'),
+      metadataProgramId.toBuffer(),
+      mintKeypair.publicKey.toBuffer(),
+    ],
+    metadataProgramId
+  )
+
+  const ix = {
+    programId: metadataProgramId,
+    keys: [
+      { pubkey: metadataPDA, isSigner: false, isWritable: true },
+      { pubkey: mintKeypair.publicKey, isSigner: false, isWritable: false },
+      { pubkey: publicKey, isSigner: true, isWritable: false }, // mint authority
+      { pubkey: publicKey, isSigner: true, isWritable: false }, // payer
+      { pubkey: publicKey, isSigner: false, isWritable: false }, // update authority
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: Buffer.concat([
+      Buffer.from([33]), // createMetadataAccountV3 discriminator
+      serializeMetadataV3({
+        name: formData.name,
+        symbol: formData.symbol,
+        uri: metadataUrl,
+        sellerFeeBasisPoints: 0,
+        creators: null,
+        collection: null,
+        uses: null,
+        isMutable: !formData.revokeUpdate,
       }),
-      // Initialize the mint
-      createInitializeMintInstruction(
+    ]),
+  }
+
+  const metadataTx = new Transaction().add(ix)
+  metadataTx.feePayer = publicKey
+  metadataTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedMetadataTx = await signTransaction!(metadataTx)
+  const metadataSig = await connection.sendRawTransaction(
+    signedMetadataTx.serialize()
+  )
+  await connection.confirmTransaction(metadataSig)
+
+  // STEP 5: revoke authorities
+  onProgress?.(5)
+  const revokeIxs = []
+  if (formData.revokeMint) {
+    revokeIxs.push(
+      createSetAuthorityInstruction(
         mintKeypair.publicKey,
-        tokenData.decimals,
-        wallet.publicKey,
-        wallet.publicKey,
+        publicKey,
+        AuthorityType.MintTokens,
+        null,
+        [],
         TOKEN_PROGRAM_ID
       )
-    );
-    
-    // Send transaction to create and initialize mint
-    await sendTransaction(connection, wallet, createAccountTransaction, [mintKeypair]);
-    console.log(`Mint account created: ${mintKeypair.publicKey.toString()}`);
-    
-    // Create a token account for the wallet
-    console.log("Creating token account...");
-    const associatedTokenAddress = await getAssociatedTokenAddress(
-      mintKeypair.publicKey,
-      wallet.publicKey
-    );
-    
-    // Check if the token account already exists
-    const tokenAccountInfo = await connection.getAccountInfo(associatedTokenAddress);
-    
-    if (!tokenAccountInfo) {
-      // Create the associated token account
-      const createTokenAccountTx = new Transaction().add(
-        createAssociatedTokenAccountInstruction(
-          wallet.publicKey, // payer
-          associatedTokenAddress, // associatedToken
-          wallet.publicKey, // owner
-          mintKeypair.publicKey // mint
-        )
-      );
-      
-      await sendTransaction(connection, wallet, createTokenAccountTx);
-      console.log(`Token account created: ${associatedTokenAddress.toString()}`);
-    }
-    
-    // Mint initial supply to the wallet
-    console.log(`Minting ${tokenData.supply} tokens to your wallet...`);
-    const initialSupply = tokenData.supply * Math.pow(10, tokenData.decimals);
-    
-    const mintToTransaction = new Transaction().add(
-      createMintToInstruction(
-        mintKeypair.publicKey, // mint
-        associatedTokenAddress, // destination
-        wallet.publicKey, // authority
-        BigInt(initialSupply) // amount
+    )
+  }
+  if (formData.revokeFreeze) {
+    revokeIxs.push(
+      createSetAuthorityInstruction(
+        mintKeypair.publicKey,
+        publicKey,
+        AuthorityType.FreezeAccount,
+        null,
+        [],
+        TOKEN_PROGRAM_ID
       )
-    );
-    
-    await sendTransaction(connection, wallet, mintToTransaction);
-    console.log("Initial token supply minted successfully");
-    
-    // Add metadata to the token
-    console.log("Adding token metadata...");
-    const metadataPDA = await createMetadata(
-      connection,
-      wallet,
-      mintKeypair.publicKey,
-      tokenData.metadataUrl,
-      tokenData.name,
-      tokenData.symbol,
-      !tokenData.revokeUpdate
-    );
-    console.log("Metadata added successfully");
-    
-    // Revoke authorities if configured to do so
-    if (tokenData.revokeMint || tokenData.revokeFreeze) {
-      console.log("Revoking authorities...");
-      
-      let revokeTransaction = new Transaction();
-      
-      if (tokenData.revokeMint) {
-        console.log("Revoking mint authority (supply will be fixed)...");
-        
-        // Create a setAuthority instruction for MintTokens
-        const revokeMintInstruction = await import('@solana/spl-token').then(token => {
-          return token.createSetAuthorityInstruction(
-            mintKeypair.publicKey, // mint
-            wallet.publicKey, // currentAuthority
-            AuthorityType.MintTokens, // authorityType
-            null // newAuthority - null means revoke
-          );
-        });
-        
-        revokeTransaction.add(revokeMintInstruction);
-      }
-      
-      if (tokenData.revokeFreeze) {
-        console.log("Revoking freeze authority...");
-        
-        // Create a setAuthority instruction for FreezeAccount
-        const revokeFreezeInstruction = await import('@solana/spl-token').then(token => {
-          return token.createSetAuthorityInstruction(
-            mintKeypair.publicKey, // mint
-            wallet.publicKey, // currentAuthority
-            AuthorityType.FreezeAccount, // authorityType
-            null // newAuthority - null means revoke
-          );
-        });
-        
-        revokeTransaction.add(revokeFreezeInstruction);
-      }
-      
-      if (revokeTransaction.instructions.length > 0) {
-        await sendTransaction(connection, wallet, revokeTransaction);
-        console.log("Authorities revoked successfully");
-      }
-    }
-    
-    // Return the mint address
-    return mintKeypair.publicKey.toString();
-  } catch (error) {
-    console.error("Error creating token:", error);
-    throw error;
+    )
+  }
+
+  if (revokeIxs.length) {
+    const revokeTx = new Transaction().add(...revokeIxs)
+    revokeTx.feePayer = publicKey
+    revokeTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+    const signedRevokeTx = await signTransaction!(revokeTx)
+    const revokeSig = await connection.sendRawTransaction(
+      signedRevokeTx.serialize()
+    )
+    await connection.confirmTransaction(revokeSig)
+  }
+
+  // Done ✅
+  const clusterParam =
+    process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'devnet'
+      ? '?cluster=devnet'
+      : ''
+
+  return {
+    mintAddress: mintKeypair.publicKey.toString(),
+    metadataUrl,
+    imageUrl,
+    explorerUrl: `https://explorer.solana.com/address/${mintKeypair.publicKey.toString()}${clusterParam}`,
   }
 }
 
-// Main function that handles the entire token creation process
-export async function createTokenWithMetadata(
-  wallet: any,
-  formData: {
-    name: string;
-    symbol: string;
-    decimals: number;
-    supply: number;
-    description: string;
-    logo: File | null;
-    revokeMint: boolean;
-    revokeFreeze: boolean;
-    revokeUpdate: boolean;
-    socialLinks: boolean;
-    creatorInfo: boolean;
-    website?: string;
-    twitter?: string;
-    telegram?: string;
-    discord?: string;
-  }
-) {
-  try {
-     // Validate wallet connection - simpler check
-     if (!wallet || !wallet.publicKey) {
-      throw new Error("Wallet not connected. Please connect your wallet and try again.");
-    }
-    
-    console.log("Starting token creation process...");
-    console.log("Connected wallet:", wallet.publicKey.toString());
-    
-    // Calculate fee
-    const feeInSol = calculateFee({
-      revokeMint: formData.revokeMint,
-      revokeFreeze: formData.revokeFreeze,
-      revokeUpdate: formData.revokeUpdate,
-      socialLinks: formData.socialLinks,
-      creatorInfo: formData.creatorInfo
-    });
-    
-    // Set up connection
-    const connection = getSolanaConnection();
-    
-    // Check wallet balance before proceeding
-    const balance = await connection.getBalance(wallet.publicKey);
-    const balanceInSol = balance / 1000000000; // Convert lamports to SOL
-    console.log(`Wallet balance: ${balanceInSol} SOL`);
-    
-    if (balanceInSol < feeInSol) {
-      throw new Error(`Insufficient balance. You have ${balanceInSol.toFixed(4)} SOL but need at least ${feeInSol} SOL.`);
-    }
-    
-    // 1. First upload image (before any transactions to avoid wasting gas if upload fails)
-    if (!formData.logo) {
-      throw new Error("Logo image is required");
-    }
-    
-    console.log("Uploading image...");
-    const imageUrl = await uploadImageToPinata(formData.logo);
-    console.log("Image uploaded:", imageUrl);
-    
-    // 2. Create and upload metadata
-    console.log("Creating and uploading metadata...");
-    const metadataUrl = await createAndUploadMetadata({
-      name: formData.name,
-      symbol: formData.symbol,
-      description: formData.description,
-      imageUrl,
-      decimals: formData.decimals,
-      supply: formData.supply,
-      website: formData.website,
-      twitter: formData.twitter,
-      telegram: formData.telegram,
-      discord: formData.discord
-    });
-    console.log("Metadata uploaded:", metadataUrl);
-    
-    // 3. Transfer fee
-    console.log(`Transferring fee of ${feeInSol} SOL...`);
-    await transferFee(connection, wallet, feeInSol);
-    console.log("Fee transferred successfully");
-    
-    // 4. Create token with metadata
-    console.log("Creating token...");
-    const mintAddress = await createToken(wallet, {
-      name: formData.name,
-      symbol: formData.symbol,
-      decimals: formData.decimals,
-      supply: formData.supply,
-      description: formData.description,
-      metadataUrl,
-      revokeMint: formData.revokeMint,
-      revokeFreeze: formData.revokeFreeze,
-      revokeUpdate: formData.revokeUpdate
-    });
-    console.log("Token created successfully with address:", mintAddress);
-    
-    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
-    return {
-      success: true,
-      mintAddress,
-      metadataUrl,
-      imageUrl,
-      explorerUrl: `https://explorer.solana.com/address/${mintAddress}${network === 'devnet' ? '?cluster=devnet' : ''}`
-    };
-  } catch (error) {
-    console.error("Error in token creation process:", error);
-    throw error;
-  }
+
+// ===== src/services/fee-service.ts =====
+
+// src/services/fee-service.ts
+
+export interface FeeOptions {
+  revokeMint: boolean
+  revokeFreeze: boolean
+  revokeUpdate: boolean
+  socialLinks: boolean
+  creatorInfo: boolean
 }
+
+export function calculateFee(options: FeeOptions): number {
+  let fee = 0.2 // base fee
+
+  if (options.revokeMint)    fee += 0.1
+  if (options.revokeFreeze)  fee += 0.1
+  if (options.revokeUpdate)  fee += 0.1
+  if (options.socialLinks)   fee += 0.1
+  if (options.creatorInfo)   fee += 0.1
+
+  return Math.min(fee, 0.3) // cap at 0.3 SOL
+}
+
 
 // ===== src/services/wallet-service.ts =====
 
