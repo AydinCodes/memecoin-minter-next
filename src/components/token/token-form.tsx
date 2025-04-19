@@ -5,15 +5,23 @@
 import { useState, useCallback } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import {
-  createTokenWithMetadataManual,
+  createTokenWithMetadata,
   FormDataType,
   TokenResult,
-} from "@/services/manual-token-service"
+} from "@/services/token-service"
 import TokenCreationSuccess from "./token-creation-success"
 import Loading from "../ui/loading"
 import TokenFormBasic from "./token-form-basic"
 import TokenFormOptions from "./token-form-options"
 import TokenFormAuthorities from "./token-form-authorities"
+
+const STEPS = [
+  "Uploading token image…",
+  "Creating token metadata…",
+  "Processing payment…",
+  "Creating token on Solana…",
+  "Configuring token authorities…",
+]
 
 export default function TokenForm() {
   const walletAdapter = useWallet()
@@ -31,26 +39,31 @@ export default function TokenForm() {
     revokeUpdate: true,
     socialLinks: false,
     creatorInfo: false,
-    website: "",
-    twitter: "",
-    telegram: "",
-    discord: "",
   })
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [tokenCreationResult, setTokenCreationResult] = useState<TokenResult | null>(null)
+  const [progressStep, setProgressStep] = useState<number>(0)
+  const [tokenResult, setTokenResult] = useState<TokenResult | null>(null)
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value, type, checked } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : type === "number" ? parseInt(value) : value,
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, type, checked } = e.target as HTMLInputElement
+    setFormData((p) => ({
+      ...p,
+      [name]:
+        type === "checkbox"
+          ? checked
+          : type === "number"
+          ? parseInt(value)
+          : value,
     }))
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFormData((prev) => ({ ...prev, logo: e.target.files![0] }))
+      setFormData((p) => ({ ...p, logo: e.target.files![0] }))
     }
   }
 
@@ -64,19 +77,22 @@ export default function TokenForm() {
         return
       }
       if (!formData.logo) {
-        setError("Please upload a logo")
+        setError("Please upload a logo image")
         return
       }
 
       setIsSubmitting(true)
+      setProgressStep(0)
+
       try {
-        const result = await createTokenWithMetadataManual(
+        const result = await createTokenWithMetadata(
           walletAdapter,
-          formData as FormDataType
+          formData as FormDataType,
+          (step) => setProgressStep(step)
         )
-        setTokenCreationResult(result)
+        setTokenResult(result)
       } catch (err: any) {
-        setError(err.message || "An unknown error occurred")
+        setError(err.message || "Unknown error")
       } finally {
         setIsSubmitting(false)
       }
@@ -84,55 +100,54 @@ export default function TokenForm() {
     [walletAdapter, formData]
   )
 
-  if (tokenCreationResult) {
-    return <TokenCreationSuccess result={tokenCreationResult} />
+  if (tokenResult) {
+    return <TokenCreationSuccess result={tokenResult} />
   }
+
   if (isSubmitting) {
     return (
       <Loading
         message="Creating your token..."
-        steps={[
-          "Uploading image…",
-          "Uploading metadata…",
-          "Processing payment…",
-          "Creating mint & ATA…",
-          "Minting supply & revoking…",
-        ]}
+        steps={STEPS}
+        currentStepIndex={progressStep}
       />
     )
   }
 
   return (
-    <form onSubmit={handleSubmit} className="token-creation-box max-w-3xl mx-auto bg-[#171717] p-6 rounded-xl shadow-xl">
+    <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl">
       {error && (
-        <div className="error-alert bg-red-500 bg-opacity-20 border border-red-500 text-white p-3 mb-4">
-          {error}
-        </div>
+        <div className="text-red-400 bg-red-800/30 p-3 rounded">{error}</div>
       )}
 
-      <TokenFormBasic formData={formData as FormDataType} handleInputChange={handleInputChange} handleFileChange={handleFileChange} />
+      <TokenFormBasic
+        formData={formData as FormDataType}
+        handleInputChange={handleInputChange}
+        handleFileChange={handleFileChange}
+      />
 
-      <div className="my-6 border-t border-gray-700" />
+      <TokenFormOptions
+        formData={formData as FormDataType}
+        setFormData={setFormData as any}
+        handleInputChange={handleInputChange}
+      />
 
-      <TokenFormOptions formData={formData as FormDataType} setFormData={setFormData as any} handleInputChange={handleInputChange} />
+      <TokenFormAuthorities
+        formData={formData as FormDataType}
+        setFormData={setFormData as any}
+      />
 
-      <div className="my-6 border-t border-gray-700" />
-
-      <TokenFormAuthorities formData={formData as FormDataType} setFormData={setFormData as any} />
-
-      <div className="mt-8 flex flex-col md:flex-row justify-between items-center">
-        <button
-          type="submit"
-          disabled={!walletAdapter.connected || isSubmitting}
-          className={`w-full md:w-auto py-3 px-8 rounded-full font-medium transition-all ${
-            walletAdapter.connected
-              ? "bg-gradient-to-r from-purple-600 to-blue-500 hover:shadow-lg"
-              : "bg-gray-600 cursor-not-allowed"
-          }`}
-        >
-          {walletAdapter.connected ? "Launch Token" : "Connect Wallet to Launch"}
-        </button>
-      </div>
+      <button
+        type="submit"
+        disabled={!walletAdapter.connected}
+        className={`w-full py-3 rounded-full text-white font-medium transition ${
+          walletAdapter.connected
+            ? "bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90"
+            : "bg-gray-600 cursor-not-allowed"
+        }`}
+      >
+        {walletAdapter.connected ? "Launch Token" : "Connect Wallet"}
+      </button>
     </form>
   )
 }

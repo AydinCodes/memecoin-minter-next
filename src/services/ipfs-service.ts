@@ -28,7 +28,9 @@ export interface MetadataPayload {
   discord?: string
 }
 
-export async function uploadMetadataToIPFS(payload: MetadataPayload): Promise<string> {
+export async function uploadMetadataToIPFS(
+  payload: MetadataPayload
+): Promise<string> {
   const res = await fetch('/api/upload-metadata', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
