@@ -103,39 +103,41 @@ export default function TokenForm() {
     }
   }
 
+  // Function to validate form data before submission
+  const validateForm = (): string | null => {
+    if (!walletAdapter.connected) {
+      return "Please connect your wallet first";
+    }
+    if (!formData.logo) {
+      return "Please upload a logo image";
+    }
+    if (!formData.name || formData.name.trim() === '') {
+      return "Token name is required";
+    }
+    if (!formData.symbol || formData.symbol.trim() === '') {
+      return "Token symbol is required";
+    }
+    if (!formData.description || formData.description.trim() === '') {
+      return "Token description is required";
+    }
+    return null;
+  };
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
+      
+      // Clear previous errors
       setError(null)
+      
+      // Validate form
+      const validationError = validateForm();
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
 
       try {
-        if (!walletAdapter.connected) {
-          setError("Please connect your wallet first")
-          return
-        }
-        if (!formData.logo) {
-          setError("Please upload a logo image")
-          return
-        }
-        if (!formData.name || formData.name.trim() === '') {
-          setError("Token name is required")
-          return
-        }
-        if (!formData.symbol || formData.symbol.trim() === '') {
-          setError("Token symbol is required")
-          return
-        }
-        if (!formData.description || formData.description.trim() === '') {
-          setError("Token description is required")
-          return
-        }
-
-        // Ensure all authority options are checked
-        if (!formData.revokeMint || !formData.revokeFreeze || !formData.revokeUpdate) {
-          setError("All authority options (Mint, Freeze, Update) must be checked for a successful token creation")
-          return
-        }
-
         setIsSubmitting(true)
         setProgressStep(0)
 
@@ -155,6 +157,8 @@ export default function TokenForm() {
     },
     [walletAdapter, formData, totalFee]
   )
+
+  const buttonDisabled = !walletAdapter.connected || isSubmitting;
 
   if (tokenResult) {
     return <TokenCreationSuccess result={tokenResult} />
@@ -216,9 +220,9 @@ export default function TokenForm() {
 
       <button
         type="submit"
-        disabled={!walletAdapter.connected}
-        className={`w-full py-3 rounded-full text-white font-medium transition ${
-          walletAdapter.connected
+        disabled={buttonDisabled}
+        className={`w-full py-3 rounded-full text-white font-medium transition cursor-pointer ${
+          !buttonDisabled
             ? "bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90"
             : "bg-gray-600 cursor-not-allowed"
         }`}

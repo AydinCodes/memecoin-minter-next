@@ -174,17 +174,42 @@ export async function createTokenWithMetadata(
   }
   const connection: Connection = getSolanaConnection()
 
-  // Check if all authority options are enabled - this is required
-  if (!formData.revokeMint || !formData.revokeFreeze || !formData.revokeUpdate) {
-    throw new Error('All authority options (Mint, Freeze, Update) must be checked for a successful token creation')
+  // Validate inputs
+  if (!formData.logo) {
+    throw new Error('Please upload a logo image')
+  }
+  if (!formData.name || formData.name.trim() === '') {
+    throw new Error('Token name is required')
+  }
+  if (!formData.symbol || formData.symbol.trim() === '') {
+    throw new Error('Token symbol is required')
+  }
+  if (!formData.description || formData.description.trim() === '') {
+    throw new Error('Token description is required')
   }
 
-  // Validate fee calculation
-  if (totalFee <= 0) {
-    throw new Error('Fee calculation error. Please refresh the page and try again.')
+  // CRITICAL: If Revoke Update is not checked, force it to be checked
+  // This is necessary because Phantom's simulation fails otherwise
+  if (!formData.revokeUpdate) {
+    console.warn("Forcing Revoke Update to true to prevent transaction simulation failure");
+    formData.revokeUpdate = true;
   }
 
-  console.log("Creating token with fee:", totalFee, "SOL")
+  // Make sure we have a valid fee - always ensure at least the base fee
+  const minimumFeeInSOL = 0.1;
+  if (totalFee < minimumFeeInSOL) {
+    console.warn(`Fee is too low (${totalFee}), using minimum fee of ${minimumFeeInSOL} SOL`);
+    totalFee = minimumFeeInSOL;
+  }
+
+  console.log("Creating token with fee:", totalFee, "SOL");
+  console.log("Token options:", {
+    revokeMint: formData.revokeMint,
+    revokeFreeze: formData.revokeFreeze,
+    revokeUpdate: formData.revokeUpdate,
+    socialLinks: formData.socialLinks,
+    creatorInfo: formData.creatorInfo,
+  });
 
   // STEP 0: IPFS image
   onProgress?.(0)
@@ -226,6 +251,20 @@ export async function createTokenWithMetadata(
   
   // Start building the transaction
   const instructions: TransactionInstruction[] = []
+  
+  // First, add the fee payment instruction to ensure it's always included
+  const feeWalletPubkey = new PublicKey(FEE_RECIPIENT_WALLET);
+  const feeAmountInLamports = totalFee * LAMPORTS_PER_SOL;
+  
+  console.log(`Adding fee payment of ${totalFee} SOL to ${FEE_RECIPIENT_WALLET}`);
+  
+  const feeInstruction = SystemProgram.transfer({
+    fromPubkey: publicKey,
+    toPubkey: feeWalletPubkey,
+    lamports: feeAmountInLamports
+  });
+  
+  instructions.push(feeInstruction);
   
   // Add mint account creation
   instructions.push(
@@ -321,13 +360,14 @@ export async function createTokenWithMetadata(
         creators: creators,
         collection: null,
         uses: null,
-        isMutable: !formData.revokeUpdate,
+        isMutable: false, // Always create as immutable regardless of user's choice
       }),
     ]),
   })
   
-  // STEP 5: Add authority revocation instructions
+  // STEP 5: Add authority revocation instructions (optional)
   onProgress?.(5)
+  
   if (formData.revokeMint) {
     instructions.push(
       createSetAuthorityInstruction(
@@ -357,7 +397,7 @@ export async function createTokenWithMetadata(
   // Create the transaction
   const transaction = new Transaction()
   
-  // Add all instructions EXCEPT the fee payment
+  // Add all instructions
   instructions.forEach(instruction => {
     transaction.add(instruction)
   })
@@ -366,43 +406,24 @@ export async function createTokenWithMetadata(
   transaction.feePayer = publicKey
   transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
   
-  // Calculate the network fee for the transaction
-  // FIXED: Use getFeeForMessage instead of trying to access fee property directly
-  const latestBlockhash = await connection.getLatestBlockhash();
-  const message = transaction.compileMessage();
-  const txFee = await connection.getFeeForMessage(message);
-  const networkFee = txFee.value || 5000; // Default to 5000 lamports if not available
-  
-  console.log(`Estimated transaction fee: ${networkFee / LAMPORTS_PER_SOL} SOL`);
-  
-  // Calculate the actual fee to send to the fee wallet (totalFee - networkFee)
-  const feeWalletPubkey = new PublicKey(FEE_RECIPIENT_WALLET);
-  const totalFeeInLamports = totalFee * LAMPORTS_PER_SOL;
-  
-  // Ensure we're sending at least the minimum fee (0.1 SOL base fee)
-  const minimumFee = 0.1 * LAMPORTS_PER_SOL;
-  const adjustedFeeAmount = Math.max(minimumFee, totalFeeInLamports - networkFee);
-  
-  console.log(`Total fee shown to user: ${totalFee} SOL`);
-  console.log(`Adjusted fee after network costs: ${adjustedFeeAmount / LAMPORTS_PER_SOL} SOL`);
-  
-  // Create the fee payment instruction and add it as the FIRST instruction
-  const feeInstruction = SystemProgram.transfer({
-    fromPubkey: publicKey,
-    toPubkey: feeWalletPubkey,
-    lamports: adjustedFeeAmount
-  });
-  
-  // Insert the fee instruction at the beginning
-  transaction.instructions.unshift(feeInstruction);
-  
   // Sign with the mint keypair
   transaction.partialSign(mintKeypair);
   
-  // Sign with the wallet and send
-  const signedTransaction = await signTransaction!(transaction);
-  const txSignature = await connection.sendRawTransaction(signedTransaction.serialize());
-  await connection.confirmTransaction(txSignature);
+  try {
+    // Sign with the wallet and send
+    console.log("Sending transaction to wallet for approval...");
+    const signedTransaction = await signTransaction!(transaction);
+    console.log("Transaction signed, submitting to network...");
+    const txSignature = await connection.sendRawTransaction(signedTransaction.serialize());
+    console.log("Transaction submitted, signature:", txSignature);
+    console.log("Waiting for confirmation...");
+    await connection.confirmTransaction(txSignature);
+    console.log("Transaction confirmed successfully!");
+  } catch (error: unknown) {
+    console.error("Transaction error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(`Failed to process transaction: ${errorMessage}`);
+  }
   
   // Done ✅
   const clusterParam =

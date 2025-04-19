@@ -27,7 +27,7 @@ export default function TokenFormAuthorities({
     const checkbox = document.getElementById(field) as HTMLInputElement;
     if (checkbox) {
       checkbox.checked = !formData[field];
-      // Create a proper change event that includes name and checked properties
+      // Create a proper change event
       const event = new Event('change', { bubbles: true });
       
       // Add properties to the event object using Object.defineProperty

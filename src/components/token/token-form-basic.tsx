@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 
 interface TokenFormBasicProps {
   formData: {
@@ -20,6 +20,16 @@ export default function TokenFormBasic({
   handleInputChange,
   handleFileChange
 }: TokenFormBasicProps) {
+  // Create a ref for the file input
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Function to trigger file input click
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   return (
     <div className="form-section mb-8">
       <div className="form-field mb-4">
@@ -82,19 +92,28 @@ export default function TokenFormBasic({
       <div className="logo-wrapper grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
         <div className="logo-box">
           <span className="label-text block text-gray-300 mb-2">Logo *</span>
-          <div className="img-input-wrapper border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-purple-500 transition-colors" onClick={() => document.querySelector<HTMLInputElement>('.form-img')?.click()}>
+          <div 
+            className="img-input-wrapper border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-purple-500 transition-colors" 
+            onClick={triggerFileInput}
+          >
             <span className="material-symbols-rounded text-3xl mb-2 text-gray-400 block">upload</span>
             <span className="text-1 block text-gray-300 mb-1">Drag and drop here to upload</span>
             <div className="text-2 text-xs text-gray-500">.png, .jpg 1000x1000 px</div>
             <input 
+              ref={fileInputRef}
               accept=".png, .jpg, .jpeg" 
               className="form-img hidden" 
               type="file"
               onChange={handleFileChange}
-              required
+              // Remove required from hidden input
             />
           </div>
           <span className="field-constraint text-xs text-gray-500 mt-1 block">Add logo for your token</span>
+          {!formData.logo && (
+            <span className="text-red-400 text-xs mt-1 block">
+              Logo image is required
+            </span>
+          )}
         </div>
         
         <div className="logo-preview flex items-center justify-center">
