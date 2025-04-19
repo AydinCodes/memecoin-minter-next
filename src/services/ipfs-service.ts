@@ -22,6 +22,7 @@ export interface MetadataPayload {
   symbol: string
   description: string
   image: string
+  creator?: string
   website?: string
   twitter?: string
   telegram?: string
@@ -31,10 +32,37 @@ export interface MetadataPayload {
 export async function uploadMetadataToIPFS(
   payload: MetadataPayload
 ): Promise<string> {
+  // Construct the metadata object with conditional fields
+  const metadata: any = {
+    name: payload.name,
+    symbol: payload.symbol,
+    description: payload.description,
+    image: payload.image,
+  }
+  
+  // Add creator if provided
+  if (payload.creator) {
+    metadata.creator = payload.creator
+  }
+  
+  // Add social links if provided
+  if (payload.website) metadata.website = payload.website
+  if (payload.twitter) metadata.twitter = payload.twitter
+  if (payload.telegram) metadata.telegram = payload.telegram
+  if (payload.discord) metadata.discord = payload.discord
+  
+  // Add attributes section
+  metadata.attributes = [
+    {
+      trait_type: "Platform",
+      value: "SolMinter"
+    }
+  ]
+
   const res = await fetch('/api/upload-metadata', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(metadata),
   })
 
   if (!res.ok) {

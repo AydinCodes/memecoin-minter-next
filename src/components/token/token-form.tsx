@@ -1,26 +1,25 @@
-// src/components/token/token-form.tsx
-
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import {
   createTokenWithMetadata,
   FormDataType,
   TokenResult,
 } from "@/services/token-service"
-import { calculateFee } from "@/services/fee-service"
+import { calculateFee, formatFee } from "@/services/fee-service"
 import TokenCreationSuccess from "./token-creation-success"
 import Loading from "../ui/loading"
 import TokenFormBasic from "./token-form-basic"
 import TokenFormOptions from "./token-form-options"
 import TokenFormAuthorities from "./token-form-authorities"
+import TokenFormCreator from "./token-form-creator"
 
 const STEPS = [
   "Uploading token image…",
   "Creating token metadata…",
-  "Processing payment…",
-  "Creating mint & ATA & mintTo…",
+  "Processing transaction…",
+  "Creating mint & token account…",
   "Adding on‐chain metadata…",
   "Configuring token authorities…",
 ]
@@ -41,6 +40,7 @@ export default function TokenForm() {
     revokeUpdate: true,
     socialLinks: false,
     creatorInfo: false,
+    creatorName: "SolMinter", // Default creator name
     website: "",
     twitter: "",
     telegram: "",
@@ -51,6 +51,25 @@ export default function TokenForm() {
   const [error, setError] = useState<string | null>(null)
   const [progressStep, setProgressStep] = useState(0)
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null)
+  const [totalFee, setTotalFee] = useState<number>(0.5) // Initial fee calculation with all defaults
+
+  // Calculate fee whenever relevant form options change
+  useEffect(() => {
+    const fee = calculateFee({
+      revokeMint: formData.revokeMint,
+      revokeFreeze: formData.revokeFreeze,
+      revokeUpdate: formData.revokeUpdate,
+      socialLinks: formData.socialLinks,
+      creatorInfo: formData.creatorInfo,
+    })
+    setTotalFee(fee)
+  }, [
+    formData.revokeMint,
+    formData.revokeFreeze,
+    formData.revokeUpdate,
+    formData.socialLinks,
+    formData.creatorInfo,
+  ])
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -78,32 +97,46 @@ export default function TokenForm() {
       e.preventDefault()
       setError(null)
 
-      if (!walletAdapter.connected) {
-        setError("Please connect your wallet first")
-        return
-      }
-      if (!formData.logo) {
-        setError("Please upload a logo image")
-        return
-      }
-
-      setIsSubmitting(true)
-      setProgressStep(0)
-
       try {
+        if (!walletAdapter.connected) {
+          setError("Please connect your wallet first")
+          return
+        }
+        if (!formData.logo) {
+          setError("Please upload a logo image")
+          return
+        }
+        if (!formData.name || formData.name.trim() === '') {
+          setError("Token name is required")
+          return
+        }
+        if (!formData.symbol || formData.symbol.trim() === '') {
+          setError("Token symbol is required")
+          return
+        }
+        if (!formData.description || formData.description.trim() === '') {
+          setError("Token description is required")
+          return
+        }
+
+        setIsSubmitting(true)
+        setProgressStep(0)
+
         const result = await createTokenWithMetadata(
           walletAdapter,
           formData,
+          totalFee, // Pass the calculated total fee
           (step) => setProgressStep(step)
         )
         setTokenResult(result)
       } catch (err: any) {
-        setError(err.message || "Unknown error")
+        console.error("Token creation error:", err)
+        setError(err.message || "Unknown error occurred during token creation")
       } finally {
         setIsSubmitting(false)
       }
     },
-    [walletAdapter, formData]
+    [walletAdapter, formData, totalFee]
   )
 
   if (tokenResult) {
@@ -126,7 +159,7 @@ export default function TokenForm() {
       className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl"
     >
       {error && (
-        <div className="text-red-400 bg-red-800/30 p-3 rounded">{error}</div>
+        <div className="text-red-400 bg-red-800/30 p-3 rounded mb-4">{error}</div>
       )}
 
       <TokenFormBasic
@@ -141,6 +174,13 @@ export default function TokenForm() {
         handleInputChange={handleInputChange}
       />
 
+      {formData.creatorInfo && (
+        <TokenFormCreator
+          formData={formData}
+          handleInputChange={handleInputChange}
+        />
+      )}
+
       <TokenFormAuthorities
         formData={formData}
         setFormData={setFormData}
@@ -148,20 +188,13 @@ export default function TokenForm() {
 
       {/* Display dynamic feature‐fee total */}
       <div className="flex justify-between items-center text-gray-300">
-        <span>Total feature fee:</span>
+        <span>Total fee:</span>
         <span className="text-purple-500 font-semibold">
-          {calculateFee({
-            revokeMint: formData.revokeMint,
-            revokeFreeze: formData.revokeFreeze,
-            revokeUpdate: formData.revokeUpdate,
-            socialLinks: formData.socialLinks,
-            creatorInfo: formData.creatorInfo,
-          })}{" "}
-          SOL
+          {formatFee(totalFee)}
         </span>
       </div>
       <div className="text-xs text-gray-500">
-        (Network transaction fees are separate and go to validators)
+        (Single transaction includes all network fees)
       </div>
 
       <button
