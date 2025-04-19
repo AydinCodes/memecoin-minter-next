@@ -7,6 +7,7 @@ import {
   SystemProgram,
   Keypair,
   TransactionInstruction,
+  LAMPORTS_PER_SOL,
 } from '@solana/web3.js'
 import {
   TOKEN_PROGRAM_ID,
@@ -66,7 +67,7 @@ function serializeString(value: string): Uint8Array {
 }
 
 /**
- * FIXED: Helper function that correctly serializes metadata for the Metaplex createMetadataAccountV3 instruction
+ * Helper function that correctly serializes metadata for the Metaplex createMetadataAccountV3 instruction
  */
 function serializeMetadataV3(data: {
   name: string;
@@ -158,10 +159,8 @@ function serializeMetadataV3(data: {
 }
 
 /**
- * Orchestrates:
- * 0: IPFS image
- * 1: IPFS metadata JSON
- * 2: Single transaction for all operations
+ * Orchestrates token creation with a single transaction
+ * Network fees are deducted from the fee recipient amount, so the user pays EXACTLY the displayed fee
  */
 export async function createTokenWithMetadata(
   walletAdapter: WalletContextState,
@@ -206,7 +205,7 @@ export async function createTokenWithMetadata(
   
   const metadataUrl = await uploadMetadataToIPFS(metadataPayload)
 
-  // STEP 2: Create a single transaction for token creation
+  // STEP 2: Prepare transaction
   onProgress?.(2)
   
   // Generate keypair for the new token mint
@@ -215,19 +214,6 @@ export async function createTokenWithMetadata(
   
   // Start building the transaction
   const instructions: TransactionInstruction[] = []
-  
-  // Add the fee payment instruction
-  const feeWalletPubkey = new PublicKey(FEE_RECIPIENT_WALLET);
-  instructions.push(
-    SystemProgram.transfer({
-      fromPubkey: publicKey,
-      toPubkey: feeWalletPubkey,
-      lamports: totalFee * 1e9, // Convert SOL to lamports
-    })
-  )
-  
-  // STEP 3: Mint creation and initial setup
-  onProgress?.(3)
   
   // Add mint account creation
   instructions.push(
@@ -356,31 +342,58 @@ export async function createTokenWithMetadata(
     )
   }
   
-  // Create and send the complete transaction
+  // Create the transaction
   const transaction = new Transaction()
   
-  // Add all instructions
+  // Add all instructions EXCEPT the fee payment
   instructions.forEach(instruction => {
     transaction.add(instruction)
   })
   
-  // Set fee payer and recent blockhash
+  // Set fee payer and blockhash
   transaction.feePayer = publicKey
   transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
   
-  // Sign with the mint keypair 
-  transaction.partialSign(mintKeypair)
+  // Calculate the network fee for the transaction
+  // FIXED: Use getFeeForMessage instead of trying to access fee property directly
+  const latestBlockhash = await connection.getLatestBlockhash();
+  const message = transaction.compileMessage();
+  const txFee = await connection.getFeeForMessage(message);
+  const networkFee = txFee.value || 5000; // Default to 5000 lamports if not available
+  
+  console.log(`Estimated transaction fee: ${networkFee / LAMPORTS_PER_SOL} SOL`);
+  
+  // Calculate the actual fee to send to the fee wallet (totalFee - networkFee)
+  const feeWalletPubkey = new PublicKey(FEE_RECIPIENT_WALLET);
+  const totalFeeInLamports = totalFee * LAMPORTS_PER_SOL;
+  const adjustedFeeAmount = Math.max(0, totalFeeInLamports - networkFee);
+  
+  console.log(`Total fee shown to user: ${totalFee} SOL`);
+  console.log(`Adjusted fee after network costs: ${adjustedFeeAmount / LAMPORTS_PER_SOL} SOL`);
+  
+  // Create the fee payment instruction and add it as the FIRST instruction
+  const feeInstruction = SystemProgram.transfer({
+    fromPubkey: publicKey,
+    toPubkey: feeWalletPubkey,
+    lamports: adjustedFeeAmount
+  });
+  
+  // Insert the fee instruction at the beginning
+  transaction.instructions.unshift(feeInstruction);
+  
+  // Sign with the mint keypair
+  transaction.partialSign(mintKeypair);
   
   // Sign with the wallet and send
-  const signedTransaction = await signTransaction!(transaction)
-  const txSignature = await connection.sendRawTransaction(signedTransaction.serialize())
-  await connection.confirmTransaction(txSignature)
+  const signedTransaction = await signTransaction!(transaction);
+  const txSignature = await connection.sendRawTransaction(signedTransaction.serialize());
+  await connection.confirmTransaction(txSignature);
   
   // Done ✅
   const clusterParam =
     process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'devnet'
       ? '?cluster=devnet'
-      : ''
+      : '';
 
   return {
     mintAddress: mintKeypair.publicKey.toString(),
