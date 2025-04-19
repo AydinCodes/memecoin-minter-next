@@ -26,29 +26,11 @@ import { getSolanaConnection } from "./wallet-service";
 import {
   uploadImageToIPFS,
   uploadMetadataToIPFS,
+  updateMetadataWithMintAddress,
   MetadataPayload,
 } from "./ipfs-service";
 import { TOKEN_METADATA_PROGRAM_ID, FEE_RECIPIENT_WALLET } from "@/config";
-
-/** Your form data shape */
-export interface FormDataType {
-  name: string;
-  symbol: string;
-  decimals: number;
-  supply: number;
-  description: string;
-  logo: File | null;
-  revokeMint: boolean;
-  revokeFreeze: boolean;
-  revokeUpdate: boolean;
-  socialLinks: boolean;
-  creatorInfo: boolean;
-  creatorName: string;
-  website: string;
-  twitter: string;
-  telegram: string;
-  discord: string;
-}
+import { FormDataType } from "@/types/token";
 
 /** What we return once done */
 export interface TokenResult {
@@ -215,25 +197,28 @@ export async function createTokenWithMetadata(
     creatorInfo: formData.creatorInfo,
   });
 
-  // STEP 0: IPFS image
+  // STEP 0: IPFS image with unique name
   onProgress?.(0);
-  const imageUrl = await uploadImageToIPFS(formData.logo!);
+  const imageUrl = await uploadImageToIPFS(formData.logo, formData.name, formData.symbol);
 
   // STEP 1: IPFS metadata JSON
   onProgress?.(1);
 
-  // Prepare creator info based on creatorInfo flag
-  let creatorName = "SolMinter";
-  if (formData.creatorInfo && formData.creatorName) {
-    creatorName = formData.creatorName;
-  }
-
+  // Prepare metadata payload with extended fields from non-Next.js version
   const metadataPayload: MetadataPayload = {
     name: formData.name,
     symbol: formData.symbol,
     description: formData.description,
     image: imageUrl,
-    creator: creatorName,
+    creator: formData.creatorInfo ? formData.creatorName : "SolMinter",
+    showName: true,
+    tokenInfo: {
+      chain: "Solana",
+      totalSupply: formData.supply,
+      circulatingSupply: formData.supply,
+      decimals: formData.decimals
+    },
+    createdOn: "SolMinter"
   };
 
   // Only add social links if enabled
@@ -244,6 +229,7 @@ export async function createTokenWithMetadata(
     metadataPayload.discord = formData.discord;
   }
 
+  // Upload the initial metadata
   const metadataUrl = await uploadMetadataToIPFS(metadataPayload);
 
   // STEP 2: Prepare transaction
@@ -421,6 +407,11 @@ export async function createTokenWithMetadata(
     console.log("Waiting for confirmation...");
     await connection.confirmTransaction(txSignature);
     console.log("Transaction confirmed successfully!");
+    
+    // After successful token creation, update the metadata with the mint address
+    const mintAddress = mintKeypair.publicKey.toString();
+    const updatedMetadataUrl = await updateMetadataWithMintAddress(metadataUrl, mintAddress, formData);
+    console.log("Metadata updated with mint address:", updatedMetadataUrl);
   } catch (error: unknown) {
     console.error("Transaction error:", error);
     const errorMessage =
@@ -434,10 +425,23 @@ export async function createTokenWithMetadata(
       ? "?cluster=devnet"
       : "";
 
+  // After successful token creation, get the mint address
+  const mintAddress = mintKeypair.publicKey.toString();
+  
+  // Update metadata with mint address
+  let finalMetadataUrl = metadataUrl;
+  try {
+    finalMetadataUrl = await updateMetadataWithMintAddress(metadataUrl, mintAddress, formData);
+    console.log("Metadata updated with mint address:", finalMetadataUrl);
+  } catch (updateError) {
+    console.error("Error updating metadata (non-critical):", updateError);
+    // Continue with original metadata URL if update fails
+  }
+
   return {
-    mintAddress: mintKeypair.publicKey.toString(),
-    metadataUrl,
+    mintAddress: mintAddress,
+    metadataUrl: finalMetadataUrl,
     imageUrl,
-    explorerUrl: `https://explorer.solana.com/address/${mintKeypair.publicKey.toString()}${clusterParam}`,
+    explorerUrl: `https://explorer.solana.com/address/${mintAddress}${clusterParam}`,
   };
-}
+};

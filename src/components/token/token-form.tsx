@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import {
   createTokenWithMetadata,
-  FormDataType,
   TokenResult,
 } from "@/services/token-service"
 import { calculateFee, formatFee } from "@/services/fee-service"
@@ -14,14 +13,17 @@ import TokenFormBasic from "./token-form-basic"
 import TokenFormOptions from "./token-form-options"
 import TokenFormAuthorities from "./token-form-authorities"
 import TokenFormCreator from "./token-form-creator"
+import { FormDataType } from "@/types/token"
 
+// Enhanced steps with more detail on IPFS operations
 const STEPS = [
-  "Uploading token image…",
+  "Uploading token image to IPFS…",
   "Creating token metadata…",
   "Processing transaction…",
   "Creating mint & token account…",
   "Adding on‐chain metadata…",
   "Configuring token authorities…",
+  "Updating metadata with mint address…",
 ]
 
 export default function TokenForm() {

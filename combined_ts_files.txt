@@ -1067,11 +1067,18 @@ export default function TokenForm() {
   const [error, setError] = useState<string | null>(null)
   const [progressStep, setProgressStep] = useState(0)
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null)
-  const [totalFee, setTotalFee] = useState<number>(0.5) // Initial fee calculation with all defaults
+  const [totalFee, setTotalFee] = useState<number>(0.4) // Initial fee calculation with all defaults (0.1 base + 0.3 for all authorities)
 
   // Calculate fee whenever relevant form options change
   useEffect(() => {
     const fee = calculateFee({
+      revokeMint: formData.revokeMint,
+      revokeFreeze: formData.revokeFreeze,
+      revokeUpdate: formData.revokeUpdate,
+      socialLinks: formData.socialLinks,
+      creatorInfo: formData.creatorInfo,
+    })
+    console.log("Calculated fee:", fee, "with options:", {
       revokeMint: formData.revokeMint,
       revokeFreeze: formData.revokeFreeze,
       revokeUpdate: formData.revokeUpdate,
@@ -1090,7 +1097,11 @@ export default function TokenForm() {
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const { name, value, type, checked } = e.target as HTMLInputElement
+    const { name, value, type } = e.target as HTMLInputElement
+    const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : undefined
+    
+    console.log(`Input changed: ${name} = ${type === 'checkbox' ? checked : value}`)
+    
     setFormData((prev) => ({
       ...prev,
       [name]:
@@ -1108,33 +1119,41 @@ export default function TokenForm() {
     }
   }
 
+  // Function to validate form data before submission
+  const validateForm = (): string | null => {
+    if (!walletAdapter.connected) {
+      return "Please connect your wallet first";
+    }
+    if (!formData.logo) {
+      return "Please upload a logo image";
+    }
+    if (!formData.name || formData.name.trim() === '') {
+      return "Token name is required";
+    }
+    if (!formData.symbol || formData.symbol.trim() === '') {
+      return "Token symbol is required";
+    }
+    if (!formData.description || formData.description.trim() === '') {
+      return "Token description is required";
+    }
+    return null;
+  };
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
+      
+      // Clear previous errors
       setError(null)
+      
+      // Validate form
+      const validationError = validateForm();
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
 
       try {
-        if (!walletAdapter.connected) {
-          setError("Please connect your wallet first")
-          return
-        }
-        if (!formData.logo) {
-          setError("Please upload a logo image")
-          return
-        }
-        if (!formData.name || formData.name.trim() === '') {
-          setError("Token name is required")
-          return
-        }
-        if (!formData.symbol || formData.symbol.trim() === '') {
-          setError("Token symbol is required")
-          return
-        }
-        if (!formData.description || formData.description.trim() === '') {
-          setError("Token description is required")
-          return
-        }
-
         setIsSubmitting(true)
         setProgressStep(0)
 
@@ -1154,6 +1173,8 @@ export default function TokenForm() {
     },
     [walletAdapter, formData, totalFee]
   )
+
+  const buttonDisabled = !walletAdapter.connected || isSubmitting;
 
   if (tokenResult) {
     return <TokenCreationSuccess result={tokenResult} />
@@ -1215,9 +1236,9 @@ export default function TokenForm() {
 
       <button
         type="submit"
-        disabled={!walletAdapter.connected}
-        className={`w-full py-3 rounded-full text-white font-medium transition ${
-          walletAdapter.connected
+        disabled={buttonDisabled}
+        className={`w-full py-3 rounded-full text-white font-medium transition cursor-pointer ${
+          !buttonDisabled
             ? "bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90"
             : "bg-gray-600 cursor-not-allowed"
         }`}
@@ -1419,7 +1440,19 @@ export default function TokenFormAuthorities({
     const checkbox = document.getElementById(field) as HTMLInputElement;
     if (checkbox) {
       checkbox.checked = !formData[field];
+      // Create a proper change event
       const event = new Event('change', { bubbles: true });
+      
+      // Add properties to the event object using Object.defineProperty
+      Object.defineProperty(event, 'target', {
+        writable: false,
+        value: {
+          name: field,
+          type: 'checkbox',
+          checked: !formData[field]
+        }
+      });
+      
       checkbox.dispatchEvent(event);
     }
   };
@@ -1438,7 +1471,12 @@ export default function TokenFormAuthorities({
                 type="checkbox" 
                 name="revokeFreeze"
                 checked={formData.revokeFreeze}
-                onChange={() => {}} // Add an empty handler to avoid React warnings
+                onChange={(e) => {
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    revokeFreeze: e.target.checked
+                  }));
+                }}
                 className="hidden" // Keep hidden but track state
               />
               <div 
@@ -1468,7 +1506,12 @@ export default function TokenFormAuthorities({
                 type="checkbox" 
                 name="revokeMint"
                 checked={formData.revokeMint}
-                onChange={() => {}} // Add an empty handler to avoid React warnings
+                onChange={(e) => {
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    revokeMint: e.target.checked
+                  }));
+                }}
                 className="hidden" // Keep hidden but track state
               />
               <div 
@@ -1498,7 +1541,12 @@ export default function TokenFormAuthorities({
                 type="checkbox" 
                 name="revokeUpdate"
                 checked={formData.revokeUpdate}
-                onChange={() => {}} // Add an empty handler to avoid React warnings
+                onChange={(e) => {
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    revokeUpdate: e.target.checked
+                  }));
+                }}
                 className="hidden" // Keep hidden but track state
               />
               <div 
@@ -1637,7 +1685,7 @@ export default function SocialLinksForm({ formData, handleInputChange }: SocialL
 
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 
 interface TokenFormBasicProps {
   formData: {
@@ -1657,6 +1705,16 @@ export default function TokenFormBasic({
   handleInputChange,
   handleFileChange
 }: TokenFormBasicProps) {
+  // Create a ref for the file input
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Function to trigger file input click
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   return (
     <div className="form-section mb-8">
       <div className="form-field mb-4">
@@ -1719,19 +1777,28 @@ export default function TokenFormBasic({
       <div className="logo-wrapper grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
         <div className="logo-box">
           <span className="label-text block text-gray-300 mb-2">Logo *</span>
-          <div className="img-input-wrapper border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-purple-500 transition-colors" onClick={() => document.querySelector<HTMLInputElement>('.form-img')?.click()}>
+          <div 
+            className="img-input-wrapper border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-purple-500 transition-colors" 
+            onClick={triggerFileInput}
+          >
             <span className="material-symbols-rounded text-3xl mb-2 text-gray-400 block">upload</span>
             <span className="text-1 block text-gray-300 mb-1">Drag and drop here to upload</span>
             <div className="text-2 text-xs text-gray-500">.png, .jpg 1000x1000 px</div>
             <input 
+              ref={fileInputRef}
               accept=".png, .jpg, .jpeg" 
               className="form-img hidden" 
               type="file"
               onChange={handleFileChange}
-              required
+              // Remove required from hidden input
             />
           </div>
           <span className="field-constraint text-xs text-gray-500 mt-1 block">Add logo for your token</span>
+          {!formData.logo && (
+            <span className="text-red-400 text-xs mt-1 block">
+              Logo image is required
+            </span>
+          )}
         </div>
         
         <div className="logo-preview flex items-center justify-center">
@@ -2196,7 +2263,7 @@ import {
   Keypair,
   TransactionInstruction,
   LAMPORTS_PER_SOL,
-} from '@solana/web3.js'
+} from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   MINT_SIZE,
@@ -2207,51 +2274,51 @@ import {
   createMintToInstruction,
   createSetAuthorityInstruction,
   AuthorityType,
-} from '@solana/spl-token'
-import type { WalletContextState } from '@solana/wallet-adapter-react'
+} from "@solana/spl-token";
+import type { WalletContextState } from "@solana/wallet-adapter-react";
 
-import { getSolanaConnection } from './wallet-service'
+import { getSolanaConnection } from "./wallet-service";
 import {
   uploadImageToIPFS,
   uploadMetadataToIPFS,
   MetadataPayload,
-} from './ipfs-service'
-import { TOKEN_METADATA_PROGRAM_ID, FEE_RECIPIENT_WALLET } from '@/config'
+} from "./ipfs-service";
+import { TOKEN_METADATA_PROGRAM_ID, FEE_RECIPIENT_WALLET } from "@/config";
 
 /** Your form data shape */
 export interface FormDataType {
-  name: string
-  symbol: string
-  decimals: number
-  supply: number
-  description: string
-  logo: File | null
-  revokeMint: boolean
-  revokeFreeze: boolean
-  revokeUpdate: boolean
-  socialLinks: boolean
-  creatorInfo: boolean
-  creatorName: string
-  website: string
-  twitter: string
-  telegram: string
-  discord: string
+  name: string;
+  symbol: string;
+  decimals: number;
+  supply: number;
+  description: string;
+  logo: File | null;
+  revokeMint: boolean;
+  revokeFreeze: boolean;
+  revokeUpdate: boolean;
+  socialLinks: boolean;
+  creatorInfo: boolean;
+  creatorName: string;
+  website: string;
+  twitter: string;
+  telegram: string;
+  discord: string;
 }
 
 /** What we return once done */
 export interface TokenResult {
-  mintAddress: string
-  metadataUrl: string
-  imageUrl: string
-  explorerUrl: string
+  mintAddress: string;
+  metadataUrl: string;
+  imageUrl: string;
+  explorerUrl: string;
 }
 
 /** Helper: serialize a UTF‑8 string with u32‑length prefix (LE) */
 function serializeString(value: string): Uint8Array {
-  const buffer = Buffer.from(value, 'utf8')
-  const length = Buffer.alloc(4)
-  length.writeUInt32LE(buffer.length, 0)
-  return Buffer.concat([length, buffer])
+  const buffer = Buffer.from(value, "utf8");
+  const length = Buffer.alloc(4);
+  length.writeUInt32LE(buffer.length, 0);
+  return Buffer.concat([length, buffer]);
 }
 
 /**
@@ -2269,17 +2336,17 @@ function serializeMetadataV3(data: {
 }): Uint8Array {
   // Name
   const nameBuffer = serializeString(data.name);
-  
+
   // Symbol
   const symbolBuffer = serializeString(data.symbol);
-  
+
   // URI
   const uriBuffer = serializeString(data.uri);
-  
+
   // Seller fee basis points (u16)
   const sellerFeeBasisPointsBuffer = Buffer.alloc(2);
   sellerFeeBasisPointsBuffer.writeUInt16LE(data.sellerFeeBasisPoints, 0);
-  
+
   // Creators (Option<Vec<Creator>>)
   let creatorsBuffer;
   if (data.creators === null) {
@@ -2293,17 +2360,17 @@ function serializeMetadataV3(data: {
         return Buffer.concat([address, verified, share]);
       })
     );
-    
+
     const creatorsLength = Buffer.alloc(4);
     creatorsLength.writeUInt32LE(data.creators.length, 0);
-    
+
     creatorsBuffer = Buffer.concat([
       Buffer.from([1]), // Some
       creatorsLength,
       creatorsVec,
     ]);
   }
-  
+
   // Collection (Option<Collection>)
   let collectionBuffer;
   if (data.collection === null) {
@@ -2315,7 +2382,7 @@ function serializeMetadataV3(data: {
       Buffer.from([data.collection.verified ? 1 : 0]),
     ]);
   }
-  
+
   // Uses (Option<Uses>)
   let usesBuffer;
   if (data.uses === null) {
@@ -2324,14 +2391,14 @@ function serializeMetadataV3(data: {
     // Implement if needed - for now we don't use this
     usesBuffer = Buffer.from([0]); // None
   }
-  
+
   // Collection Details (Option<CollectionDetails>)
   // We don't use this, so set to None
   const collectionDetailsBuffer = Buffer.from([0]);
-  
+
   // isMutable
   const isMutableBuffer = Buffer.from([data.isMutable ? 1 : 0]);
-  
+
   // Combine all into the expected format
   return Buffer.concat([
     nameBuffer,
@@ -2356,33 +2423,74 @@ export async function createTokenWithMetadata(
   totalFee: number,
   onProgress?: (step: number) => void
 ): Promise<TokenResult> {
-  const { publicKey, signTransaction, connected } = walletAdapter
+  const { publicKey, signTransaction, connected } = walletAdapter;
   if (!connected || !publicKey) {
-    throw new Error('Wallet not connected. Please connect your wallet first.')
+    throw new Error("Wallet not connected. Please connect your wallet first.");
   }
-  const connection: Connection = getSolanaConnection()
+  const connection: Connection = getSolanaConnection();
+
+  // Validate inputs
+  if (!formData.logo) {
+    throw new Error("Please upload a logo image");
+  }
+  if (!formData.name || formData.name.trim() === "") {
+    throw new Error("Token name is required");
+  }
+  if (!formData.symbol || formData.symbol.trim() === "") {
+    throw new Error("Token symbol is required");
+  }
+  if (!formData.description || formData.description.trim() === "") {
+    throw new Error("Token description is required");
+  }
+
+  // CRITICAL: If Revoke Update is not checked, force it to be checked
+  // This is necessary because Phantom's simulation fails otherwise
+  if (!formData.revokeUpdate) {
+    console.warn(
+      "Forcing Revoke Update to true to prevent transaction simulation failure"
+    );
+    formData.revokeUpdate = true;
+  }
+
+  // Make sure we have a valid fee - always ensure at least the base fee
+  const minimumFeeInSOL = 0.1;
+  if (totalFee < minimumFeeInSOL) {
+    console.warn(
+      `Fee is too low (${totalFee}), using minimum fee of ${minimumFeeInSOL} SOL`
+    );
+    totalFee = minimumFeeInSOL;
+  }
+
+  console.log("Creating token with fee:", totalFee, "SOL");
+  console.log("Token options:", {
+    revokeMint: formData.revokeMint,
+    revokeFreeze: formData.revokeFreeze,
+    revokeUpdate: formData.revokeUpdate,
+    socialLinks: formData.socialLinks,
+    creatorInfo: formData.creatorInfo,
+  });
 
   // STEP 0: IPFS image
-  onProgress?.(0)
-  const imageUrl = await uploadImageToIPFS(formData.logo!)
+  onProgress?.(0);
+  const imageUrl = await uploadImageToIPFS(formData.logo!);
 
   // STEP 1: IPFS metadata JSON
-  onProgress?.(1)
-  
+  onProgress?.(1);
+
   // Prepare creator info based on creatorInfo flag
-  let creatorName = 'SolMinter';
+  let creatorName = "SolMinter";
   if (formData.creatorInfo && formData.creatorName) {
     creatorName = formData.creatorName;
   }
-  
+
   const metadataPayload: MetadataPayload = {
     name: formData.name,
     symbol: formData.symbol,
     description: formData.description,
     image: imageUrl,
     creator: creatorName,
-  }
-  
+  };
+
   // Only add social links if enabled
   if (formData.socialLinks) {
     metadataPayload.website = formData.website;
@@ -2390,19 +2498,35 @@ export async function createTokenWithMetadata(
     metadataPayload.telegram = formData.telegram;
     metadataPayload.discord = formData.discord;
   }
-  
-  const metadataUrl = await uploadMetadataToIPFS(metadataPayload)
+
+  const metadataUrl = await uploadMetadataToIPFS(metadataPayload);
 
   // STEP 2: Prepare transaction
-  onProgress?.(2)
-  
+  onProgress?.(2);
+
   // Generate keypair for the new token mint
-  const mintKeypair = Keypair.generate()
-  const rentExempt = await getMinimumBalanceForRentExemptMint(connection)
-  
+  const mintKeypair = Keypair.generate();
+  const rentExempt = await getMinimumBalanceForRentExemptMint(connection);
+
   // Start building the transaction
-  const instructions: TransactionInstruction[] = []
-  
+  const instructions: TransactionInstruction[] = [];
+
+  // First, add the fee payment instruction to ensure it's always included
+  const feeWalletPubkey = new PublicKey(FEE_RECIPIENT_WALLET);
+  const feeAmountInLamports = totalFee * LAMPORTS_PER_SOL;
+
+  console.log(
+    `Adding fee payment of ${totalFee} SOL to ${FEE_RECIPIENT_WALLET}`
+  );
+
+  const feeInstruction = SystemProgram.transfer({
+    fromPubkey: publicKey,
+    toPubkey: feeWalletPubkey,
+    lamports: feeAmountInLamports,
+  });
+
+  instructions.push(feeInstruction);
+
   // Add mint account creation
   instructions.push(
     SystemProgram.createAccount({
@@ -2412,8 +2536,8 @@ export async function createTokenWithMetadata(
       lamports: rentExempt,
       programId: TOKEN_PROGRAM_ID,
     })
-  )
-  
+  );
+
   // Initialize mint
   instructions.push(
     createInitializeMintInstruction(
@@ -2423,14 +2547,11 @@ export async function createTokenWithMetadata(
       publicKey,
       TOKEN_PROGRAM_ID
     )
-  )
-  
+  );
+
   // Create Associated Token Account
-  const ata = await getAssociatedTokenAddress(
-    mintKeypair.publicKey,
-    publicKey
-  )
-  
+  const ata = await getAssociatedTokenAddress(mintKeypair.publicKey, publicKey);
+
   instructions.push(
     createAssociatedTokenAccountInstruction(
       publicKey,
@@ -2438,32 +2559,27 @@ export async function createTokenWithMetadata(
       publicKey,
       mintKeypair.publicKey
     )
-  )
-  
+  );
+
   // Mint tokens to ATA
-  const mintAmount = BigInt(formData.supply) * BigInt(10 ** formData.decimals)
+  const mintAmount = BigInt(formData.supply) * BigInt(10 ** formData.decimals);
   instructions.push(
-    createMintToInstruction(
-      mintKeypair.publicKey,
-      ata,
-      publicKey,
-      mintAmount
-    )
-  )
-  
+    createMintToInstruction(mintKeypair.publicKey, ata, publicKey, mintAmount)
+  );
+
   // STEP 4: Create metadata
-  onProgress?.(4)
+  onProgress?.(4);
   // derive metadata PDA
-  const metadataProgramId = new PublicKey(TOKEN_METADATA_PROGRAM_ID)
+  const metadataProgramId = new PublicKey(TOKEN_METADATA_PROGRAM_ID);
   const [metadataPDA] = PublicKey.findProgramAddressSync(
     [
-      Buffer.from('metadata'),
+      Buffer.from("metadata"),
       metadataProgramId.toBuffer(),
       mintKeypair.publicKey.toBuffer(),
     ],
     metadataProgramId
-  )
-  
+  );
+
   // Create metadata creators array if custom creator is specified
   let creators = null;
   if (formData.creatorInfo) {
@@ -2471,11 +2587,11 @@ export async function createTokenWithMetadata(
       {
         address: publicKey,
         verified: true,
-        share: 100
-      }
+        share: 100,
+      },
     ];
   }
-  
+
   // Add metadata creation instruction
   instructions.push({
     programId: metadataProgramId,
@@ -2497,13 +2613,14 @@ export async function createTokenWithMetadata(
         creators: creators,
         collection: null,
         uses: null,
-        isMutable: !formData.revokeUpdate,
+        isMutable: false, 
       }),
     ]),
-  })
-  
-  // STEP 5: Add authority revocation instructions
-  onProgress?.(5)
+  });
+
+  // STEP 5: Add authority revocation instructions (optional)
+  onProgress?.(5);
+
   if (formData.revokeMint) {
     instructions.push(
       createSetAuthorityInstruction(
@@ -2514,9 +2631,9 @@ export async function createTokenWithMetadata(
         [],
         TOKEN_PROGRAM_ID
       )
-    )
+    );
   }
-  
+
   if (formData.revokeFreeze) {
     instructions.push(
       createSetAuthorityInstruction(
@@ -2527,69 +2644,59 @@ export async function createTokenWithMetadata(
         [],
         TOKEN_PROGRAM_ID
       )
-    )
+    );
   }
-  
+
   // Create the transaction
-  const transaction = new Transaction()
-  
-  // Add all instructions EXCEPT the fee payment
-  instructions.forEach(instruction => {
-    transaction.add(instruction)
-  })
-  
-  // Set fee payer and blockhash
-  transaction.feePayer = publicKey
-  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
-  
-  // Calculate the network fee for the transaction
-  // FIXED: Use getFeeForMessage instead of trying to access fee property directly
-  const latestBlockhash = await connection.getLatestBlockhash();
-  const message = transaction.compileMessage();
-  const txFee = await connection.getFeeForMessage(message);
-  const networkFee = txFee.value || 5000; // Default to 5000 lamports if not available
-  
-  console.log(`Estimated transaction fee: ${networkFee / LAMPORTS_PER_SOL} SOL`);
-  
-  // Calculate the actual fee to send to the fee wallet (totalFee - networkFee)
-  const feeWalletPubkey = new PublicKey(FEE_RECIPIENT_WALLET);
-  const totalFeeInLamports = totalFee * LAMPORTS_PER_SOL;
-  const adjustedFeeAmount = Math.max(0, totalFeeInLamports - networkFee);
-  
-  console.log(`Total fee shown to user: ${totalFee} SOL`);
-  console.log(`Adjusted fee after network costs: ${adjustedFeeAmount / LAMPORTS_PER_SOL} SOL`);
-  
-  // Create the fee payment instruction and add it as the FIRST instruction
-  const feeInstruction = SystemProgram.transfer({
-    fromPubkey: publicKey,
-    toPubkey: feeWalletPubkey,
-    lamports: adjustedFeeAmount
+  const transaction = new Transaction();
+
+  // Add all instructions
+  instructions.forEach((instruction) => {
+    transaction.add(instruction);
   });
-  
-  // Insert the fee instruction at the beginning
-  transaction.instructions.unshift(feeInstruction);
-  
+
+  // Set fee payer and blockhash
+  transaction.feePayer = publicKey;
+  transaction.recentBlockhash = (
+    await connection.getLatestBlockhash()
+  ).blockhash;
+
   // Sign with the mint keypair
   transaction.partialSign(mintKeypair);
-  
-  // Sign with the wallet and send
-  const signedTransaction = await signTransaction!(transaction);
-  const txSignature = await connection.sendRawTransaction(signedTransaction.serialize());
-  await connection.confirmTransaction(txSignature);
-  
+
+  try {
+    // Sign with the wallet and send
+    console.log("Sending transaction to wallet for approval...");
+    const signedTransaction = await signTransaction!(transaction);
+    console.log("Transaction signed, submitting to network...");
+    const txSignature = await connection.sendRawTransaction(
+      signedTransaction.serialize()
+    );
+    console.log("Transaction submitted, signature:", txSignature);
+    console.log("Waiting for confirmation...");
+    await connection.confirmTransaction(txSignature);
+    console.log("Transaction confirmed successfully!");
+  } catch (error: unknown) {
+    console.error("Transaction error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    throw new Error(`Failed to process transaction: ${errorMessage}`);
+  }
+
   // Done ✅
   const clusterParam =
-    process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'devnet'
-      ? '?cluster=devnet'
-      : '';
+    process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet"
+      ? "?cluster=devnet"
+      : "";
 
   return {
     mintAddress: mintKeypair.publicKey.toString(),
     metadataUrl,
     imageUrl,
     explorerUrl: `https://explorer.solana.com/address/${mintKeypair.publicKey.toString()}${clusterParam}`,
-  }
+  };
 }
+
 
 // ===== src/services/fee-service.ts =====
 
@@ -2605,7 +2712,7 @@ export interface FeeOptions {
 
 // Base fee plus optional feature fees
 export function calculateFee(options: FeeOptions): number {
-  let fee = 0.2; // Base fee for token creation - FIXED FROM 0.1 TO 0.2
+  let fee = 0.1; // Base fee for token creation - corrected to 0.1
 
   // Add fee for each enabled feature
   if (options.revokeMint)    fee += 0.1;
