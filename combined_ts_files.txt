@@ -394,19 +394,21 @@ export function Providers({ children }: { children: ReactNode }) {
 // Solana network configuration
 export const SOLANA_NETWORK = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
 
-// Fee recipient wallet
+// Fee recipient wallet - address that will receive token creation fees
 export const FEE_RECIPIENT_WALLET = process.env.NEXT_PUBLIC_FEE_WALLET || '8oUmkz9VmF9upLxUg6qp6iaq5N4A86bUuo37SJvXvzWt';
 
-// IPFS configuration
+// IPFS/Pinata configuration
 export const PINATA_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud';
+export const PINATA_API_KEY = process.env.NEXT_PUBLIC_PINATA_API_KEY;
+export const PINATA_SECRET_KEY = process.env.NEXT_PUBLIC_PINATA_SECRET_KEY;
 
-// Token creation fees
+// Token creation fees (in SOL)
 export const TOKEN_FEES = {
-  BASE_FEE: 0.2,
-  AUTHORITY_FEE: 0.1,
-  SOCIAL_LINKS_FEE: 0.1,
-  CREATOR_INFO_FEE: 0.1,
-  MAX_FEE: 0.3 // Capped discount
+  BASE_FEE: 0.2,  // Base fee for token creation
+  AUTHORITY_FEE: 0.1, // Fee per authority revoked
+  SOCIAL_LINKS_FEE: 0.1, // Fee for adding social links
+  CREATOR_INFO_FEE: 0.1, // Fee for custom creator info
+  MAX_FEE: 0.3 // Maximum fee (capped for discount)
 };
 
 // Default token configuration
@@ -419,10 +421,76 @@ export const DEFAULT_TOKEN_CONFIG = {
 };
 
 // Explorer URL generator
-export const getExplorerUrl = (address: string): string => {
+export const getExplorerUrl = (address: string, isTransaction = false): string => {
   const network = SOLANA_NETWORK;
-  return `https://explorer.solana.com/address/${address}${network === 'devnet' ? '?cluster=devnet' : ''}`;
+  const type = isTransaction ? 'tx' : 'address';
+  return `https://explorer.solana.com/${type}/${address}${network === 'devnet' ? '?cluster=devnet' : ''}`;
 };
+
+// Metaplex Token Metadata Program ID (constant across all Solana networks)
+export const TOKEN_METADATA_PROGRAM_ID = '4ncLWXQBRrwYbEe2J6CxvF8TkBWGR6Twcz3BCC4NVweB';
+
+// Program ID for the SPL Token Program
+export const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+
+// ===== src/utils/wallet-debug.ts =====
+
+// src/utils/wallet-debug.ts
+
+/**
+ * Helper function to debug wallet connection status
+ */
+export function debugWallet(wallet: any) {
+    const connection = {
+      walletExists: !!wallet,
+      publicKeyExists: wallet ? !!wallet.publicKey : false,
+      publicKeyValue: wallet && wallet.publicKey ? wallet.publicKey.toString() : 'none',
+      adapterExists: wallet ? !!wallet.adapter : false,
+      adapterConnected: wallet?.adapter ? !!wallet.adapter.connected : false,
+      walletName: wallet?.adapter?.name || 'unknown'
+    };
+    
+    console.log("===== WALLET DEBUG INFO =====");
+    console.table(connection);
+    console.log("=============================");
+    
+    return connection;
+  }
+  
+  /**
+   * Helper function to debug wallet adapter capabilities
+   */
+  export function debugWalletCapabilities(wallet: any) {
+    if (!wallet || !wallet.adapter) {
+      console.log("No wallet adapter found");
+      return;
+    }
+    
+    const adapter = wallet.adapter;
+    
+    const capabilities = {
+      name: adapter.name,
+      icon: !!adapter.icon,
+      connected: !!adapter.connected,
+      publicKey: !!adapter.publicKey,
+      connecting: !!adapter.connecting,
+      ready: !!adapter.ready,
+      supportedTransactionVersions: adapter.supportedTransactionVersions ? 
+        Array.from(adapter.supportedTransactionVersions) : [],
+      hasConnect: typeof adapter.connect === 'function',
+      hasDisconnect: typeof adapter.disconnect === 'function',
+      hasSignTransaction: typeof adapter.signTransaction === 'function',
+      hasSignAllTransactions: typeof adapter.signAllTransactions === 'function',
+      hasSignMessage: typeof adapter.signMessage === 'function',
+      hasSendTransaction: typeof adapter.sendTransaction === 'function',
+    };
+    
+    console.log("===== WALLET CAPABILITIES =====");
+    console.table(capabilities);
+    console.log("===============================");
+    
+    return capabilities;
+  }
 
 // ===== src/utils/error-utils.ts =====
 
@@ -640,6 +708,172 @@ export function isValidTokenName(name: string): boolean {
     return `https://explorer.solana.com/address/${tokenAddress}${network === 'devnet' ? '?cluster=devnet' : ''}`;
   }
 
+// ===== src/utils/token-validation.ts =====
+
+// src/utils/token-validation.ts
+
+/**
+ * Validates a token name
+ */
+export function isValidTokenName(name: string): boolean {
+    // Check if name is present
+    if (!name || name.trim() === '') {
+      return false;
+    }
+    
+    // Check length (Solana metadata has a reasonable limit)
+    if (name.length > 32) {
+      return false;
+    }
+    
+    // Check for invalid characters - allow more flexibility than the original
+    const validNameRegex = /^[a-zA-Z0-9\s_\-\.]+$/;
+    if (!validNameRegex.test(name)) {
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /**
+   * Validates a token symbol
+   */
+  export function isValidTokenSymbol(symbol: string): boolean {
+    // Check if symbol is present
+    if (!symbol || symbol.trim() === '') {
+      return false;
+    }
+    
+    // Check length (usually 2-10 characters for token symbols)
+    if (symbol.length > 10) {
+      return false;
+    }
+    
+    // Allow more flexibility in symbol format
+    const validSymbolRegex = /^[A-Za-z0-9]+$/;
+    if (!validSymbolRegex.test(symbol)) {
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /**
+   * Validates a token description
+   */
+  export function isValidTokenDescription(description: string): boolean {
+    // Description should exist
+    if (!description || description.trim() === '') {
+      return false;
+    }
+    
+    // Reasonable length limit
+    if (description.length > 1000) {
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /**
+   * Validates a token supply amount
+   */
+  export function isValidTokenSupply(supply: number): boolean {
+    // Supply must be positive
+    if (supply <= 0) {
+      return false;
+    }
+    
+    // Check for reasonable limits - allow bigger supply than original
+    if (supply > Number.MAX_SAFE_INTEGER) {
+      return false;
+    }
+    
+    // Must be a whole number
+    if (!Number.isInteger(supply)) {
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /**
+   * Validates token decimals
+   */
+  export function isValidTokenDecimals(decimals: number): boolean {
+    // Decimals must be in the valid range for Solana tokens
+    return Number.isInteger(decimals) && decimals >= 0 && decimals <= 9;
+  }
+  
+  /**
+   * Validates an image file for token logo
+   */
+  export function isValidTokenImage(file: File | null): boolean {
+    if (!file) {
+      return false;
+    }
+    
+    // Check file type
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      return false;
+    }
+    
+    // Check file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /**
+   * Formats a number with commas for display
+   */
+  export function formatNumberWithCommas(number: number): string {
+    return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+  
+  /**
+   * Validates the entire token form data
+   * @returns string error message or null if valid
+   */
+  export function validateTokenForm(formData: {
+    name: string;
+    symbol: string;
+    decimals: number;
+    supply: number;
+    description: string;
+    logo: File | null;
+  }): string | null {
+    if (!isValidTokenName(formData.name)) {
+      return "Token name is required and must be up to 32 alphanumeric characters";
+    }
+    
+    if (!isValidTokenSymbol(formData.symbol)) {
+      return "Token symbol is required and must be 2-10 alphanumeric characters";
+    }
+    
+    if (!isValidTokenDescription(formData.description)) {
+      return "Description is required and must be less than 1000 characters";
+    }
+    
+    if (!isValidTokenDecimals(formData.decimals)) {
+      return "Decimals must be a whole number between 0 and 9";
+    }
+    
+    if (!isValidTokenSupply(formData.supply)) {
+      return "Supply must be a positive whole number";
+    }
+    
+    if (!isValidTokenImage(formData.logo)) {
+      return "Logo image is required (PNG or JPG, max 5MB)";
+    }
+    
+    return null;
+  }
+
 // ===== src/components/token/token-form-options.tsx =====
 
 'use client';
@@ -665,6 +899,23 @@ export default function TokenFormOptions({
   setFormData,
   handleInputChange
 }: TokenFormOptionsProps) {
+  // Toggle function that also updates the input checkbox
+  const toggleOption = (option: 'socialLinks' | 'creatorInfo') => {
+    // Update the formData state
+    setFormData((prev: any) => ({
+      ...prev, 
+      [option]: !prev[option]
+    }));
+    
+    // Also simulate changing the checkbox by dispatching an event
+    const checkbox = document.getElementById(option) as HTMLInputElement;
+    if (checkbox) {
+      checkbox.checked = !formData[option];
+      const event = new Event('change', { bubbles: true });
+      checkbox.dispatchEvent(event);
+    }
+  };
+
   return (
     <div className="form-section mb-8">
       <div className="toggle-section mb-4">
@@ -681,7 +932,7 @@ export default function TokenFormOptions({
               />
               <div 
                 className={`toggle w-12 h-6 rounded-full p-1 cursor-pointer ${formData.creatorInfo ? 'bg-purple-600' : 'bg-gray-700'}`}
-                onClick={() => setFormData((prev: any) => ({...prev, creatorInfo: !prev.creatorInfo}))}
+                onClick={() => toggleOption('creatorInfo')}
               >
                 <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.creatorInfo ? 'translate-x-6' : ''}`}></div>
               </div>
@@ -709,7 +960,7 @@ export default function TokenFormOptions({
               />
               <div 
                 className={`toggle w-12 h-6 rounded-full p-1 cursor-pointer ${formData.socialLinks ? 'bg-purple-600' : 'bg-gray-700'}`}
-                onClick={() => setFormData((prev: any) => ({...prev, socialLinks: !prev.socialLinks}))}
+                onClick={() => toggleOption('socialLinks')}
               >
                 <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.socialLinks ? 'translate-x-6' : ''}`}></div>
               </div>
@@ -732,62 +983,71 @@ export default function TokenFormOptions({
 
 // ===== src/components/token/token-form.tsx =====
 
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { createTokenWithMetadata } from '@/services/token-service';
-import { useConnection } from '@solana/wallet-adapter-react';
-import TokenCreationSuccess from './token-creation-success';
-import SocialLinksForm from './social-links-form';
-import TokenFormBasic from './token-form-basic';
-import TokenFormOptions from './token-form-options';
-import TokenFormAuthorities from './token-form-authorities';
+import { useState, useCallback } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection } from "@solana/wallet-adapter-react";
+import {
+  createTokenWithMetadata,
+  calculateFee,
+} from "@/services/token-service";
+import { validateTokenForm } from "@/utils/token-validation";
+import { isWalletConnected } from "@/services/wallet-service";
+import TokenCreationSuccess from "./token-creation-success";
+import SocialLinksForm from "./social-links-form";
+import TokenFormBasic from "./token-form-basic";
+import TokenFormOptions from "./token-form-options";
+import TokenFormAuthorities from "./token-form-authorities";
+import Loading from "../ui/loading";
 
 export default function TokenForm() {
   const { publicKey, connected, wallet } = useWallet();
   const { connection } = useConnection();
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tokenCreationResult, setTokenCreationResult] = useState<any>(null);
-  
+  const [currentStep, setCurrentStep] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
-    name: '',
-    symbol: '',
+    name: "",
+    symbol: "",
     decimals: 9,
     supply: 1000000000,
-    description: '',
+    description: "",
     logo: null as File | null,
     revokeMint: true,
     revokeFreeze: true,
     revokeUpdate: true,
     socialLinks: false,
     creatorInfo: false,
-    website: '',
-    twitter: '',
-    telegram: '',
-    discord: ''
+    website: "",
+    twitter: "",
+    telegram: "",
+    discord: "",
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value, type } = e.target;
-    
-    if (type === 'checkbox') {
+
+    if (type === "checkbox") {
       const checkbox = e.target as HTMLInputElement;
       setFormData({
         ...formData,
-        [name]: checkbox.checked
+        [name]: checkbox.checked,
       });
-    } else if (type === 'number') {
+    } else if (type === "number") {
       setFormData({
         ...formData,
-        [name]: parseInt(value)
+        [name]: parseInt(value),
       });
     } else {
       setFormData({
         ...formData,
-        [name]: value
+        [name]: value,
       });
     }
   };
@@ -796,81 +1056,171 @@ export default function TokenForm() {
     if (e.target.files && e.target.files[0]) {
       setFormData({
         ...formData,
-        logo: e.target.files[0]
+        logo: e.target.files[0],
       });
     }
   };
 
   const calculateTotalFee = () => {
-    // Base fee is 0.2 SOL
-    let fee = 0.2;
-    
-    // Add 0.1 SOL for each selected option
-    if (formData.revokeMint) fee += 0.1;
-    if (formData.revokeFreeze) fee += 0.1;
-    if (formData.revokeUpdate) fee += 0.1;
-    if (formData.socialLinks) fee += 0.1;
-    if (formData.creatorInfo) fee += 0.1;
-    
-    // Apply discount cap at 0.3 SOL (as shown in the UI)
-    return Math.min(fee, 0.3);
+    return calculateFee({
+      revokeMint: formData.revokeMint,
+      revokeFreeze: formData.revokeFreeze,
+      revokeUpdate: formData.revokeUpdate,
+      socialLinks: formData.socialLinks,
+      creatorInfo: formData.creatorInfo,
+    });
   };
 
-  const validateForm = () => {
-    if (!formData.name) return "Token name is required";
-    if (!formData.symbol) return "Token symbol is required";
-    if (!formData.description) return "Description is required";
-    if (!formData.logo) return "Logo image is required";
-    if (formData.name.length > 32) return "Token name must be 32 characters or less";
-    if (formData.decimals < 0 || formData.decimals > 18) return "Decimals must be between 0 and 18";
-    if (formData.supply <= 0) return "Supply must be greater than 0";
-    return null;
+  // Debugging function to check form and wallet state
+  const debugFormState = () => {
+    console.log("Form Data:", formData);
+    console.log("Wallet Connected:", connected);
+    console.log("Wallet:", wallet);
+    console.log("Public Key:", publicKey?.toString());
+    console.log("Is Wallet Connected:", isWalletConnected(wallet));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    
-    // Validate form
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    
-    // Validate wallet connection
-    if (!connected || !wallet) {
-      setError("Please connect your wallet first");
-      return;
-    }
-    
-    // Check balance
-    try {
-      const balance = await connection.getBalance(publicKey!);
-      const requiredBalance = calculateTotalFee() * 1000000000; // Convert SOL to lamports
-      
-      if (balance < requiredBalance) {
-        setError(`Insufficient SOL balance. You need at least ${calculateTotalFee()} SOL.`);
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      debugFormState(); // Log debugging info
+
+      setError(null);
+      console.log("Form submission started");
+
+      // Check if wallet is connected
+      if (!connected || !wallet) {
+        setError("Please connect your wallet first");
+        console.log("Wallet not connected");
         return;
       }
-      
-      // Start token creation process
-      setIsSubmitting(true);
-      
-      const result = await createTokenWithMetadata(wallet, formData);
-      setTokenCreationResult(result);
-      
-    } catch (error) {
-      console.error("Error creating token:", error);
-      setError(error instanceof Error ? error.message : "An unknown error occurred");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+
+      // Simplified wallet connection check
+      if (!publicKey) {
+        setError("Please connect your wallet first");
+        console.log("No public key found");
+        return;
+      }
+
+      // Validate form
+      if (!formData.logo) {
+        setError("Please upload a logo image for your token");
+        console.log("Logo missing");
+        return;
+      }
+
+      if (!formData.name || formData.name.trim() === "") {
+        setError("Token name is required");
+        console.log("Name missing");
+        return;
+      }
+
+      if (!formData.symbol || formData.symbol.trim() === "") {
+        setError("Token symbol is required");
+        console.log("Symbol missing");
+        return;
+      }
+
+      if (!formData.description || formData.description.trim() === "") {
+        setError("Token description is required");
+        console.log("Description missing");
+        return;
+      }
+
+      // Check balance
+      try {
+        console.log("Checking balance...");
+        const balance = await connection.getBalance(publicKey!);
+        const requiredBalance = calculateTotalFee() * 1000000000; // Convert SOL to lamports
+        console.log(
+          `Balance: ${
+            balance / 1000000000
+          } SOL, Required: ${calculateTotalFee()} SOL`
+        );
+
+        if (balance < requiredBalance) {
+          setError(
+            `Insufficient SOL balance. You need at least ${calculateTotalFee()} SOL.`
+          );
+          console.log("Insufficient balance");
+          return;
+        }
+
+        // Start token creation process
+        setIsSubmitting(true);
+        console.log("Starting token creation process...");
+
+        // Define the steps for the loading component
+        const steps = [
+          "Uploading token image...",
+          "Creating token metadata...",
+          "Processing payment...",
+          "Creating token on Solana...",
+          "Configuring token authorities...",
+        ];
+
+        try {
+          // Step 1: Upload image
+          setCurrentStep(steps[0]);
+          console.log("Step 1: Uploading image...");
+
+          // Step 2: Create metadata
+          setCurrentStep(steps[1]);
+          console.log("Step 2: Creating metadata...");
+
+          // Step 3: Process payment
+          setCurrentStep(steps[2]);
+          console.log("Step 3: Processing payment...");
+
+          // Step 4: Create token
+          setCurrentStep(steps[3]);
+          console.log("Step 4: Creating token...");
+
+          // Step 5: Configure authorities
+          setCurrentStep(steps[4]);
+          console.log("Step 5: Configuring authorities...");
+
+          // Combined process
+          const result = await createTokenWithMetadata(wallet, formData);
+          console.log("Token creation successful:", result);
+          setTokenCreationResult(result);
+        } catch (error: any) {
+          console.error("Error creating token:", error);
+          setError(
+            error?.message || "An unknown error occurred during token creation."
+          );
+        } finally {
+          setIsSubmitting(false);
+          setCurrentStep(null);
+        }
+      } catch (error: any) {
+        console.error("Error in form submission:", error);
+        setError(error?.message || "An unknown error occurred");
+        setIsSubmitting(false);
+      }
+    },
+    [connection, publicKey, wallet, connected, formData]
+  );
 
   // If token creation was successful, show success component
   if (tokenCreationResult) {
     return <TokenCreationSuccess result={tokenCreationResult} />;
+  }
+
+  // If submitting, show loading with steps
+  if (isSubmitting) {
+    return (
+      <Loading
+        message="Creating your token..."
+        steps={[
+          "Uploading token image...",
+          "Creating token metadata...",
+          "Processing payment...",
+          "Creating token on Solana...",
+          "Configuring token authorities...",
+        ]}
+      />
+    );
   }
 
   return (
@@ -880,57 +1230,83 @@ export default function TokenForm() {
           Solana Token Creator
         </div>
         <div className="title-desc text-gray-400">
-          <span className="span-1 block">Create and deploy your Solana coin effortlessly in seconds.</span>
-          <span className="span-2 block">Reach the world and scale without limits!</span>
+          <span className="span-1 block">
+            Create and deploy your Solana coin effortlessly in seconds.
+          </span>
+          <span className="span-2 block">
+            Reach the world and scale without limits!
+          </span>
         </div>
       </div>
 
       {error && (
-        <div className="error-alert max-w-3xl mx-auto mb-4 bg-red-500 bg-opacity-20 border border-red-500 rounded-lg p-3 text-red-500">
+        <div className="error-alert max-w-3xl mx-auto mb-4 bg-red-500 bg-opacity-20 border border-red-500 rounded-lg p-3 text-white">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="token-creation-box max-w-3xl mx-auto bg-[#171717] rounded-xl p-6 shadow-xl">
+      <form
+        onSubmit={handleSubmit}
+        className="token-creation-box max-w-3xl mx-auto bg-[#171717] rounded-xl p-6 shadow-xl"
+      >
         {/* Basic token information section */}
-        <TokenFormBasic 
-          formData={formData} 
-          handleInputChange={handleInputChange} 
+        <TokenFormBasic
+          formData={formData}
+          handleInputChange={handleInputChange}
           handleFileChange={handleFileChange}
         />
 
         <div className="form-divider border-t border-gray-700 my-6"></div>
 
         {/* Optional features section */}
-        <TokenFormOptions 
-          formData={formData} 
-          setFormData={setFormData} 
+        <TokenFormOptions
+          formData={formData}
+          setFormData={setFormData}
           handleInputChange={handleInputChange}
         />
 
         <div className="form-divider border-t border-gray-700 my-6"></div>
 
         {/* Authorities section */}
-        <TokenFormAuthorities 
-          formData={formData} 
-          setFormData={setFormData}
-        />
+        <TokenFormAuthorities formData={formData} setFormData={setFormData} />
 
         {/* Submit section */}
         <div className="submit-section flex flex-col md:flex-row justify-between items-center mt-8">
-          <button 
-            type="submit" 
-            className={`submit-btn bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium py-3 px-8 rounded-full hover:shadow-lg transition-all w-full md:w-auto mb-4 md:mb-0 ${!connected || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+          <button
+            type="submit"
+            className={`submit-btn bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium py-3 px-8 rounded-full hover:shadow-lg transition-all w-full md:w-auto mb-4 md:mb-0 ${
+              !connected || isSubmitting
+                ? "opacity-50 cursor-not-allowed"
+                : "cursor-pointer hover:scale-105 active:scale-95"
+            }`}
             disabled={!connected || isSubmitting}
+            onClick={(e) => {
+              console.log("Button clicked!");
+              if (connected && !isSubmitting) {
+                // Add visual feedback
+                const btn = e.currentTarget;
+                btn.classList.add("animate-pulse");
+                setTimeout(() => btn.classList.remove("animate-pulse"), 500);
+              }
+              handleSubmit(e);
+            }}
           >
-            {isSubmitting ? 'Creating Token...' : (connected ? 'Launch Token' : 'Connect Wallet to Launch')}
+            {isSubmitting
+              ? "Creating Token..."
+              : connected
+              ? "Launch Token"
+              : "Connect Wallet to Launch"}
           </button>
-          
+
           <div className="token-fees-container text-right">
             <div className="fees-label text-gray-400 text-sm">Total Fees:</div>
             <div className="flex items-center">
-              <div className="fees-original text-gray-500 text-sm">0.2+<del>0.6 SOL</del></div>
-              <div className="fees-discounted text-purple-500 text-xl font-semibold ml-2">{calculateTotalFee()} SOL</div>
+              <div className="fees-original text-gray-500 text-sm">
+                0.2+<del>0.6 SOL</del>
+              </div>
+              <div className="fees-discounted text-purple-500 text-xl font-semibold ml-2">
+                {calculateTotalFee()} SOL
+              </div>
             </div>
           </div>
         </div>
@@ -938,6 +1314,7 @@ export default function TokenForm() {
     </div>
   );
 }
+
 
 // ===== src/components/token/token-creation-success.tsx =====
 
@@ -1073,6 +1450,23 @@ export default function TokenFormAuthorities({
   formData,
   setFormData
 }: TokenFormAuthoritiesProps) {
+  // Handle checkbox click with proper event simulation
+  const handleCheckboxClick = (field: 'revokeMint' | 'revokeFreeze' | 'revokeUpdate') => {
+    // Update the formData state
+    setFormData((prev: any) => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
+    
+    // Find the related hidden checkbox and simulate a change event
+    const checkbox = document.getElementById(field) as HTMLInputElement;
+    if (checkbox) {
+      checkbox.checked = !formData[field];
+      const event = new Event('change', { bubbles: true });
+      checkbox.dispatchEvent(event);
+    }
+  };
+
   return (
     <div className="form-section mb-8">
       <div className="form-section-title text-xl text-white mb-4">Revoke Authorities (Investor's Booster)</div>
@@ -1082,9 +1476,17 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Freeze</div>
+              <input 
+                id="revokeFreeze" 
+                type="checkbox" 
+                name="revokeFreeze"
+                checked={formData.revokeFreeze}
+                onChange={() => {}} // Add an empty handler to avoid React warnings
+                className="hidden" // Keep hidden but track state
+              />
               <div 
                 className={`checkbox w-5 h-5 border ${formData.revokeFreeze ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
-                onClick={() => setFormData((prev: any) => ({...prev, revokeFreeze: !prev.revokeFreeze}))}
+                onClick={() => handleCheckboxClick('revokeFreeze')}
               >
                 {formData.revokeFreeze && (
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -1104,9 +1506,17 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Mint</div>
+              <input 
+                id="revokeMint" 
+                type="checkbox" 
+                name="revokeMint"
+                checked={formData.revokeMint}
+                onChange={() => {}} // Add an empty handler to avoid React warnings
+                className="hidden" // Keep hidden but track state
+              />
               <div 
                 className={`checkbox w-5 h-5 border ${formData.revokeMint ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
-                onClick={() => setFormData((prev: any) => ({...prev, revokeMint: !prev.revokeMint}))}
+                onClick={() => handleCheckboxClick('revokeMint')}
               >
                 {formData.revokeMint && (
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -1126,9 +1536,17 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Update</div>
+              <input 
+                id="revokeUpdate" 
+                type="checkbox" 
+                name="revokeUpdate"
+                checked={formData.revokeUpdate}
+                onChange={() => {}} // Add an empty handler to avoid React warnings
+                className="hidden" // Keep hidden but track state
+              />
               <div 
                 className={`checkbox w-5 h-5 border ${formData.revokeUpdate ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
-                onClick={() => setFormData((prev: any) => ({...prev, revokeUpdate: !prev.revokeUpdate}))}
+                onClick={() => handleCheckboxClick('revokeUpdate')}
               >
                 {formData.revokeUpdate && (
                   <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -1158,7 +1576,7 @@ export default function TokenFormAuthorities({
 
 import React from 'react';
 
-interface SocialLinksProps {
+interface SocialLinksFormProps {
   formData: {
     website: string;
     twitter: string;
@@ -1168,7 +1586,7 @@ interface SocialLinksProps {
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-export default function SocialLinksForm({ formData, handleInputChange }: SocialLinksProps) {
+export default function SocialLinksForm({ formData, handleInputChange }: SocialLinksFormProps) {
   return (
     <div className="social-links-form bg-[#1e1e1e] rounded-lg p-4 mt-4">
       <h3 className="text-white text-lg mb-4">Social Links</h3>
@@ -1176,51 +1594,83 @@ export default function SocialLinksForm({ formData, handleInputChange }: SocialL
       <div className="space-y-4">
         <div className="form-field">
           <label className="field-label block text-gray-300 mb-2">Website URL</label>
-          <input 
-            placeholder="https://your-website.com" 
-            className="field-input w-full bg-[#222] border border-gray-700 rounded-lg p-3 text-white" 
-            type="text" 
-            name="website"
-            value={formData.website}
-            onChange={handleInputChange}
-          />
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+              </svg>
+            </span>
+            <input 
+              placeholder="https://your-website.com" 
+              className="field-input w-full bg-[#222] border border-gray-700 rounded-lg py-3 pl-10 pr-3 text-white" 
+              type="text" 
+              name="website"
+              value={formData.website}
+              onChange={handleInputChange}
+            />
+          </div>
         </div>
         
         <div className="form-field">
           <label className="field-label block text-gray-300 mb-2">Twitter</label>
-          <input 
-            placeholder="https://x.com/yourtokenname" 
-            className="field-input w-full bg-[#222] border border-gray-700 rounded-lg p-3 text-white" 
-            type="text" 
-            name="twitter"
-            value={formData.twitter}
-            onChange={handleInputChange}
-          />
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"></path>
+              </svg>
+            </span>
+            <input 
+              placeholder="https://x.com/yourtokenname" 
+              className="field-input w-full bg-[#222] border border-gray-700 rounded-lg py-3 pl-10 pr-3 text-white" 
+              type="text" 
+              name="twitter"
+              value={formData.twitter}
+              onChange={handleInputChange}
+            />
+          </div>
         </div>
         
         <div className="form-field">
           <label className="field-label block text-gray-300 mb-2">Telegram</label>
-          <input 
-            placeholder="https://t.me/yourtokenname" 
-            className="field-input w-full bg-[#222] border border-gray-700 rounded-lg p-3 text-white" 
-            type="text" 
-            name="telegram"
-            value={formData.telegram}
-            onChange={handleInputChange}
-          />
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+              </svg>
+            </span>
+            <input 
+              placeholder="https://t.me/yourtokenname" 
+              className="field-input w-full bg-[#222] border border-gray-700 rounded-lg py-3 pl-10 pr-3 text-white" 
+              type="text" 
+              name="telegram"
+              value={formData.telegram}
+              onChange={handleInputChange}
+            />
+          </div>
         </div>
         
         <div className="form-field">
           <label className="field-label block text-gray-300 mb-2">Discord</label>
-          <input 
-            placeholder="https://discord.gg/yourinvite" 
-            className="field-input w-full bg-[#222] border border-gray-700 rounded-lg p-3 text-white" 
-            type="text" 
-            name="discord"
-            value={formData.discord}
-            onChange={handleInputChange}
-          />
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+            </span>
+            <input 
+              placeholder="https://discord.gg/yourinvite" 
+              className="field-input w-full bg-[#222] border border-gray-700 rounded-lg py-3 pl-10 pr-3 text-white" 
+              type="text" 
+              name="discord"
+              value={formData.discord}
+              onChange={handleInputChange}
+            />
+          </div>
         </div>
+      </div>
+      
+      <div className="mt-4 text-xs text-gray-500">
+        Adding social links helps your community find and connect with your project. All fields are optional.
       </div>
     </div>
   );
@@ -1532,33 +1982,49 @@ export default function Footer() {
 
 'use client';
 
-import { FC, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import dynamic from 'next/dynamic';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { formatWalletAddress, getWalletBalance, isWalletConnected } from '@/services/wallet-service';
+import { debugWallet, debugWalletCapabilities } from '@/utils/wallet-debug';
 import '@/styles/wallet-button.css';
 
-// Dynamically import the WalletMultiButton with ssr disabled
-// This prevents hydration errors by only rendering on the client
-const WalletMultiButton = dynamic(
-  async () => (await import('@solana/wallet-adapter-react-ui')).WalletMultiButton,
-  { ssr: false }
-);
-
-const WalletButton: FC = () => {
-  const { publicKey, connected, connecting, disconnecting } = useWallet();
+export default function WalletButton() {
+  const { publicKey, connected, connecting, disconnecting, wallet } = useWallet();
   const [mounted, setMounted] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
   
-  // Format public key for display
-  const getFormattedAddress = () => {
-    if (!publicKey) return '';
-    const address = publicKey.toString();
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  };
+  // Load balance when connected
+  const loadBalance = useCallback(async () => {
+    if (connected && publicKey) {
+      try {
+        const sol = await getWalletBalance(publicKey);
+        setBalance(sol);
+      } catch (error) {
+        console.error('Error fetching balance:', error);
+      }
+    } else {
+      setBalance(null);
+    }
+  }, [connected, publicKey]);
 
   // Only show the component after mounting to prevent hydration errors
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Fetch balance when connected
+  useEffect(() => {
+    if (connected && publicKey) {
+      loadBalance();
+    }
+  }, [connected, publicKey, loadBalance]);
+
+  // Format public key for display
+  const getFormattedAddress = () => {
+    if (!publicKey) return '';
+    return formatWalletAddress(publicKey.toString());
+  };
 
   // Add some logging for debugging connection issues
   useEffect(() => {
@@ -1568,8 +2034,11 @@ const WalletButton: FC = () => {
       console.log('Wallet disconnecting...');
     } else if (connected) {
       console.log('Wallet connected:', getFormattedAddress());
+      // Add additional debugging
+      debugWallet(wallet);
+      debugWalletCapabilities(wallet);
     }
-  }, [connecting, disconnecting, connected, publicKey]);
+  }, [connecting, disconnecting, connected, publicKey, wallet]);
   
   if (!mounted) {
     // Return a placeholder with the same dimensions to prevent layout shift
@@ -1577,13 +2046,17 @@ const WalletButton: FC = () => {
   }
   
   return (
-    <div className="wallet-button">
+    <div className="wallet-button relative">
       <WalletMultiButton className="wallet-display hover:bg-opacity-90 transition-all" />
+      
+      {connected && balance !== null && (
+        <div className="wallet-balance absolute -bottom-6 right-0 text-xs text-gray-400 bg-[#171717] px-2 py-1 rounded">
+          {balance.toFixed(2)} SOL
+        </div>
+      )}
     </div>
   );
-};
-
-export default WalletButton;
+}
 
 // ===== src/components/wallet/wallet-provider.tsx =====
 
@@ -1631,13 +2104,17 @@ export const WalletContextProvider: FC<WalletContextProviderProps> = ({ children
 
 'use client';
 
-import { ReactNode, useMemo } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
+
+import { LedgerWalletAdapter } from '@solana/wallet-adapter-ledger';
+// Removed the TorusWalletAdapter as it's causing dependency issues
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
+import { SOLANA_NETWORK } from '@/config';
 
 // Import wallet adapter styles
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -1647,8 +2124,12 @@ interface ClientWalletProviderProps {
 }
 
 export function ClientWalletProvider({ children }: ClientWalletProviderProps) {
-  // Get the network from environment variables
-  const networkEnv = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
+  // Track component mounting state to prevent hydration issues
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Set the network from environment variables
+  const networkEnv = SOLANA_NETWORK || 'devnet';
   const network = networkEnv === 'mainnet-beta' 
     ? WalletAdapterNetwork.Mainnet
     : WalletAdapterNetwork.Devnet;
@@ -1656,18 +2137,23 @@ export function ClientWalletProvider({ children }: ClientWalletProviderProps) {
   // Set up the RPC endpoint
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
 
-  // Add only the wallet adapters you have individually installed
+  // Add a more comprehensive list of wallet adapters (except Torus which causes issues)
   const wallets = useMemo(
     () => [
       new PhantomWalletAdapter(),
-      new SolflareWalletAdapter()
+      new SolflareWalletAdapter(),
+
+      new LedgerWalletAdapter()
     ],
     [network]
   );
 
+  // Only render the provider once the component is mounted to avoid hydration errors
+  if (!mounted) return null;
+
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
+      <WalletProvider wallets={wallets} autoConnect={false}>
         <WalletModalProvider>
           {children}
         </WalletModalProvider>
@@ -1685,23 +2171,25 @@ import {
   PublicKey,
   Transaction,
   SystemProgram,
-  clusterApiUrl,
-  SendOptions,
+  sendAndConfirmTransaction,
 } from "@solana/web3.js";
 
 import {
-  createMint,
-  getOrCreateAssociatedTokenAccount,
-  mintTo,
-  setAuthority,
+  TOKEN_PROGRAM_ID,
+  MINT_SIZE,
+  createInitializeMintInstruction,
+  getMinimumBalanceForRentExemptMint,
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+  createMintToInstruction,
   AuthorityType,
 } from "@solana/spl-token";
 
+import { getSolanaConnection, isWalletConnected } from "./wallet-service";
+import { FEE_RECIPIENT_WALLET } from "@/config";
+
 // Metaplex Token Metadata Program ID
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-
-// Recipient wallet for fee collection
-const FEE_RECIPIENT = new PublicKey(process.env.NEXT_PUBLIC_FEE_WALLET || "8oUmkz9VmF9upLxUg6qp6iaq5N4A86bUuo37SJvXvzWt");
 
 // Find the metadata PDA for a mint
 function findMetadataPda(mint: PublicKey): PublicKey {
@@ -1814,89 +2302,6 @@ function serializeMetadataV3(data: {
   ]);
 }
 
-// Create metadata for the token
-async function createMetadata(
-  connection: Connection,
-  wallet: any,
-  mint: PublicKey,
-  metadataUrl: string,
-  name: string,
-  symbol: string,
-  isMutable: boolean
-): Promise<string> {
-  try {
-    // Find the metadata account address (PDA)
-    const metadataPDA = findMetadataPda(mint);
-    console.log(`Metadata PDA: ${metadataPDA.toString()}`);
-    
-    // Create metadata account instruction
-    const createMetadataIx = {
-      programId: TOKEN_METADATA_PROGRAM_ID,
-      keys: [
-        { pubkey: metadataPDA, isSigner: false, isWritable: true },
-        { pubkey: mint, isSigner: false, isWritable: false },
-        { pubkey: wallet.publicKey, isSigner: true, isWritable: false },
-        { pubkey: wallet.publicKey, isSigner: true, isWritable: false },
-        { pubkey: wallet.publicKey, isSigner: false, isWritable: false },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      data: Buffer.from([
-        33, // createMetadataAccountV3 instruction
-        ...serializeMetadataV3({
-          name,
-          symbol,
-          uri: metadataUrl,
-          sellerFeeBasisPoints: 0,
-          creators: null,
-          collection: null,
-          uses: null,
-          isMutable: isMutable,
-        }),
-      ]),
-    };
-    
-    // Create transaction
-    const transaction = new Transaction().add(createMetadataIx);
-    
-    // Set recent blockhash and fee payer
-    transaction.feePayer = wallet.publicKey;
-    const { blockhash } = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    
-    // Sign transaction using adapter's signTransaction
-    const signedTransaction = await wallet.adapter.signTransaction(transaction);
-    
-    // Send transaction
-    const signature = await connection.sendRawTransaction(signedTransaction.serialize());
-    await connection.confirmTransaction(signature);
-    
-    console.log(`Metadata transaction signature: ${signature}`);
-    return metadataPDA.toString();
-  } catch (error) {
-    console.error("Error creating metadata:", error);
-    throw error;
-  }
-}
-
-// Calculate fee in SOL based on selected options
-export function calculateFee(options: {
-  revokeMint: boolean;
-  revokeFreeze: boolean;
-  revokeUpdate: boolean;
-  socialLinks: boolean;
-  creatorInfo: boolean;
-}): number {
-  let fee = 0.2; // Base fee
-  
-  if (options.revokeMint) fee += 0.1;
-  if (options.revokeFreeze) fee += 0.1;
-  if (options.revokeUpdate) fee += 0.1;
-  if (options.socialLinks) fee += 0.1;
-  if (options.creatorInfo) fee += 0.1;
-  
-  return Math.min(fee, 0.3); // Capped at 0.3 SOL as per the UI
-}
-
 // Upload image to Pinata
 export async function uploadImageToPinata(imageFile: File) {
   try {
@@ -1913,7 +2318,7 @@ export async function uploadImageToPinata(imageFile: File) {
     }
     
     const data = await response.json();
-    return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY}/ipfs/${data.cid}`;
+    return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud'}/ipfs/${data.cid}`;
   } catch (error) {
     console.error("Error uploading image:", error);
     throw error;
@@ -1967,81 +2372,89 @@ export async function createAndUploadMetadata(tokenData: {
     }
     
     const data = await response.json();
-    return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY}/ipfs/${data.cid}`;
+    return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud'}/ipfs/${data.cid}`;
   } catch (error) {
     console.error("Error creating and uploading metadata:", error);
     throw error;
   }
 }
 
-// Transfer fee to recipient
-async function transferFee(
+// Create metadata for the token
+async function createMetadata(
   connection: Connection,
   wallet: any,
-  feeInSol: number
-) {
+  mint: PublicKey,
+  metadataUrl: string,
+  name: string,
+  symbol: string,
+  isMutable: boolean
+): Promise<string> {
   try {
-    // Log info for debugging
-    console.log("Transferring fee...");
-    console.log("Wallet public key:", wallet.publicKey?.toString());
-    console.log("Fee recipient:", FEE_RECIPIENT.toString());
-    console.log("Fee in SOL:", feeInSol);
+    // Find the metadata account address (PDA)
+    const metadataPDA = findMetadataPda(mint);
+    console.log(`Metadata PDA: ${metadataPDA.toString()}`);
     
-    // Create a transaction to transfer SOL
-    const transaction = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: wallet.publicKey,
-        toPubkey: FEE_RECIPIENT,
-        lamports: feeInSol * 1000000000, // Convert SOL to lamports
-      })
-    );
+    // Create metadata account instruction
+    const createMetadataIx = {
+      programId: TOKEN_METADATA_PROGRAM_ID,
+      keys: [
+        { pubkey: metadataPDA, isSigner: false, isWritable: true },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: wallet.publicKey, isSigner: true, isWritable: false },
+        { pubkey: wallet.publicKey, isSigner: true, isWritable: false },
+        { pubkey: wallet.publicKey, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.from([
+        33, // createMetadataAccountV3 instruction
+        ...serializeMetadataV3({
+          name,
+          symbol,
+          uri: metadataUrl,
+          sellerFeeBasisPoints: 0,
+          creators: null,
+          collection: null,
+          uses: null,
+          isMutable: isMutable,
+        }),
+      ]),
+    };
+    
+    // Create transaction
+    const transaction = new Transaction().add(createMetadataIx);
     
     // Set recent blockhash and fee payer
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-    transaction.recentBlockhash = blockhash;
     transaction.feePayer = wallet.publicKey;
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
     
+    // Sign and send transaction using the wallet adapter
     try {
-      // Request signing from the wallet
-      console.log("Requesting wallet to sign transaction...");
-      const signed = await wallet.signTransaction(transaction);
+      // Sign transaction using adapter's signTransaction
+      const signedTransaction = await wallet.adapter.signTransaction(transaction);
       
-      // Send the transaction
-      console.log("Sending signed transaction...");
-      const signature = await connection.sendRawTransaction(signed.serialize());
+      // Send transaction
+      const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+      await connection.confirmTransaction(signature);
       
-      // Wait for confirmation
-      console.log("Waiting for transaction confirmation...");
-      await connection.confirmTransaction({
-        blockhash,
-        lastValidBlockHeight,
-        signature
-      });
-      
-      console.log(`Fee transfer successful: ${signature}`);
-      return signature;
+      console.log(`Metadata transaction signature: ${signature}`);
+      return metadataPDA.toString();
     } catch (signError) {
-      console.error("Error during signing:", signError);
-      // Try alternative approach with sendTransaction if signTransaction fails
-      if (wallet.sendTransaction) {
-        console.log("Trying alternative approach with sendTransaction...");
-        const signature = await wallet.sendTransaction(transaction, connection);
+      console.error("Error signing transaction:", signError);
+      
+      // Alternative method using sendTransaction
+      if (wallet.adapter.sendTransaction) {
+        const signature = await wallet.adapter.sendTransaction(transaction, connection);
+        await connection.confirmTransaction(signature);
         
-        // Wait for confirmation
-        await connection.confirmTransaction({
-          blockhash,
-          lastValidBlockHeight,
-          signature
-        });
-        
-        console.log(`Fee transfer successful (alternative method): ${signature}`);
-        return signature;
+        console.log(`Metadata transaction signature (alternative method): ${signature}`);
+        return metadataPDA.toString();
       } else {
         throw signError;
       }
     }
   } catch (error) {
-    console.error("Error transferring fee:", error);
+    console.error("Error creating metadata:", error);
     throw error;
   }
 }
@@ -2063,22 +2476,105 @@ async function sendTransaction(
     transaction.partialSign(...signers);
   }
   
-  // Sign with the wallet adapter
-  const signedTransaction = await wallet.adapter.signTransaction(transaction);
-  
-  // Send and confirm transaction
-  const rawTransaction = signedTransaction.serialize();
-  const signature = await connection.sendRawTransaction(rawTransaction, {
-    skipPreflight: false,
-    preflightCommitment: 'confirmed',
-  } as SendOptions);
-  
-  await connection.confirmTransaction(signature);
-  return signature;
+  try {
+    // Try using signTransaction + sendRawTransaction
+    const signedTransaction = await wallet.adapter.signTransaction(transaction);
+    const rawTransaction = signedTransaction.serialize();
+    const signature = await connection.sendRawTransaction(rawTransaction, {
+      skipPreflight: false,
+      preflightCommitment: 'confirmed',
+    });
+    
+    await connection.confirmTransaction(signature);
+    return signature;
+  } catch (signError) {
+    console.error("Error signing transaction:", signError);
+    
+    // Try using the sendTransaction method as fallback
+    if (wallet.adapter.sendTransaction) {
+      try {
+        const signature = await wallet.adapter.sendTransaction(transaction, connection);
+        await connection.confirmTransaction(signature);
+        return signature;
+      } catch (sendError) {
+        console.error("Error using sendTransaction:", sendError);
+        throw sendError;
+      }
+    } else {
+      throw signError;
+    }
+  }
 }
 
-// Main function to create token - refactored to use the wallet adapter properly
-export async function createToken(
+// Calculate fee in SOL based on selected options
+export function calculateFee(options: {
+  revokeMint: boolean;
+  revokeFreeze: boolean;
+  revokeUpdate: boolean;
+  socialLinks: boolean;
+  creatorInfo: boolean;
+}): number {
+  let fee = 0.2; // Base fee
+  
+  if (options.revokeMint) fee += 0.1;
+  if (options.revokeFreeze) fee += 0.1;
+  if (options.revokeUpdate) fee += 0.1;
+  if (options.socialLinks) fee += 0.1;
+  if (options.creatorInfo) fee += 0.1;
+  
+  return Math.min(fee, 0.3); // Capped at 0.3 SOL as per the UI
+}
+
+// Transfer fee to recipient
+async function transferFee(
+  connection: Connection,
+  wallet: any,
+  feeInSol: number
+) {
+  try {
+    // Create fee recipient wallet PublicKey
+    const feeRecipient = new PublicKey(FEE_RECIPIENT_WALLET);
+    
+    // Log info for debugging
+    console.log("Transferring fee...");
+    console.log("Wallet public key:", wallet.publicKey?.toString());
+    console.log("Fee recipient:", feeRecipient.toString());
+    console.log("Fee in SOL:", feeInSol);
+    
+    // Create a transaction to transfer SOL
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: wallet.publicKey,
+        toPubkey: feeRecipient,
+        lamports: feeInSol * 1000000000, // Convert SOL to lamports
+      })
+    );
+    
+    // Set recent blockhash and fee payer
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = wallet.publicKey;
+    
+    // Sign and send transaction using the wallet adapter
+    const signature = await wallet.adapter.sendTransaction(transaction, connection);
+    
+    // Wait for confirmation
+    await connection.confirmTransaction({
+      blockhash,
+      lastValidBlockHeight,
+      signature
+    });
+    
+    console.log(`Fee transfer successful: ${signature}`);
+    return signature;
+  } catch (error) {
+    console.error("Error transferring fee:", error);
+    throw error;
+  }
+}
+
+// Create token with metadata - completely refactored to avoid type errors
+async function createToken(
   wallet: any,
   tokenData: {
     name: string;
@@ -2094,15 +2590,10 @@ export async function createToken(
 ): Promise<string> {
   try {
     // Set up connection
-    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || "devnet";
-    console.log(`Connecting to Solana ${network}...`);
-    const connection = new Connection(
-      clusterApiUrl(network as "devnet" | "mainnet-beta"), 
-      "confirmed"
-    );
+    const connection = getSolanaConnection();
     
-    // Check wallet connection
-    if (!wallet.publicKey) {
+    // Check wallet connection again
+    if (!isWalletConnected(wallet)) {
       throw new Error("Wallet not connected");
     }
     
@@ -2110,66 +2601,74 @@ export async function createToken(
     const mintKeypair = Keypair.generate();
     console.log(`Creating token mint for ${tokenData.name}...`);
     
-    // Create the token mint - we need to adjust how we use the wallet adapter
-    const lamportsForMint = await connection.getMinimumBalanceForRentExemption(82);
+    // Get minimum balance for rent exemption
+    const lamportsForMint = await getMinimumBalanceForRentExemptMint(connection);
     
-    // Use a separate function to handle all the transaction logic
-    const createMintTransaction = new Transaction().add(
-      // Create account for the mint
+    // Create transaction for creating the mint account
+    const createAccountTransaction = new Transaction().add(
       SystemProgram.createAccount({
         fromPubkey: wallet.publicKey,
         newAccountPubkey: mintKeypair.publicKey,
-        space: 82,
+        space: MINT_SIZE,
         lamports: lamportsForMint,
-        programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") // Token Program ID
-      })
+        programId: TOKEN_PROGRAM_ID
+      }),
+      // Initialize the mint
+      createInitializeMintInstruction(
+        mintKeypair.publicKey,
+        tokenData.decimals,
+        wallet.publicKey,
+        wallet.publicKey,
+        TOKEN_PROGRAM_ID
+      )
     );
     
-    // Send the transaction to create mint account
-    await sendTransaction(connection, wallet, createMintTransaction, [mintKeypair]);
-    
-    // Initialize the mint
-    const initMintTransaction = await createMint(
-      connection, 
-      {
-        publicKey: wallet.publicKey,
-        signTransaction: async (tx: Transaction) => wallet.adapter.signTransaction(tx),
-      } as any,
-      wallet.publicKey,
-      wallet.publicKey,
-      tokenData.decimals,
-      mintKeypair
-    );
+    // Send transaction to create and initialize mint
+    await sendTransaction(connection, wallet, createAccountTransaction, [mintKeypair]);
+    console.log(`Mint account created: ${mintKeypair.publicKey.toString()}`);
     
     // Create a token account for the wallet
     console.log("Creating token account...");
-    const tokenAccount = await getOrCreateAssociatedTokenAccount(
-      connection,
-      {
-        publicKey: wallet.publicKey,
-        signTransaction: async (tx: Transaction) => wallet.adapter.signTransaction(tx),
-      } as any,
+    const associatedTokenAddress = await getAssociatedTokenAddress(
       mintKeypair.publicKey,
       wallet.publicKey
     );
     
-    // Mint initial supply
+    // Check if the token account already exists
+    const tokenAccountInfo = await connection.getAccountInfo(associatedTokenAddress);
+    
+    if (!tokenAccountInfo) {
+      // Create the associated token account
+      const createTokenAccountTx = new Transaction().add(
+        createAssociatedTokenAccountInstruction(
+          wallet.publicKey, // payer
+          associatedTokenAddress, // associatedToken
+          wallet.publicKey, // owner
+          mintKeypair.publicKey // mint
+        )
+      );
+      
+      await sendTransaction(connection, wallet, createTokenAccountTx);
+      console.log(`Token account created: ${associatedTokenAddress.toString()}`);
+    }
+    
+    // Mint initial supply to the wallet
     console.log(`Minting ${tokenData.supply} tokens to your wallet...`);
     const initialSupply = tokenData.supply * Math.pow(10, tokenData.decimals);
     
-    const mintToTransaction = await mintTo(
-      connection,
-      {
-        publicKey: wallet.publicKey,
-        signTransaction: async (tx: Transaction) => wallet.adapter.signTransaction(tx),
-      } as any,
-      mintKeypair.publicKey,
-      tokenAccount.address,
-      wallet.publicKey,
-      initialSupply
+    const mintToTransaction = new Transaction().add(
+      createMintToInstruction(
+        mintKeypair.publicKey, // mint
+        associatedTokenAddress, // destination
+        wallet.publicKey, // authority
+        BigInt(initialSupply) // amount
+      )
     );
     
-    // Add metadata
+    await sendTransaction(connection, wallet, mintToTransaction);
+    console.log("Initial token supply minted successfully");
+    
+    // Add metadata to the token
     console.log("Adding token metadata...");
     const metadataPDA = await createMetadata(
       connection,
@@ -2180,36 +2679,50 @@ export async function createToken(
       tokenData.symbol,
       !tokenData.revokeUpdate
     );
+    console.log("Metadata added successfully");
     
     // Revoke authorities if configured to do so
-    if (tokenData.revokeMint) {
-      console.log("Revoking mint authority (supply will be fixed)...");
-      await setAuthority(
-        connection,
-        {
-          publicKey: wallet.publicKey,
-          signTransaction: async (tx: Transaction) => wallet.adapter.signTransaction(tx),
-        } as any,
-        mintKeypair.publicKey,
-        wallet.publicKey,
-        AuthorityType.MintTokens,
-        null
-      );
-    }
-    
-    if (tokenData.revokeFreeze) {
-      console.log("Revoking freeze authority...");
-      await setAuthority(
-        connection,
-        {
-          publicKey: wallet.publicKey,
-          signTransaction: async (tx: Transaction) => wallet.adapter.signTransaction(tx),
-        } as any,
-        mintKeypair.publicKey,
-        wallet.publicKey,
-        AuthorityType.FreezeAccount,
-        null
-      );
+    if (tokenData.revokeMint || tokenData.revokeFreeze) {
+      console.log("Revoking authorities...");
+      
+      let revokeTransaction = new Transaction();
+      
+      if (tokenData.revokeMint) {
+        console.log("Revoking mint authority (supply will be fixed)...");
+        
+        // Create a setAuthority instruction for MintTokens
+        const revokeMintInstruction = await import('@solana/spl-token').then(token => {
+          return token.createSetAuthorityInstruction(
+            mintKeypair.publicKey, // mint
+            wallet.publicKey, // currentAuthority
+            AuthorityType.MintTokens, // authorityType
+            null // newAuthority - null means revoke
+          );
+        });
+        
+        revokeTransaction.add(revokeMintInstruction);
+      }
+      
+      if (tokenData.revokeFreeze) {
+        console.log("Revoking freeze authority...");
+        
+        // Create a setAuthority instruction for FreezeAccount
+        const revokeFreezeInstruction = await import('@solana/spl-token').then(token => {
+          return token.createSetAuthorityInstruction(
+            mintKeypair.publicKey, // mint
+            wallet.publicKey, // currentAuthority
+            AuthorityType.FreezeAccount, // authorityType
+            null // newAuthority - null means revoke
+          );
+        });
+        
+        revokeTransaction.add(revokeFreezeInstruction);
+      }
+      
+      if (revokeTransaction.instructions.length > 0) {
+        await sendTransaction(connection, wallet, revokeTransaction);
+        console.log("Authorities revoked successfully");
+      }
     }
     
     // Return the mint address
@@ -2242,29 +2755,25 @@ export async function createTokenWithMetadata(
   }
 ) {
   try {
-    // Validate wallet connection
-    if (!wallet || !wallet.publicKey) {
+     // Validate wallet connection - simpler check
+     if (!wallet || !wallet.publicKey) {
       throw new Error("Wallet not connected. Please connect your wallet and try again.");
     }
     
     console.log("Starting token creation process...");
     console.log("Connected wallet:", wallet.publicKey.toString());
     
-    // Calculate fee - implement the calculation directly to ensure it matches UI
-    let feeInSol = 0.2; // Base fee
-    if (formData.revokeMint) feeInSol += 0.1;
-    if (formData.revokeFreeze) feeInSol += 0.1;
-    if (formData.revokeUpdate) feeInSol += 0.1;
-    if (formData.socialLinks) feeInSol += 0.1;
-    if (formData.creatorInfo) feeInSol += 0.1;
-    feeInSol = Math.min(feeInSol, 0.3); // Apply discount cap
+    // Calculate fee
+    const feeInSol = calculateFee({
+      revokeMint: formData.revokeMint,
+      revokeFreeze: formData.revokeFreeze,
+      revokeUpdate: formData.revokeUpdate,
+      socialLinks: formData.socialLinks,
+      creatorInfo: formData.creatorInfo
+    });
     
     // Set up connection
-    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || "devnet";
-    const connection = new Connection(
-      clusterApiUrl(network as "devnet" | "mainnet-beta"), 
-      "confirmed"
-    );
+    const connection = getSolanaConnection();
     
     // Check wallet balance before proceeding
     const balance = await connection.getBalance(wallet.publicKey);
@@ -2320,6 +2829,7 @@ export async function createTokenWithMetadata(
     });
     console.log("Token created successfully with address:", mintAddress);
     
+    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
     return {
       success: true,
       mintAddress,
@@ -2332,4 +2842,58 @@ export async function createTokenWithMetadata(
     throw error;
   }
 }
+
+// ===== src/services/wallet-service.ts =====
+
+// src/services/wallet-service.ts
+import { WalletAdapter } from '@solana/wallet-adapter-base';
+import { Connection, clusterApiUrl, PublicKey } from '@solana/web3.js';
+import { SOLANA_NETWORK } from '@/config';
+
+// Get the Solana connection based on the configured network
+export const getSolanaConnection = (): Connection => {
+  const network = SOLANA_NETWORK === 'mainnet-beta' ? 'mainnet-beta' : 'devnet';
+  return new Connection(clusterApiUrl(network), 'confirmed');
+};
+
+// Check if wallet is properly connected
+export const isWalletConnected = (wallet: any): boolean => {
+    // Debug log to help diagnose issues
+    console.log("Wallet connection check:", {
+      walletExists: !!wallet,
+      publicKeyExists: wallet ? !!wallet.publicKey : false,
+      adapterExists: wallet ? !!wallet.adapter : false,
+      adapterConnected: wallet?.adapter ? !!wallet.adapter.connected : false
+    });
+    
+    // For some wallets, adapter.connected might not be reliable
+    // Consider a wallet connected if it has a wallet object and a public key
+    return !!wallet && !!wallet.publicKey;
+  };
+
+// Get the wallet's SOL balance
+export const getWalletBalance = async (publicKey: PublicKey): Promise<number> => {
+  try {
+    const connection = getSolanaConnection();
+    const balance = await connection.getBalance(publicKey);
+    console.log(`Wallet balance: ${balance / 1_000_000_000} SOL`);
+    return balance / 1_000_000_000; // Convert lamports to SOL
+  } catch (error) {
+    console.error('Error getting wallet balance:', error);
+    return 0;
+  }
+};
+
+// Format the wallet address for display
+export const formatWalletAddress = (address: string): string => {
+  if (!address || address.length < 10) return address;
+  return `${address.slice(0, 4)}...${address.slice(-4)}`;
+};
+
+// Get the Solana explorer URL for a transaction or address
+export const getExplorerUrl = (addressOrSignature: string, isTransaction = false): string => {
+  const network = SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : '';
+  const type = isTransaction ? 'tx' : 'address';
+  return `https://explorer.solana.com/${type}/${addressOrSignature}${network}`;
+};
 
