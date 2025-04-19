@@ -27,25 +27,28 @@ import {
   MetadataPayload,
 } from './ipfs-service'
 import { calculateFee } from './fee-service'
+import { TOKEN_METADATA_PROGRAM_ID } from '@/config'
 
+/** Your form data shape */
 export interface FormDataType {
   name: string
   symbol: string
   decimals: number
   supply: number
   description: string
-  logo: File
+  logo: File | null
   revokeMint: boolean
   revokeFreeze: boolean
   revokeUpdate: boolean
   socialLinks: boolean
   creatorInfo: boolean
-  website?: string
-  twitter?: string
-  telegram?: string
-  discord?: string
+  website: string
+  twitter: string
+  telegram: string
+  discord: string
 }
 
+/** What we return once done */
 export interface TokenResult {
   mintAddress: string
   metadataUrl: string
@@ -53,14 +56,72 @@ export interface TokenResult {
   explorerUrl: string
 }
 
+/** Helper: serialize a UTF‑8 string with u32‑length prefix (LE) */
+function serializeString(value: string): Uint8Array {
+  const buf = Buffer.from(value, 'utf8')
+  const len = Buffer.alloc(4)
+  len.writeUInt32LE(buf.length, 0)
+  return Buffer.concat([len, buf])
+}
+
 /**
- * Creates a token and calls onProgress(stepIndex) at each major stage.
- * Steps:
- * 0: Upload image
- * 1: Upload metadata
- * 2: Process payment
- * 3: Create mint + ATA + mintTo
- * 4: Revoke authorities
+ * Helper: build the metadata bytes for createMetadataAccountV3
+ * (instruction discriminator = 33)
+ */
+function serializeMetadataV3(data: {
+  name: string
+  symbol: string
+  uri: string
+  sellerFeeBasisPoints: number
+  creators: null
+  collection: null
+  uses: null
+  isMutable: boolean
+}): Uint8Array {
+  const nameB = serializeString(data.name)
+  const symbolB = serializeString(data.symbol)
+  const uriB = serializeString(data.uri)
+
+  // seller fee (u16 little‑endian)
+  const feeBuf = Buffer.alloc(2)
+  feeBuf.writeUInt16LE(data.sellerFeeBasisPoints, 0)
+
+  // creators = None
+  const creatorsBuf = Buffer.from([0])
+
+  // collection = None
+  const collectionBuf = Buffer.from([0])
+
+  // uses = None
+  const usesBuf = Buffer.from([0])
+
+  // collectionDetails = None
+  const colDetailsBuf = Buffer.from([0])
+
+  // isMutable
+  const mutBuf = Buffer.from([data.isMutable ? 1 : 0])
+
+  return Buffer.concat([
+    nameB,
+    symbolB,
+    uriB,
+    feeBuf,
+    creatorsBuf,
+    collectionBuf,
+    usesBuf,
+    colDetailsBuf,
+    mutBuf,
+  ])
+}
+
+/**
+ * Orchestrates:
+ * 0: IPFS image
+ * 1: IPFS metadata JSON
+ * 2: feature‑fee transfer
+ * 3: create mint + ATA + mintTo
+ * 4: create on‑chain metadata
+ * 5: revoke authorities
  */
 export async function createTokenWithMetadata(
   walletAdapter: WalletContextState,
@@ -69,17 +130,15 @@ export async function createTokenWithMetadata(
 ): Promise<TokenResult> {
   const { publicKey, signTransaction, connected } = walletAdapter
   if (!connected || !publicKey) {
-    throw new Error(
-      'Wallet not connected. Please connect your wallet and try again.'
-    )
+    throw new Error('Wallet not connected. Please connect your wallet first.')
   }
   const connection: Connection = getSolanaConnection()
 
-  // --- Step 0: Upload image ---
+  // STEP 0: IPFS image
   onProgress?.(0)
-  const imageUrl = await uploadImageToIPFS(formData.logo)
+  const imageUrl = await uploadImageToIPFS(formData.logo!)
 
-  // --- Step 1: Upload metadata ---
+  // STEP 1: IPFS metadata JSON
   onProgress?.(1)
   const metadataPayload: MetadataPayload = {
     name: formData.name,
@@ -93,7 +152,7 @@ export async function createTokenWithMetadata(
   }
   const metadataUrl = await uploadMetadataToIPFS(metadataPayload)
 
-  // --- Step 2: Transfer fee ---
+  // STEP 2: feature‑fee transfer
   onProgress?.(2)
   const feeSOL = calculateFee({
     revokeMint: formData.revokeMint,
@@ -116,19 +175,18 @@ export async function createTokenWithMetadata(
   const feeSig = await connection.sendRawTransaction(signedFeeTx.serialize())
   await connection.confirmTransaction(feeSig)
 
-  // --- Step 3: Create mint, ATA, mintTo ---
+  // STEP 3: create mint, ATA, mintTo
   onProgress?.(3)
-
-  // 3a: create mint account
   const mintKeypair = Keypair.generate()
-  const rentExemption = await getMinimumBalanceForRentExemptMint(connection)
+  const rentExempt = await getMinimumBalanceForRentExemptMint(connection)
 
-  const createMintTx = new Transaction().add(
+  // 3a) create & init mint
+  const initMintTx = new Transaction().add(
     SystemProgram.createAccount({
       fromPubkey: publicKey,
       newAccountPubkey: mintKeypair.publicKey,
       space: MINT_SIZE,
-      lamports: rentExemption,
+      lamports: rentExempt,
       programId: TOKEN_PROGRAM_ID,
     }),
     createInitializeMintInstruction(
@@ -139,17 +197,17 @@ export async function createTokenWithMetadata(
       TOKEN_PROGRAM_ID
     )
   )
-  createMintTx.feePayer = publicKey
-  createMintTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
-  createMintTx.partialSign(mintKeypair)
+  initMintTx.feePayer = publicKey
+  initMintTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+  initMintTx.partialSign(mintKeypair)
 
-  const signedCreateMintTx = await signTransaction!(createMintTx)
-  const createMintSig = await connection.sendRawTransaction(
-    signedCreateMintTx.serialize()
+  const signedInitMintTx = await signTransaction!(initMintTx)
+  const initMintSig = await connection.sendRawTransaction(
+    signedInitMintTx.serialize()
   )
-  await connection.confirmTransaction(createMintSig)
+  await connection.confirmTransaction(initMintSig)
 
-  // 3b: create ATA
+  // 3b) ATA
   const ata = await getAssociatedTokenAddress(
     mintKeypair.publicKey,
     publicKey
@@ -171,14 +229,15 @@ export async function createTokenWithMetadata(
   )
   await connection.confirmTransaction(createAtaSig)
 
-  // 3c: mintTo
-  const amount = BigInt(formData.supply) * BigInt(10 ** formData.decimals)
+  // 3c) mintTo
+  const mintAmount =
+    BigInt(formData.supply) * BigInt(10 ** formData.decimals)
   const mintToTx = new Transaction().add(
     createMintToInstruction(
       mintKeypair.publicKey,
       ata,
       publicKey,
-      amount
+      mintAmount
     )
   )
   mintToTx.feePayer = publicKey
@@ -190,8 +249,56 @@ export async function createTokenWithMetadata(
   )
   await connection.confirmTransaction(mintToSig)
 
-  // --- Step 4: Revoke authorities ---
+  // STEP 4: on‑chain metadata (V3 manual)
   onProgress?.(4)
+  // derive metadata PDA
+  const metadataProgramId = new PublicKey(TOKEN_METADATA_PROGRAM_ID)
+  const [metadataPDA] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from('metadata'),
+      metadataProgramId.toBuffer(),
+      mintKeypair.publicKey.toBuffer(),
+    ],
+    metadataProgramId
+  )
+
+  const ix = {
+    programId: metadataProgramId,
+    keys: [
+      { pubkey: metadataPDA, isSigner: false, isWritable: true },
+      { pubkey: mintKeypair.publicKey, isSigner: false, isWritable: false },
+      { pubkey: publicKey, isSigner: true, isWritable: false }, // mint authority
+      { pubkey: publicKey, isSigner: true, isWritable: false }, // payer
+      { pubkey: publicKey, isSigner: false, isWritable: false }, // update authority
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: Buffer.concat([
+      Buffer.from([33]), // createMetadataAccountV3 discriminator
+      serializeMetadataV3({
+        name: formData.name,
+        symbol: formData.symbol,
+        uri: metadataUrl,
+        sellerFeeBasisPoints: 0,
+        creators: null,
+        collection: null,
+        uses: null,
+        isMutable: !formData.revokeUpdate,
+      }),
+    ]),
+  }
+
+  const metadataTx = new Transaction().add(ix)
+  metadataTx.feePayer = publicKey
+  metadataTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedMetadataTx = await signTransaction!(metadataTx)
+  const metadataSig = await connection.sendRawTransaction(
+    signedMetadataTx.serialize()
+  )
+  await connection.confirmTransaction(metadataSig)
+
+  // STEP 5: revoke authorities
+  onProgress?.(5)
   const revokeIxs = []
   if (formData.revokeMint) {
     revokeIxs.push(
@@ -217,6 +324,7 @@ export async function createTokenWithMetadata(
       )
     )
   }
+
   if (revokeIxs.length) {
     const revokeTx = new Transaction().add(...revokeIxs)
     revokeTx.feePayer = publicKey
@@ -229,9 +337,12 @@ export async function createTokenWithMetadata(
     await connection.confirmTransaction(revokeSig)
   }
 
-  // Done!
+  // Done ✅
   const clusterParam =
-    process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : ''
+    process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'devnet'
+      ? '?cluster=devnet'
+      : ''
+
   return {
     mintAddress: mintKeypair.publicKey.toString(),
     metadataUrl,

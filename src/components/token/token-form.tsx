@@ -9,6 +9,7 @@ import {
   FormDataType,
   TokenResult,
 } from "@/services/token-service"
+import { calculateFee } from "@/services/fee-service"
 import TokenCreationSuccess from "./token-creation-success"
 import Loading from "../ui/loading"
 import TokenFormBasic from "./token-form-basic"
@@ -19,7 +20,8 @@ const STEPS = [
   "Uploading token image…",
   "Creating token metadata…",
   "Processing payment…",
-  "Creating token on Solana…",
+  "Creating mint & ATA & mintTo…",
+  "Adding on‐chain metadata…",
   "Configuring token authorities…",
 ]
 
@@ -27,7 +29,7 @@ export default function TokenForm() {
   const walletAdapter = useWallet()
   const { connection } = useConnection()
 
-  const [formData, setFormData] = useState<Partial<FormDataType>>({
+  const [formData, setFormData] = useState<FormDataType>({
     name: "",
     symbol: "",
     decimals: 9,
@@ -39,19 +41,23 @@ export default function TokenForm() {
     revokeUpdate: true,
     socialLinks: false,
     creatorInfo: false,
+    website: "",
+    twitter: "",
+    telegram: "",
+    discord: "",
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [progressStep, setProgressStep] = useState<number>(0)
+  const [progressStep, setProgressStep] = useState(0)
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null)
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value, type, checked } = e.target as HTMLInputElement
-    setFormData((p) => ({
-      ...p,
+    setFormData((prev) => ({
+      ...prev,
       [name]:
         type === "checkbox"
           ? checked
@@ -63,7 +69,7 @@ export default function TokenForm() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFormData((p) => ({ ...p, logo: e.target.files![0] }))
+      setFormData((prev) => ({ ...prev, logo: e.target.files![0] }))
     }
   }
 
@@ -87,7 +93,7 @@ export default function TokenForm() {
       try {
         const result = await createTokenWithMetadata(
           walletAdapter,
-          formData as FormDataType,
+          formData,
           (step) => setProgressStep(step)
         )
         setTokenResult(result)
@@ -115,27 +121,48 @@ export default function TokenForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl">
+    <form
+      onSubmit={handleSubmit}
+      className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl"
+    >
       {error && (
         <div className="text-red-400 bg-red-800/30 p-3 rounded">{error}</div>
       )}
 
       <TokenFormBasic
-        formData={formData as FormDataType}
+        formData={formData}
         handleInputChange={handleInputChange}
         handleFileChange={handleFileChange}
       />
 
       <TokenFormOptions
-        formData={formData as FormDataType}
-        setFormData={setFormData as any}
+        formData={formData}
+        setFormData={setFormData}
         handleInputChange={handleInputChange}
       />
 
       <TokenFormAuthorities
-        formData={formData as FormDataType}
-        setFormData={setFormData as any}
+        formData={formData}
+        setFormData={setFormData}
       />
+
+      {/* Display dynamic feature‐fee total */}
+      <div className="flex justify-between items-center text-gray-300">
+        <span>Total feature fee:</span>
+        <span className="text-purple-500 font-semibold">
+          {calculateFee({
+            revokeMint: formData.revokeMint,
+            revokeFreeze: formData.revokeFreeze,
+            revokeUpdate: formData.revokeUpdate,
+            socialLinks: formData.socialLinks,
+            creatorInfo: formData.creatorInfo,
+          })}{" "}
+          SOL
+        </span>
+      </div>
+      <div className="text-xs text-gray-500">
+        (Network transaction fees are separate and go to validators)
+      </div>
 
       <button
         type="submit"
