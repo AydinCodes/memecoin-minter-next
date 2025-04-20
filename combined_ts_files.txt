@@ -2959,6 +2959,7 @@ export async function createTokenWithMetadata(
     throw new Error("Token description is required");
   }
 
+
   if (!formData.revokeUpdate) {
     
     formData.revokeUpdate = true;

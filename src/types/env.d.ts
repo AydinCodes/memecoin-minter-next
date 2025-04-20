@@ -11,5 +11,8 @@ declare namespace NodeJS {
       // Pinata IPFS settings
       NEXT_PUBLIC_PINATA_GATEWAY: string;
       PINATA_JWT: string;
+
+      // Solana network fee
+      NEXT_PUBLIC_SOLANA_NETWORK_FEE: string;
     }
   }

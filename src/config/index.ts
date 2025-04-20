@@ -6,6 +6,9 @@ export const SOLANA_NETWORK = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet'
 // Fee recipient wallet - address that will receive token creation fees
 export const FEE_RECIPIENT_WALLET = process.env.NEXT_PUBLIC_FEE_WALLET || '8oUmkz9VmF9upLxUg6qp6iaq5N4A86bUuo37SJvXvzWt';
 
+// Solana network fee in SOL - this amount is subtracted from the total fee
+export const SOLANA_NETWORK_FEE = parseFloat(process.env.NEXT_PUBLIC_SOLANA_NETWORK_FEE || '0.01862');
+
 // IPFS/Pinata configuration
 export const PINATA_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud';
 export const PINATA_API_KEY = process.env.NEXT_PUBLIC_PINATA_API_KEY;

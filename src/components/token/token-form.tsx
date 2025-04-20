@@ -14,6 +14,7 @@ import TokenFormOptions from "./token-form-options"
 import TokenFormAuthorities from "./token-form-authorities"
 import TokenFormCreator from "./token-form-creator"
 import { FormDataType } from "@/types/token"
+import { SOLANA_NETWORK_FEE } from "@/config"
 
 // Enhanced steps with more detail on IPFS operations
 const STEPS = [
@@ -54,6 +55,7 @@ export default function TokenForm() {
   const [progressStep, setProgressStep] = useState(0)
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null)
   const [totalFee, setTotalFee] = useState<number>(0.4) // Initial fee calculation with all defaults (0.1 base + 0.3 for all authorities)
+  const [formSubmitAttempted, setFormSubmitAttempted] = useState(false) // Track form submission attempts
 
   // Calculate fee whenever relevant form options change
   useEffect(() => {
@@ -129,6 +131,9 @@ export default function TokenForm() {
     async (e: React.FormEvent) => {
       e.preventDefault()
       
+      // Mark that a submission attempt was made
+      setFormSubmitAttempted(true)
+      
       // Clear previous errors
       setError(null)
       
@@ -176,6 +181,9 @@ export default function TokenForm() {
     )
   }
 
+  // Calculate net fee after Solana network fee
+  const netFee = Math.max(totalFee - SOLANA_NETWORK_FEE, 0);
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -189,6 +197,7 @@ export default function TokenForm() {
         formData={formData}
         handleInputChange={handleInputChange}
         handleFileChange={handleFileChange}
+        formSubmitted={formSubmitAttempted}
       />
 
       <TokenFormOptions
@@ -216,8 +225,9 @@ export default function TokenForm() {
           {formatFee(totalFee)}
         </span>
       </div>
-      <div className="text-xs text-gray-500">
-        (Single transaction includes all network fees)
+      <div className="text-xs text-gray-500 flex justify-between">
+        <span>(Includes Solana network fee: {formatFee(SOLANA_NETWORK_FEE)})</span>
+        <span>Net fee: {formatFee(netFee)}</span>
       </div>
 
       <button

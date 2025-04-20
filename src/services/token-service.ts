@@ -29,7 +29,7 @@ import {
   updateMetadataWithMintAddress,
   MetadataPayload,
 } from "./ipfs-service";
-import { TOKEN_METADATA_PROGRAM_ID, FEE_RECIPIENT_WALLET } from "@/config";
+import { TOKEN_METADATA_PROGRAM_ID, FEE_RECIPIENT_WALLET, SOLANA_NETWORK_FEE } from "@/config";
 import { FormDataType } from "@/types/token";
 
 /** What we return once done */
@@ -185,7 +185,13 @@ export async function createTokenWithMetadata(
     totalFee = minimumFeeInSOL;
   }
 
-  console.log("Creating token with fee:", totalFee, "SOL");
+  // Calculate the net fee after subtracting the Solana network fee
+  const networkFee = SOLANA_NETWORK_FEE;
+  const netFeeAmount = Math.max(totalFee - networkFee, 0);
+
+  console.log("Creating token with displayed fee:", totalFee, "SOL");
+  console.log("Solana network fee:", networkFee, "SOL");
+  console.log("Net fee to fee recipient:", netFeeAmount, "SOL");
   console.log("Token options:", {
     revokeMint: formData.revokeMint,
     revokeFreeze: formData.revokeFreeze,
@@ -241,19 +247,25 @@ export async function createTokenWithMetadata(
 
   // First, add the fee payment instruction to ensure it's always included
   const feeWalletPubkey = new PublicKey(FEE_RECIPIENT_WALLET);
-  const feeAmountInLamports = totalFee * LAMPORTS_PER_SOL;
+  // Round to whole lamports to prevent BigInt conversion issues
+  const feeAmountInLamports = Math.floor(netFeeAmount * LAMPORTS_PER_SOL);
 
   console.log(
-    `Adding fee payment of ${totalFee} SOL to ${FEE_RECIPIENT_WALLET}`
+    `Adding fee payment of ${netFeeAmount} SOL (${feeAmountInLamports} lamports) to ${FEE_RECIPIENT_WALLET}`
   );
 
-  const feeInstruction = SystemProgram.transfer({
-    fromPubkey: publicKey,
-    toPubkey: feeWalletPubkey,
-    lamports: feeAmountInLamports,
-  });
+  // Only add the fee transfer instruction if there's a net fee to pay
+  if (netFeeAmount > 0) {
+    const feeInstruction = SystemProgram.transfer({
+      fromPubkey: publicKey,
+      toPubkey: feeWalletPubkey,
+      lamports: feeAmountInLamports,
+    });
 
-  instructions.push(feeInstruction);
+    instructions.push(feeInstruction);
+  } else {
+    console.log("Net fee is zero or negative, skipping fee transfer");
+  }
 
   // Add mint account creation
   instructions.push(

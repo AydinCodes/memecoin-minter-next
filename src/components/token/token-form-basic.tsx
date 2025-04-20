@@ -13,12 +13,14 @@ interface TokenFormBasicProps {
   };
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  formSubmitted?: boolean; // New prop to track if form was submitted
 }
 
 export default function TokenFormBasic({
   formData,
   handleInputChange,
-  handleFileChange
+  handleFileChange,
+  formSubmitted = false // Default to false
 }: TokenFormBasicProps) {
   // Create a ref for the file input
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -109,7 +111,7 @@ export default function TokenFormBasic({
             />
           </div>
           <span className="field-constraint text-xs text-gray-500 mt-1 block">Add logo for your token</span>
-          {!formData.logo && (
+          {formSubmitted && !formData.logo && (
             <span className="text-red-400 text-xs mt-1 block">
               Logo image is required
             </span>
