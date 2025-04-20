@@ -170,12 +170,9 @@ export async function createTokenWithMetadata(
     throw new Error("Token description is required");
   }
 
-  // CRITICAL: If Revoke Update is not checked, force it to be checked
-  // This is necessary because Phantom's simulation fails otherwise
+
   if (!formData.revokeUpdate) {
-    console.warn(
-      "Forcing Revoke Update to true to prevent transaction simulation failure"
-    );
+    
     formData.revokeUpdate = true;
   }
 

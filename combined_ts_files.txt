@@ -57,6 +57,24 @@ export const config = {
   matcher: '/api/:path*',
 };
 
+// ===== src/types/env.d.ts =====
+
+// src/types/env.d.ts
+
+declare namespace NodeJS {
+    interface ProcessEnv {
+      // Solana Network settings
+      NEXT_PUBLIC_SOLANA_NETWORK: "devnet" | "mainnet-beta";
+      
+      // Fee recipient wallet address
+      NEXT_PUBLIC_FEE_WALLET: string;
+      
+      // Pinata IPFS settings
+      NEXT_PUBLIC_PINATA_GATEWAY: string;
+      PINATA_JWT: string;
+    }
+  }
+
 // ===== src/types/token.ts =====
 
 // Update or create this in a shared location like src/types/token.ts
@@ -247,23 +265,86 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     // Get the metadata from the request body
-    const metadata = await request.json();
+    const { metadata, fileName } = await request.json();
     
     console.log("Received metadata:", metadata);
+    console.log("Filename:", fileName || 'metadata.json');
     
-    // Here you would typically upload to Pinata or another IPFS service
-    // For now, we'll simulate a successful upload with a fake CID
-    // In a real implementation, replace this with actual Pinata API call
+    // In a production environment, you would now upload to Pinata using their API
+    // For demonstration purposes with the ENV variables you provided:
     
-    // Simulate IPFS upload with a random CID
+    // If you have a Pinata JWT token in your environment variables, you can use it
+    const pinataJWT = process.env.PINATA_JWT;
+    const pinataGateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'olive-ready-turkey-58.mypinata.cloud';
+    
+    if (pinataJWT) {
+      // Prepare pinata options and metadata
+      const options = {
+        cidVersion: 1,
+        customPinPolicy: {
+          regions: [
+            {
+              id: 'FRA1',
+              desiredReplicationCount: 1
+            },
+            {
+              id: 'NYC1',
+              desiredReplicationCount: 1
+            }
+          ]
+        }
+      };
+      
+      const pinataMetadata = {
+        name: fileName || `${metadata.symbol}_metadata.json`,
+        keyvalues: {
+          app: "SolMinter",
+          type: "token_metadata",
+          symbol: metadata.symbol,
+          timestamp: Date.now().toString()
+        }
+      };
+      
+      // Send request to Pinata
+      const pinataResponse = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${pinataJWT}`
+        },
+        body: JSON.stringify({
+          pinataOptions: options,
+          pinataMetadata: pinataMetadata,
+          pinataContent: metadata
+        })
+      });
+      
+      if (!pinataResponse.ok) {
+        const errorDetails = await pinataResponse.json();
+        console.error('Pinata upload error:', errorDetails);
+        return NextResponse.json(
+          { error: `Failed to upload to Pinata: ${errorDetails.error || pinataResponse.statusText}` },
+          { status: 500 }
+        );
+      }
+      
+      const pinataResult = await pinataResponse.json();
+      
+      return NextResponse.json({ 
+        success: true, 
+        cid: pinataResult.IpfsHash,
+        gateway: pinataGateway
+      });
+    }
+    
+    // Fallback to fake CID if no Pinata API key (for development only)
     const fakeCid = `bafybeie${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-    
-    // Simulate a slight delay like a real API call would have
-    await new Promise(resolve => setTimeout(resolve, 500));
+    console.warn('Using fake CID because Pinata API credentials were not found');
     
     return NextResponse.json({ 
       success: true, 
-      cid: fakeCid
+      cid: fakeCid,
+      gateway: pinataGateway || 'gateway.pinata.cloud'
     });
   } catch (error) {
     console.error('Error uploading metadata:', error);
@@ -292,21 +373,84 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log("Received file:", file.name, "Size:", file.size);
+    console.log("Received file:", file.name, "Size:", file.size, "Type:", file.type);
     
-    // Here you would typically upload to Pinata or another IPFS service
-    // For now, we'll simulate a successful upload with a fake CID
-    // In a real implementation, replace this with actual Pinata API call
+    // In a production environment, you would now upload to Pinata using their API
+    // For demonstration purposes with the ENV variables you provided:
     
-    // Simulate IPFS upload with a random CID
+    // If you have a Pinata JWT token in your environment variables, you can use it
+    const pinataJWT = process.env.PINATA_JWT;
+    const pinataGateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'olive-ready-turkey-58.mypinata.cloud';
+    
+    if (pinataJWT) {
+      // Create a FormData object to send to Pinata
+      const pinataFormData = new FormData();
+      pinataFormData.append('file', file);
+      
+      // Add pin options as metadata
+      const pinOptions = JSON.stringify({
+        cidVersion: 1,
+        customPinPolicy: {
+          regions: [
+            {
+              id: 'FRA1',
+              desiredReplicationCount: 1
+            },
+            {
+              id: 'NYC1',
+              desiredReplicationCount: 1
+            }
+          ]
+        }
+      });
+      pinataFormData.append('pinataOptions', pinOptions);
+      
+      // Add metadata
+      const metadata = JSON.stringify({
+        name: file.name,
+        keyvalues: {
+          app: "SolMinter",
+          type: "token_image",
+          timestamp: Date.now().toString()
+        }
+      });
+      pinataFormData.append('pinataMetadata', metadata);
+      
+      // Send request to Pinata
+      const pinataResponse = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${pinataJWT}`
+        },
+        body: pinataFormData
+      });
+      
+      if (!pinataResponse.ok) {
+        const errorDetails = await pinataResponse.json();
+        console.error('Pinata upload error:', errorDetails);
+        return NextResponse.json(
+          { error: `Failed to upload to Pinata: ${errorDetails.error || pinataResponse.statusText}` },
+          { status: 500 }
+        );
+      }
+      
+      const pinataResult = await pinataResponse.json();
+      
+      return NextResponse.json({ 
+        success: true, 
+        cid: pinataResult.IpfsHash,
+        gateway: pinataGateway
+      });
+    }
+    
+    // Fallback to fake CID if no Pinata API key (for development only)
     const fakeCid = `bafybeie${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-    
-    // Simulate a slight delay like a real API call would have
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.warn('Using fake CID because Pinata API credentials were not found');
     
     return NextResponse.json({ 
       success: true, 
-      cid: fakeCid 
+      cid: fakeCid,
+      gateway: pinataGateway || 'gateway.pinata.cloud'
     });
   } catch (error) {
     console.error('Error uploading image:', error);
@@ -417,6 +561,63 @@ export function Providers({ children }: { children: ReactNode }) {
   );
 }
 
+// ===== src/config/ipfs.ts =====
+
+// src/config/ipfs.ts
+
+/**
+ * Configuration for IPFS and Pinata services
+ */
+
+// IPFS Gateway configuration
+export const IPFS_CONFIG = {
+    // Default gateway to use (fallback if environment variable is not set)
+    DEFAULT_GATEWAY: 'gateway.pinata.cloud',
+    
+    // The gateway to use from environment variables or fallback
+    GATEWAY: process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud',
+    
+    // Whether we have proper Pinata credentials (JWT token)
+    HAS_PINATA_CREDENTIALS: !!process.env.PINATA_JWT,
+    
+    // Pinata API endpoints
+    PINATA_API: {
+      UPLOAD_FILE: 'https://api.pinata.cloud/pinning/pinFileToIPFS',
+      UPLOAD_JSON: 'https://api.pinata.cloud/pinning/pinJSONToIPFS',
+      REMOVE_PIN: 'https://api.pinata.cloud/pinning/unpin',
+    },
+    
+    // Default pin policy for geographical redundancy
+    DEFAULT_PIN_POLICY: {
+      regions: [
+        {
+          id: 'FRA1',
+          desiredReplicationCount: 1
+        },
+        {
+          id: 'NYC1',
+          desiredReplicationCount: 1
+        }
+      ]
+    }
+  };
+  
+  /**
+   * Get the complete IPFS URL with gateway
+   * @param cid The IPFS CID
+   * @returns Full gateway URL
+   */
+  export function getIpfsUrl(cid: string): string {
+    return `https://${IPFS_CONFIG.GATEWAY}/ipfs/${cid}`;
+  }
+  
+  /**
+   * Check if we have proper Pinata credentials
+   */
+  export function hasPinataCredentials(): boolean {
+    return IPFS_CONFIG.HAS_PINATA_CREDENTIALS;
+  }
+
 // ===== src/config/index.ts =====
 
 // src/config/index.ts
@@ -463,6 +664,57 @@ export const TOKEN_METADATA_PROGRAM_ID = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt5
 
 // Program ID for the SPL Token Program
 export const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+
+// ===== src/utils/ipfs-utils.ts =====
+
+// src/utils/ipfs-utils.ts
+
+/**
+ * Utility functions for working with IPFS and Pinata
+ */
+
+/**
+ * Extracts the CID from an IPFS URL
+ */
+export function extractCidFromUrl(ipfsUrl: string): string | null {
+    try {
+      if (ipfsUrl.includes('/ipfs/')) {
+        // Format: https://gateway.domain/ipfs/CID
+        return ipfsUrl.split('/ipfs/')[1];
+      } else if (ipfsUrl.startsWith('ipfs://')) {
+        // Format: ipfs://CID
+        return ipfsUrl.replace('ipfs://', '');
+      }
+      return null;
+    } catch (error) {
+      console.error('Error extracting CID from URL:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Converts an IPFS URL to use a specific gateway
+   */
+  export function convertToGatewayUrl(
+    ipfsUrl: string, 
+    gateway: string = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud'
+  ): string {
+    const cid = extractCidFromUrl(ipfsUrl);
+    if (!cid) return ipfsUrl; // Return original if we can't extract CID
+    
+    // Make sure gateway doesn't have protocol or trailing slash
+    const cleanGateway = gateway.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    return `https://${cleanGateway}/ipfs/${cid}`;
+  }
+  
+  /**
+   * Logs IPFS operation details for debugging
+   */
+  export function logIpfsOperation(operation: string, details: any): void {
+    console.log(`==== IPFS ${operation.toUpperCase()} ====`);
+    console.table(details);
+    console.log('==============================');
+  }
 
 // ===== src/utils/wallet-debug.ts =====
 
@@ -1020,7 +1272,6 @@ import { useState, useCallback, useEffect } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import {
   createTokenWithMetadata,
-  FormDataType,
   TokenResult,
 } from "@/services/token-service"
 import { calculateFee, formatFee } from "@/services/fee-service"
@@ -1030,14 +1281,17 @@ import TokenFormBasic from "./token-form-basic"
 import TokenFormOptions from "./token-form-options"
 import TokenFormAuthorities from "./token-form-authorities"
 import TokenFormCreator from "./token-form-creator"
+import { FormDataType } from "@/types/token"
 
+// Enhanced steps with more detail on IPFS operations
 const STEPS = [
-  "Uploading token image…",
+  "Uploading token image to IPFS…",
   "Creating token metadata…",
   "Processing transaction…",
   "Creating mint & token account…",
   "Adding on‐chain metadata…",
   "Configuring token authorities…",
+  "Updating metadata with mint address…",
 ]
 
 export default function TokenForm() {
@@ -1254,7 +1508,8 @@ export default function TokenForm() {
 'use client';
 
 import Link from 'next/link';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { extractCidFromUrl } from '@/utils/ipfs-utils';
 
 interface TokenCreationSuccessProps {
   result: {
@@ -1265,7 +1520,51 @@ interface TokenCreationSuccessProps {
   };
 }
 
+interface TokenMetadata {
+  name: string;
+  symbol: string;
+  description?: string;
+  image?: string;
+  website?: string;
+  twitter?: string;
+  telegram?: string;
+  discord?: string;
+  tokenInfo?: {
+    totalSupply?: number;
+    decimals?: number;
+  };
+}
+
 export default function TokenCreationSuccess({ result }: TokenCreationSuccessProps) {
+  const [metadata, setMetadata] = useState<TokenMetadata | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch metadata to display additional token info
+  useEffect(() => {
+    async function fetchMetadata() {
+      try {
+        setLoading(true);
+        const response = await fetch(result.metadataUrl);
+        if (response.ok) {
+          const data = await response.json();
+          setMetadata(data);
+        }
+      } catch (error) {
+        console.error("Error fetching metadata:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (result.metadataUrl) {
+      fetchMetadata();
+    }
+  }, [result.metadataUrl]);
+
+  // Extract relevant information from result and metadata
+  const cid = extractCidFromUrl(result.metadataUrl);
+  const networkParam = result.explorerUrl.includes("?cluster=devnet") ? "devnet" : "mainnet-beta";
+  
   return (
     <div className="max-w-3xl mx-auto py-12 px-4">
       <div className="bg-[#171717] rounded-xl p-8 shadow-lg border border-green-500 border-opacity-30">
@@ -1291,6 +1590,15 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
             </div>
             
             <div className="token-details">
+              {metadata && (
+                <div className="mb-4">
+                  <div className="text-gray-500 text-sm">Token Name / Symbol</div>
+                  <div className="text-white text-xl mt-1">
+                    {metadata.name} <span className="text-gray-400">({metadata.symbol})</span>
+                  </div>
+                </div>
+              )}
+              
               <div className="mb-4">
                 <div className="text-gray-500 text-sm">Token Address</div>
                 <div className="font-mono text-white text-sm bg-[#333] p-2 rounded mt-1 overflow-x-auto">
@@ -1299,14 +1607,120 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
               </div>
               
               <div className="mb-4">
-                <div className="text-gray-500 text-sm">Metadata URL</div>
-                <div className="font-mono text-white text-sm bg-[#333] p-2 rounded mt-1 overflow-x-auto">
-                  {result.metadataUrl}
+                <div className="text-gray-500 text-sm">Network</div>
+                <div className="text-white mt-1 flex items-center">
+                  <span className={networkParam === "devnet" ? "text-yellow-500" : "text-blue-500"}>
+                    {networkParam === "devnet" ? "Devnet" : "Mainnet"}
+                  </span>
+                  {networkParam === "devnet" && (
+                    <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-900 text-yellow-300 rounded-full">
+                      Testnet
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
           </div>
+          
+          {metadata && metadata.description && (
+            <div className="mt-4">
+              <div className="text-gray-500 text-sm mb-1">Description</div>
+              <div className="text-gray-300 bg-[#333] p-3 rounded text-sm">{metadata.description}</div>
+            </div>
+          )}
+          
+          <div className="mt-4">
+            <div className="text-gray-500 text-sm">Metadata URL</div>
+            <div className="font-mono text-white text-sm bg-[#333] p-2 rounded mt-1 overflow-x-auto">
+              {result.metadataUrl}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">IPFS CID: {cid}</div>
+          </div>
+          
+          {metadata && metadata.tokenInfo && (
+            <div className="flex flex-wrap gap-4 mt-4">
+              {metadata.tokenInfo.totalSupply && (
+                <div>
+                  <div className="text-gray-500 text-sm">Total Supply</div>
+                  <div className="text-white font-semibold">
+                    {metadata.tokenInfo.totalSupply.toLocaleString()}
+                  </div>
+                </div>
+              )}
+              
+              {metadata.tokenInfo.decimals !== undefined && (
+                <div>
+                  <div className="text-gray-500 text-sm">Decimals</div>
+                  <div className="text-white font-semibold">{metadata.tokenInfo.decimals}</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+        
+        {/* Social Links Section */}
+        {metadata && (metadata.website || metadata.twitter || metadata.telegram || metadata.discord) && (
+          <div className="social-links bg-[#222] rounded-lg p-5 mb-6">
+            <h3 className="text-lg font-medium text-white mb-3">Social Links</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {metadata.website && (
+                <a 
+                  href={metadata.website} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center text-purple-400 hover:text-purple-300"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                  </svg>
+                  Website
+                </a>
+              )}
+              
+              {metadata.twitter && (
+                <a 
+                  href={metadata.twitter} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center text-blue-400 hover:text-blue-300"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"></path>
+                  </svg>
+                  Twitter
+                </a>
+              )}
+              
+              {metadata.telegram && (
+                <a 
+                  href={metadata.telegram} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center text-blue-500 hover:text-blue-400"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                  </svg>
+                  Telegram
+                </a>
+              )}
+              
+              {metadata.discord && (
+                <a 
+                  href={metadata.discord} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center text-indigo-400 hover:text-indigo-300"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                  </svg>
+                  Discord
+                </a>
+              )}
+            </div>
+          </div>
+        )}
         
         <div className="next-steps space-y-4 mb-8">
           <h2 className="text-xl font-semibold text-white">Next Steps</h2>
@@ -2178,77 +2592,197 @@ export function ClientWalletProvider({ children }: ClientWalletProviderProps) {
 
 // src/services/ipfs-service.ts
 
-export async function uploadImageToIPFS(file: File): Promise<string> {
-  const formData = new FormData()
-  formData.append('file', file)
+/**
+ * Service for handling IPFS uploads via Pinata
+ */
 
-  const res = await fetch('/api/upload-image', {
-    method: 'POST',
-    body: formData,
-  })
+import { FormDataType } from "@/types/token";
 
-  if (!res.ok) {
-    throw new Error(`Image upload failed: ${res.statusText}`)
+// Helper function to generate a unique file name based on token details + timestamp
+function generateUniqueFileName(name: string, symbol: string): string {
+  const timestamp = Date.now();
+  const sanitizedName = name.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  const sanitizedSymbol = symbol.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  return `${sanitizedSymbol}_${sanitizedName}_${timestamp}`;
+}
+
+/**
+ * Uploads an image file to IPFS via Pinata
+ * @returns IPFS URL for the uploaded image
+ */
+export async function uploadImageToIPFS(file: File, tokenName: string, tokenSymbol: string): Promise<string> {
+  try {
+    // Generate a unique filename based on token symbol and name
+    const uniqueFileName = generateUniqueFileName(tokenName, tokenSymbol);
+    const fileExtension = file.name.split('.').pop() || 'png';
+    const newFileName = `${uniqueFileName}.${fileExtension}`;
+    
+    // Create a new file with the unique name
+    const uniqueFile = new File([file], newFileName, { type: file.type });
+    
+    // Create FormData to send to the API
+    const formData = new FormData();
+    formData.append('file', uniqueFile);
+    
+    // Add the unique filename as metadata
+    formData.append('fileName', newFileName);
+    
+    console.log(`Uploading image as: ${newFileName}`);
+    
+    const res = await fetch('/api/upload-image', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(`Image upload failed: ${errorData.error || res.statusText}`);
+    }
+
+    const { cid, gateway } = await res.json();
+    const imageUrl = `https://${gateway}/ipfs/${cid}`;
+    
+    console.log(`Image uploaded successfully: ${imageUrl}`);
+    return imageUrl;
+  } catch (error) {
+    console.error("Error uploading image to IPFS:", error);
+    throw error;
   }
-
-  const { cid } = await res.json()
-  return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY}/ipfs/${cid}`
 }
 
 export interface MetadataPayload {
-  name: string
-  symbol: string
-  description: string
-  image: string
-  creator?: string
-  website?: string
-  twitter?: string
-  telegram?: string
-  discord?: string
+  name: string;
+  symbol: string;
+  description: string;
+  image: string;
+  mint?: string; // Optional mint address (added after token creation)
+  creator?: string;
+  website?: string;
+  twitter?: string;
+  telegram?: string;
+  discord?: string;
+  // Additional fields from your non-Next.js implementation
+  showName?: boolean;
+  tokenInfo?: {
+    chain: string;
+    totalSupply: number;
+    circulatingSupply: number;
+    decimals: number;
+  };
+  createdOn?: string;
 }
 
-export async function uploadMetadataToIPFS(
-  payload: MetadataPayload
-): Promise<string> {
-  // Construct the metadata object with conditional fields
-  const metadata: any = {
-    name: payload.name,
-    symbol: payload.symbol,
-    description: payload.description,
-    image: payload.image,
-  }
-  
-  // Add creator if provided
-  if (payload.creator) {
-    metadata.creator = payload.creator
-  }
-  
-  // Add social links if provided
-  if (payload.website) metadata.website = payload.website
-  if (payload.twitter) metadata.twitter = payload.twitter
-  if (payload.telegram) metadata.telegram = payload.telegram
-  if (payload.discord) metadata.discord = payload.discord
-  
-  // Add attributes section
-  metadata.attributes = [
-    {
-      trait_type: "Platform",
-      value: "SolMinter"
+/**
+ * Uploads token metadata to IPFS via Pinata
+ * @returns IPFS URL for the uploaded metadata
+ */
+export async function uploadMetadataToIPFS(payload: MetadataPayload): Promise<string> {
+  try {
+    // Generate a unique filename for the metadata
+    const uniqueFileName = generateUniqueFileName(payload.name, payload.symbol);
+    
+    // Construct the complete metadata object similar to your non-Next.js version
+    const metadata: any = {
+      // Core token information
+      name: payload.name,
+      symbol: payload.symbol,
+      description: payload.description,
+      image: payload.image,
+      
+      // Display preference
+      showName: true,
+      
+      // Token information
+      tokenInfo: {
+        chain: "Solana",
+        totalSupply: payload.tokenInfo?.totalSupply || 0,
+        circulatingSupply: payload.tokenInfo?.circulatingSupply || 0,
+        decimals: payload.tokenInfo?.decimals || 9
+      },
+      
+      // Add mint address if available (could be added later)
+      ...(payload.mint && { mint: payload.mint }),
+      
+      // Add creator if provided
+      ...(payload.creator && { creator: payload.creator }),
+      
+      // Add social links if provided
+      ...(payload.website && { website: payload.website }),
+      ...(payload.twitter && { twitter: payload.twitter }),
+      ...(payload.telegram && { telegram: payload.telegram }),
+      ...(payload.discord && { discord: payload.discord }),
+      
+      // Origin
+      createdOn: "SolMinter"
+    };
+
+    console.log(`Uploading metadata for: ${payload.name} (${payload.symbol})`);
+    
+    const res = await fetch('/api/upload-metadata', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        metadata,
+        fileName: `${uniqueFileName}.json`
+      }),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(`Metadata upload failed: ${errorData.error || res.statusText}`);
     }
-  ]
 
-  const res = await fetch('/api/upload-metadata', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(metadata),
-  })
-
-  if (!res.ok) {
-    throw new Error(`Metadata upload failed: ${res.statusText}`)
+    const { cid, gateway } = await res.json();
+    const metadataUrl = `https://${gateway}/ipfs/${cid}`;
+    
+    console.log(`Metadata uploaded successfully: ${metadataUrl}`);
+    return metadataUrl;
+  } catch (error) {
+    console.error("Error uploading metadata to IPFS:", error);
+    throw error;
   }
+}
 
-  const { cid } = await res.json()
-  return `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY}/ipfs/${cid}`
+/**
+ * Update token metadata with mint address after token creation
+ * @returns IPFS URL for the updated metadata
+ */
+export async function updateMetadataWithMintAddress(
+  originalMetadataUrl: string, 
+  mintAddress: string, 
+  formData: FormDataType
+): Promise<string> {
+  try {
+    // Create updated metadata payload with mint address
+    const payload: MetadataPayload = {
+      name: formData.name,
+      symbol: formData.symbol,
+      description: formData.description,
+      image: originalMetadataUrl.split('/ipfs/')[0] + '/ipfs/' + originalMetadataUrl.split('/ipfs/')[1],
+      mint: mintAddress,
+      creator: formData.creatorInfo ? formData.creatorName : "SolMinter",
+      tokenInfo: {
+        chain: "Solana",
+        totalSupply: formData.supply,
+        circulatingSupply: formData.supply,
+        decimals: formData.decimals
+      }
+    };
+    
+    // Add social links if enabled
+    if (formData.socialLinks) {
+      payload.website = formData.website || undefined;
+      payload.twitter = formData.twitter || undefined;
+      payload.telegram = formData.telegram || undefined;
+      payload.discord = formData.discord || undefined;
+    }
+    
+    // Upload the updated metadata
+    return await uploadMetadataToIPFS(payload);
+  } catch (error) {
+    console.error("Error updating metadata with mint address:", error);
+    throw error;
+  }
 }
 
 // ===== src/services/token-service.ts =====
@@ -2281,29 +2815,11 @@ import { getSolanaConnection } from "./wallet-service";
 import {
   uploadImageToIPFS,
   uploadMetadataToIPFS,
+  updateMetadataWithMintAddress,
   MetadataPayload,
 } from "./ipfs-service";
 import { TOKEN_METADATA_PROGRAM_ID, FEE_RECIPIENT_WALLET } from "@/config";
-
-/** Your form data shape */
-export interface FormDataType {
-  name: string;
-  symbol: string;
-  decimals: number;
-  supply: number;
-  description: string;
-  logo: File | null;
-  revokeMint: boolean;
-  revokeFreeze: boolean;
-  revokeUpdate: boolean;
-  socialLinks: boolean;
-  creatorInfo: boolean;
-  creatorName: string;
-  website: string;
-  twitter: string;
-  telegram: string;
-  discord: string;
-}
+import { FormDataType } from "@/types/token";
 
 /** What we return once done */
 export interface TokenResult {
@@ -2443,12 +2959,8 @@ export async function createTokenWithMetadata(
     throw new Error("Token description is required");
   }
 
-  // CRITICAL: If Revoke Update is not checked, force it to be checked
-  // This is necessary because Phantom's simulation fails otherwise
   if (!formData.revokeUpdate) {
-    console.warn(
-      "Forcing Revoke Update to true to prevent transaction simulation failure"
-    );
+    
     formData.revokeUpdate = true;
   }
 
@@ -2470,25 +2982,28 @@ export async function createTokenWithMetadata(
     creatorInfo: formData.creatorInfo,
   });
 
-  // STEP 0: IPFS image
+  // STEP 0: IPFS image with unique name
   onProgress?.(0);
-  const imageUrl = await uploadImageToIPFS(formData.logo!);
+  const imageUrl = await uploadImageToIPFS(formData.logo, formData.name, formData.symbol);
 
   // STEP 1: IPFS metadata JSON
   onProgress?.(1);
 
-  // Prepare creator info based on creatorInfo flag
-  let creatorName = "SolMinter";
-  if (formData.creatorInfo && formData.creatorName) {
-    creatorName = formData.creatorName;
-  }
-
+  // Prepare metadata payload with extended fields from non-Next.js version
   const metadataPayload: MetadataPayload = {
     name: formData.name,
     symbol: formData.symbol,
     description: formData.description,
     image: imageUrl,
-    creator: creatorName,
+    creator: formData.creatorInfo ? formData.creatorName : "SolMinter",
+    showName: true,
+    tokenInfo: {
+      chain: "Solana",
+      totalSupply: formData.supply,
+      circulatingSupply: formData.supply,
+      decimals: formData.decimals
+    },
+    createdOn: "SolMinter"
   };
 
   // Only add social links if enabled
@@ -2499,6 +3014,7 @@ export async function createTokenWithMetadata(
     metadataPayload.discord = formData.discord;
   }
 
+  // Upload the initial metadata
   const metadataUrl = await uploadMetadataToIPFS(metadataPayload);
 
   // STEP 2: Prepare transaction
@@ -2676,6 +3192,11 @@ export async function createTokenWithMetadata(
     console.log("Waiting for confirmation...");
     await connection.confirmTransaction(txSignature);
     console.log("Transaction confirmed successfully!");
+    
+    // After successful token creation, update the metadata with the mint address
+    const mintAddress = mintKeypair.publicKey.toString();
+    const updatedMetadataUrl = await updateMetadataWithMintAddress(metadataUrl, mintAddress, formData);
+    console.log("Metadata updated with mint address:", updatedMetadataUrl);
   } catch (error: unknown) {
     console.error("Transaction error:", error);
     const errorMessage =
@@ -2689,14 +3210,26 @@ export async function createTokenWithMetadata(
       ? "?cluster=devnet"
       : "";
 
-  return {
-    mintAddress: mintKeypair.publicKey.toString(),
-    metadataUrl,
-    imageUrl,
-    explorerUrl: `https://explorer.solana.com/address/${mintKeypair.publicKey.toString()}${clusterParam}`,
-  };
-}
+  // After successful token creation, get the mint address
+  const mintAddress = mintKeypair.publicKey.toString();
+  
+  // Update metadata with mint address
+  let finalMetadataUrl = metadataUrl;
+  try {
+    finalMetadataUrl = await updateMetadataWithMintAddress(metadataUrl, mintAddress, formData);
+    console.log("Metadata updated with mint address:", finalMetadataUrl);
+  } catch (updateError) {
+    console.error("Error updating metadata (non-critical):", updateError);
+    // Continue with original metadata URL if update fails
+  }
 
+  return {
+    mintAddress: mintAddress,
+    metadataUrl: finalMetadataUrl,
+    imageUrl,
+    explorerUrl: `https://explorer.solana.com/address/${mintAddress}${clusterParam}`,
+  };
+};
 
 // ===== src/services/fee-service.ts =====
 

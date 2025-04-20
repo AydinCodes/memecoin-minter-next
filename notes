@@ -1,7 +1,10 @@
-search "CRITICAL"
 
-do a see tokens page based on what wallet you are on.
+do a see tokens page based on what wallet you are on. - have the wallet id in the name of the file to search it and get all coins related to that wallet
 
 fix tick button on token creation successfull
 
 Check all console logs when minting coins.
+
+if the token is not paid for, remove the data from pinata.
+
+remove this text - (Single transaction includes all network fees)
