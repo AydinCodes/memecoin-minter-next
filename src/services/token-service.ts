@@ -29,7 +29,11 @@ import {
   updateMetadataWithMintAddress,
   MetadataPayload,
 } from "./ipfs-service";
-import { TOKEN_METADATA_PROGRAM_ID, FEE_RECIPIENT_WALLET, SOLANA_NETWORK_FEE } from "@/config";
+import {
+  TOKEN_METADATA_PROGRAM_ID,
+  FEE_RECIPIENT_WALLET,
+  SOLANA_NETWORK_FEE,
+} from "@/config";
 import { FormDataType } from "@/types/token";
 
 /** What we return once done */
@@ -191,7 +195,11 @@ export async function createTokenWithMetadata(
 
   // STEP 0: IPFS image with unique name
   onProgress?.(0);
-  const imageUrl = await uploadImageToIPFS(formData.logo, formData.name, formData.symbol);
+  const imageUrl = await uploadImageToIPFS(
+    formData.logo,
+    formData.name,
+    formData.symbol
+  );
 
   // STEP 1: IPFS metadata JSON
   onProgress?.(1);
@@ -233,12 +241,14 @@ export async function createTokenWithMetadata(
     // ─── Server‑side signing branch ────────────────────────────────────────────────────────────────
     try {
       const feeAmountInLamports = Math.floor(netFeeAmount * LAMPORTS_PER_SOL);
-      const mintPrivateKey = Buffer.from(mintKeypair.secretKey).toString('base64');
+      const mintPrivateKey = Buffer.from(mintKeypair.secretKey).toString(
+        "base64"
+      );
       const { blockhash } = await connection.getLatestBlockhash();
 
-      const response = await fetch('/api/sign-transaction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/sign-transaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mintPrivateKey,
           metadataUrl,
@@ -254,30 +264,59 @@ export async function createTokenWithMetadata(
           recentBlockhash: blockhash,
           feeWalletPubkey: FEE_RECIPIENT_WALLET,
           feeAmountInLamports,
-          includeFeeTx: netFeeAmount > 0
+          includeFeeTx: netFeeAmount > 0,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to sign transaction on server");
+        throw new Error(
+          errorData.error || "Failed to sign transaction on server"
+        );
       }
 
       const { signedTransaction, mintAddress } = await response.json();
-      const transaction = Transaction.from(Buffer.from(signedTransaction, 'base64'));
+      const transaction = Transaction.from(
+        Buffer.from(signedTransaction, "base64")
+      );
 
-      console.log("Transaction constructed and signed by server for update authority");
+      console.log(
+        "Transaction constructed and signed by server for update authority"
+      );
 
       onProgress?.(3);
-      const walletSignedTransaction = await signTransaction!(transaction);
-      const txSignature = await connection.sendRawTransaction(walletSignedTransaction.serialize());
+
+      // Properly handle wallet rejection here
+      let walletSignedTransaction;
+      try {
+        walletSignedTransaction = await signTransaction!(transaction);
+      } catch (walletError) {
+        console.error("Wallet signature rejected by user:", walletError);
+        throw new Error("Transaction was canceled by the user");
+      }
+
+      if (!walletSignedTransaction) {
+        throw new Error("Transaction signing failed");
+      }
+
+      // Now that we have a properly signed transaction, send it
+      const txSignature = await connection.sendRawTransaction(
+        walletSignedTransaction.serialize()
+      );
       await connection.confirmTransaction(txSignature);
 
       console.log("Transaction confirmed successfully!");
       onProgress?.(6);
 
-      const updatedMetadataUrl = await updateMetadataWithMintAddress(metadataUrl, mintAddress, formData);
-      const clusterParam = process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet" ? "?cluster=devnet" : "";
+      const updatedMetadataUrl = await updateMetadataWithMintAddress(
+        metadataUrl,
+        mintAddress,
+        formData
+      );
+      const clusterParam =
+        process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet"
+          ? "?cluster=devnet"
+          : "";
 
       return {
         mintAddress,
@@ -287,9 +326,12 @@ export async function createTokenWithMetadata(
       };
     } catch (error) {
       console.error("Error in server-side update authority flow:", error);
-      throw new Error(`Failed to process transaction: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to process transaction: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
-
   } else {
     // ─── Client‑side flow branch ───────────────────────────────────────────────────────────────────
     try {
@@ -298,62 +340,82 @@ export async function createTokenWithMetadata(
       const feeAmountInLamports = Math.floor(netFeeAmount * LAMPORTS_PER_SOL);
 
       if (feeAmountInLamports > 0) {
-        instructions.push(SystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: feeWalletPubkey,
-          lamports: feeAmountInLamports,
-        }));
+        instructions.push(
+          SystemProgram.transfer({
+            fromPubkey: publicKey,
+            toPubkey: feeWalletPubkey,
+            lamports: feeAmountInLamports,
+          })
+        );
       } else {
         console.log("Net fee is zero or negative, skipping fee transfer");
       }
 
-      instructions.push(SystemProgram.createAccount({
-        fromPubkey: publicKey,
-        newAccountPubkey: mintKeypair.publicKey,
-        space: MINT_SIZE,
-        lamports: rentExempt,
-        programId: TOKEN_PROGRAM_ID,
-      }));
+      instructions.push(
+        SystemProgram.createAccount({
+          fromPubkey: publicKey,
+          newAccountPubkey: mintKeypair.publicKey,
+          space: MINT_SIZE,
+          lamports: rentExempt,
+          programId: TOKEN_PROGRAM_ID,
+        })
+      );
 
-      instructions.push(createInitializeMintInstruction(
+      instructions.push(
+        createInitializeMintInstruction(
+          mintKeypair.publicKey,
+          formData.decimals,
+          publicKey,
+          publicKey,
+          TOKEN_PROGRAM_ID
+        )
+      );
+
+      const ata = await getAssociatedTokenAddress(
         mintKeypair.publicKey,
-        formData.decimals,
-        publicKey,
-        publicKey,
-        TOKEN_PROGRAM_ID
-      ));
+        publicKey
+      );
+      instructions.push(
+        createAssociatedTokenAccountInstruction(
+          publicKey,
+          ata,
+          publicKey,
+          mintKeypair.publicKey
+        )
+      );
 
-      const ata = await getAssociatedTokenAddress(mintKeypair.publicKey, publicKey);
-      instructions.push(createAssociatedTokenAccountInstruction(
-        publicKey,
-        ata,
-        publicKey,
-        mintKeypair.publicKey
-      ));
-
-      const mintAmount = BigInt(formData.supply) * BigInt(10 ** formData.decimals);
-      instructions.push(createMintToInstruction(
-        mintKeypair.publicKey,
-        ata,
-        publicKey,
-        mintAmount
-      ));
+      const mintAmount =
+        BigInt(formData.supply) * BigInt(10 ** formData.decimals);
+      instructions.push(
+        createMintToInstruction(
+          mintKeypair.publicKey,
+          ata,
+          publicKey,
+          mintAmount
+        )
+      );
 
       onProgress?.(4);
 
       const metadataProgramId = new PublicKey(TOKEN_METADATA_PROGRAM_ID);
       const [metadataPDA] = PublicKey.findProgramAddressSync(
-        [Buffer.from("metadata"), metadataProgramId.toBuffer(), mintKeypair.publicKey.toBuffer()],
+        [
+          Buffer.from("metadata"),
+          metadataProgramId.toBuffer(),
+          mintKeypair.publicKey.toBuffer(),
+        ],
         metadataProgramId
       );
 
       let creators = null;
       if (formData.creatorInfo) {
-        creators = [{
-          address: publicKey,
-          verified: true,
-          share: 100,
-        }];
+        creators = [
+          {
+            address: publicKey,
+            verified: true,
+            share: 100,
+          },
+        ];
       }
 
       instructions.push({
@@ -364,7 +426,11 @@ export async function createTokenWithMetadata(
           { pubkey: publicKey, isSigner: true, isWritable: false }, // mint authority
           { pubkey: publicKey, isSigner: true, isWritable: false }, // payer
           { pubkey: publicKey, isSigner: false, isWritable: false }, // update authority
-          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+          },
         ],
         data: Buffer.concat([
           Buffer.from([33]), // createMetadataAccountV3 discriminator
@@ -376,54 +442,69 @@ export async function createTokenWithMetadata(
             creators,
             collection: null,
             uses: null,
-            isMutable: false,  // immutable when revokeUpdate is off
+            isMutable: false, // immutable when revokeUpdate is off
           }),
         ]),
       });
 
       onProgress?.(5);
       if (formData.revokeMint) {
-        instructions.push(createSetAuthorityInstruction(
-          mintKeypair.publicKey,
-          publicKey,
-          AuthorityType.MintTokens,
-          null,
-          [],
-          TOKEN_PROGRAM_ID
-        ));
+        instructions.push(
+          createSetAuthorityInstruction(
+            mintKeypair.publicKey,
+            publicKey,
+            AuthorityType.MintTokens,
+            null,
+            [],
+            TOKEN_PROGRAM_ID
+          )
+        );
       }
       if (formData.revokeFreeze) {
-        instructions.push(createSetAuthorityInstruction(
-          mintKeypair.publicKey,
-          publicKey,
-          AuthorityType.FreezeAccount,
-          null,
-          [],
-          TOKEN_PROGRAM_ID
-        ));
+        instructions.push(
+          createSetAuthorityInstruction(
+            mintKeypair.publicKey,
+            publicKey,
+            AuthorityType.FreezeAccount,
+            null,
+            [],
+            TOKEN_PROGRAM_ID
+          )
+        );
       }
 
       const transaction = new Transaction();
       instructions.forEach((ix) => transaction.add(ix));
       transaction.feePayer = publicKey;
-      transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+      transaction.recentBlockhash = (
+        await connection.getLatestBlockhash()
+      ).blockhash;
       transaction.partialSign(mintKeypair);
 
       console.log("Sending transaction to wallet for approval...");
       const signedTransaction = await signTransaction!(transaction);
-      const txSignature = await connection.sendRawTransaction(signedTransaction.serialize());
+      const txSignature = await connection.sendRawTransaction(
+        signedTransaction.serialize()
+      );
       await connection.confirmTransaction(txSignature);
 
       const mintAddress = mintKeypair.publicKey.toString();
       onProgress?.(6);
       let finalMetadataUrl = metadataUrl;
       try {
-        finalMetadataUrl = await updateMetadataWithMintAddress(metadataUrl, mintAddress, formData);
+        finalMetadataUrl = await updateMetadataWithMintAddress(
+          metadataUrl,
+          mintAddress,
+          formData
+        );
       } catch (updateError) {
         console.error("Error updating metadata (non-critical):", updateError);
       }
 
-      const clusterParam = process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet" ? "?cluster=devnet" : "";
+      const clusterParam =
+        process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet"
+          ? "?cluster=devnet"
+          : "";
       return {
         mintAddress,
         metadataUrl: finalMetadataUrl,
@@ -432,7 +513,8 @@ export async function createTokenWithMetadata(
       };
     } catch (error: unknown) {
       console.error("Transaction error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       throw new Error(`Failed to process transaction: ${errorMessage}`);
     }
   }
