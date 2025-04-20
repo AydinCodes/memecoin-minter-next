@@ -1,5 +1,4 @@
 // src/app/api/sign-transaction/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import bs58 from 'bs58';
 import {
@@ -7,7 +6,6 @@ import {
   Keypair,
   PublicKey,
   SystemProgram,
-  TransactionInstruction,
   Connection,
   clusterApiUrl
 } from '@solana/web3.js';
@@ -24,9 +22,7 @@ import {
 } from "@solana/spl-token";
 import { TOKEN_METADATA_PROGRAM_ID, SOLANA_NETWORK } from '@/config';
 
-/**
- * Helper: serialize a UTF‑8 string with u32‑length prefix (LE)
- */
+/** Helper: serialize a UTF‑8 string with u32‑length prefix (LE) */
 function serializeString(value: string): Uint8Array {
   const buffer = Buffer.from(value, "utf8");
   const length = Buffer.alloc(4);
@@ -34,9 +30,7 @@ function serializeString(value: string): Uint8Array {
   return Buffer.concat([length, buffer]);
 }
 
-/**
- * Helper: serialize metadata for Metaplex createMetadataAccountV3
- */
+/** Helper: serialize metadata for Metaplex createMetadataAccountV3 */
 function serializeMetadataV3(data: {
   name: string;
   symbol: string;
@@ -78,7 +72,6 @@ function serializeMetadataV3(data: {
       ])
     : Buffer.from([0]);
 
-  // we don't support uses or collectionDetails yet
   const usesBuff              = Buffer.from([0]);
   const collectionDetailsBuff = Buffer.from([0]);
   const isMutableBuff         = Buffer.from([data.isMutable ? 1 : 0]);
@@ -116,45 +109,36 @@ export async function POST(request: NextRequest) {
       includeFeeTx = false
     } = await request.json();
 
+    // Validate required fields...
     if (!mintPrivateKey || !metadataUrl || !tokenName || !tokenSymbol || !payerPublicKey) {
-      return NextResponse.json(
-        { error: "Missing required transaction data" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing required transaction data" }, { status: 400 });
     }
 
-    // Server‐side key (only used if revokeUpdate === true)
+    // Server‐side update authority key
     const updateAuthorityPrivateKey = process.env.REVOKE_UPDATE_PRIVATE_KEY;
     if (revokeUpdate && !updateAuthorityPrivateKey) {
-      console.error("REVOKE_UPDATE_PRIVATE_KEY not configured");
-      return NextResponse.json(
-        { error: "Update authority not configured on server" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Update authority not configured on server" }, { status: 500 });
     }
 
-    // Setup connection
     const network    = SOLANA_NETWORK === 'mainnet-beta' ? 'mainnet-beta' : 'devnet';
     const connection = new Connection(clusterApiUrl(network));
 
-    // Mint keypair from client
+    // Reconstruct the mint keypair
     const mintSecret  = Buffer.from(mintPrivateKey, 'base64');
     const mintKeypair = Keypair.fromSecretKey(new Uint8Array(mintSecret));
 
-    // Decide which keypair is the update authority
+    // Choose update authority keypair
     let updateAuthorityKeypair: Keypair;
     if (revokeUpdate) {
-      // use server‐side key
       const serverSecret = bs58.decode(updateAuthorityPrivateKey!);
       updateAuthorityKeypair = Keypair.fromSecretKey(serverSecret);
     } else {
-      // use the mint keypair itself
       updateAuthorityKeypair = mintKeypair;
     }
 
     const payer = new PublicKey(payerPublicKey);
 
-    // Build transaction
+    // Build the transaction
     const transaction = new Transaction();
     transaction.recentBlockhash = recentBlockhash;
     transaction.feePayer       = payer;
@@ -170,7 +154,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Rent‐exempt & account creation
+    // Rent‐exempt mint account creation & initialization
     const rentExempt = await getMinimumBalanceForRentExemptMint(connection);
     transaction.add(
       SystemProgram.createAccount({
@@ -191,7 +175,7 @@ export async function POST(request: NextRequest) {
       )
     );
 
-    // Associated Token Account
+    // Associated Token Account & minting
     const ata = await getAssociatedTokenAddress(mintKeypair.publicKey, payer);
     transaction.add(
       createAssociatedTokenAccountInstruction(
@@ -201,7 +185,6 @@ export async function POST(request: NextRequest) {
         mintKeypair.publicKey
       )
     );
-    // Mint to ATA
     const mintAmount = BigInt(tokenSupply) * BigInt(10 ** tokenDecimals);
     transaction.add(
       createMintToInstruction(
@@ -223,13 +206,19 @@ export async function POST(request: NextRequest) {
       metadataProgramId
     );
 
-    // Creators array
+    // **1.** Prepare creators array
     let creators = null;
     if (hasCreators) {
-      creators = [{ address: payer, verified: true, share: 100 }];
+      creators = [
+        {
+          address: payer,
+          verified: false,   // <- changed from `true` to `false`
+          share: 100,
+        },
+      ];
     }
 
-    // Create Metadata instruction
+    // **2.** Create Metadata instruction
     transaction.add({
       programId: metadataProgramId,
       keys: [
@@ -255,7 +244,7 @@ export async function POST(request: NextRequest) {
       ]),
     });
 
-    // Optional revocations
+    // **3.** Optional authority revocations
     if (revokeMint) {
       transaction.add(
         createSetAuthorityInstruction(
@@ -281,17 +270,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sign with server key ONLY if revoking update
+    // **4.** Sign with server key if revoking update authority
     if (revokeUpdate) {
       console.log("Signing with server update authority:", updateAuthorityKeypair.publicKey.toString());
       transaction.partialSign(updateAuthorityKeypair);
     }
 
-    // Always sign with mint keypair
+    // Always sign with the mint keypair
     console.log("Signing with mint keypair:", mintKeypair.publicKey.toString());
     transaction.partialSign(mintKeypair);
 
-    // Serialize (payer will sign in wallet)
+    // **5.** Serialize and return for wallet to sign & send
     const serialized = transaction.serialize({ requireAllSignatures: false });
     const b64 = Buffer.from(serialized).toString('base64');
 
@@ -301,6 +290,7 @@ export async function POST(request: NextRequest) {
       updateAuthority: updateAuthorityKeypair.publicKey.toString(),
       mintAddress: mintKeypair.publicKey.toString(),
     });
+
   } catch (error) {
     console.error("Error in sign-transaction:", error);
     return NextResponse.json(

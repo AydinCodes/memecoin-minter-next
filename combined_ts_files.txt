@@ -426,12 +426,13 @@ export async function GET(request: NextRequest) {
 // ===== src/app/api/sign-transaction/route.ts =====
 
 // src/app/api/sign-transaction/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import bs58 from 'bs58';
-import { 
-  Transaction, 
-  Keypair, 
-  PublicKey, 
+import {
+  Transaction,
+  Keypair,
+  PublicKey,
   SystemProgram,
   TransactionInstruction,
   Connection,
@@ -461,7 +462,7 @@ function serializeString(value: string): Uint8Array {
 }
 
 /**
- * Helper function that correctly serializes metadata for the Metaplex createMetadataAccountV3 instruction
+ * Helper: serialize metadata for Metaplex createMetadataAccountV3
  */
 function serializeMetadataV3(data: {
   name: string;
@@ -473,93 +474,58 @@ function serializeMetadataV3(data: {
   uses: any | null;
   isMutable: boolean;
 }): Uint8Array {
-  // Name
-  const nameBuffer = serializeString(data.name);
+  const nameBuff   = serializeString(data.name);
+  const symbolBuff = serializeString(data.symbol);
+  const uriBuff    = serializeString(data.uri);
 
-  // Symbol
-  const symbolBuffer = serializeString(data.symbol);
+  const feeBuff = Buffer.alloc(2);
+  feeBuff.writeUInt16LE(data.sellerFeeBasisPoints, 0);
 
-  // URI
-  const uriBuffer = serializeString(data.uri);
-
-  // Seller fee basis points (u16)
-  const sellerFeeBasisPointsBuffer = Buffer.alloc(2);
-  sellerFeeBasisPointsBuffer.writeUInt16LE(data.sellerFeeBasisPoints, 0);
-
-  // Creators (Option<Vec<Creator>>)
-  let creatorsBuffer;
-  if (data.creators === null) {
-    creatorsBuffer = Buffer.from([0]); // None
+  let creatorsBuff: Buffer;
+  if (!data.creators) {
+    creatorsBuff = Buffer.from([0]);
   } else {
-    const creatorsVec = Buffer.concat(
-      data.creators.map((creator) => {
-        const address = creator.address.toBuffer();
-        const verified = Buffer.from([creator.verified ? 1 : 0]);
-        const share = Buffer.from([creator.share]);
-        return Buffer.concat([address, verified, share]);
-      })
+    const vec = Buffer.concat(
+      data.creators.map(c => Buffer.concat([
+        c.address.toBuffer(),
+        Buffer.from([c.verified ? 1 : 0]),
+        Buffer.from([c.share])
+      ]))
     );
-
-    const creatorsLength = Buffer.alloc(4);
-    creatorsLength.writeUInt32LE(data.creators.length, 0);
-
-    creatorsBuffer = Buffer.concat([
-      Buffer.from([1]), // Some
-      creatorsLength,
-      creatorsVec,
-    ]);
+    const len = Buffer.alloc(4);
+    len.writeUInt32LE(data.creators.length, 0);
+    creatorsBuff = Buffer.concat([Buffer.from([1]), len, vec]);
   }
 
-  // Collection (Option<Collection>)
-  let collectionBuffer;
-  if (data.collection === null) {
-    collectionBuffer = Buffer.from([0]); // None
-  } else {
-    collectionBuffer = Buffer.concat([
-      Buffer.from([1]), // Some
-      new PublicKey(data.collection.key).toBuffer(),
-      Buffer.from([data.collection.verified ? 1 : 0]),
-    ]);
-  }
+  const collectionBuff = data.collection
+    ? Buffer.concat([
+        Buffer.from([1]),
+        new PublicKey(data.collection.key).toBuffer(),
+        Buffer.from([data.collection.verified ? 1 : 0])
+      ])
+    : Buffer.from([0]);
 
-  // Uses (Option<Uses>)
-  let usesBuffer;
-  if (data.uses === null) {
-    usesBuffer = Buffer.from([0]); // None
-  } else {
-    // Implement if needed - for now we don't use this
-    usesBuffer = Buffer.from([0]); // None
-  }
+  // we don't support uses or collectionDetails yet
+  const usesBuff              = Buffer.from([0]);
+  const collectionDetailsBuff = Buffer.from([0]);
+  const isMutableBuff         = Buffer.from([data.isMutable ? 1 : 0]);
 
-  // Collection Details (Option<CollectionDetails>)
-  // We don't use this, so set to None
-  const collectionDetailsBuffer = Buffer.from([0]);
-
-  // isMutable
-  const isMutableBuffer = Buffer.from([data.isMutable ? 1 : 0]);
-
-  // Combine all into the expected format
   return Buffer.concat([
-    nameBuffer,
-    symbolBuffer,
-    uriBuffer,
-    sellerFeeBasisPointsBuffer,
-    creatorsBuffer,
-    collectionBuffer,
-    usesBuffer,
-    collectionDetailsBuffer,
-    isMutableBuffer,
+    nameBuff,
+    symbolBuff,
+    uriBuff,
+    feeBuff,
+    creatorsBuff,
+    collectionBuff,
+    usesBuff,
+    collectionDetailsBuff,
+    isMutableBuff,
   ]);
 }
 
-/**
- * API route that constructs and signs a transaction with the update authority private key
- * This keeps the private key secure by never exposing it to the client
- */
 export async function POST(request: NextRequest) {
   try {
-    // Parse request body
-    const { 
+    const {
       mintPrivateKey,
       metadataUrl,
       tokenName,
@@ -572,240 +538,205 @@ export async function POST(request: NextRequest) {
       revokeMint,
       revokeFreeze,
       recentBlockhash,
-      // Fee information
       feeWalletPubkey,
       feeAmountInLamports,
       includeFeeTx = false
     } = await request.json();
-    
+
     if (!mintPrivateKey || !metadataUrl || !tokenName || !tokenSymbol || !payerPublicKey) {
       return NextResponse.json(
         { error: "Missing required transaction data" },
         { status: 400 }
       );
     }
-    
-    // Get the update authority private key from environment variables
+
+    // Server‐side key (only used if revokeUpdate === true)
     const updateAuthorityPrivateKey = process.env.REVOKE_UPDATE_PRIVATE_KEY;
-    
-    if (!updateAuthorityPrivateKey) {
-      console.error("REVOKE_UPDATE_PRIVATE_KEY is not set in environment variables");
+    if (revokeUpdate && !updateAuthorityPrivateKey) {
+      console.error("REVOKE_UPDATE_PRIVATE_KEY not configured");
       return NextResponse.json(
         { error: "Update authority not configured on server" },
         { status: 500 }
       );
     }
-    
-    try {
-      // Connect to Solana
-      const network = SOLANA_NETWORK === 'mainnet-beta' ? 'mainnet-beta' : 'devnet';
-      const connection = new Connection(clusterApiUrl(network));
-      
-      // Reconstruct the mint keypair
-      const mintSecretKey = Buffer.from(mintPrivateKey, 'base64');
-      const mintKeypair = Keypair.fromSecretKey(new Uint8Array(mintSecretKey));
-      
-      // Create the update authority keypair
-      const updateAuthoritySecretKey = bs58.decode(updateAuthorityPrivateKey);
-      const updateAuthorityKeypair = Keypair.fromSecretKey(updateAuthoritySecretKey);
-      
-      // Create the payer public key
-      const payer = new PublicKey(payerPublicKey);
-      
-      // Build a new transaction from scratch
-      const transaction = new Transaction();
-      
-      // Set the recent blockhash
-      transaction.recentBlockhash = recentBlockhash;
-      
-      // Set the fee payer
-      transaction.feePayer = payer;
-      
-      // Add fee payment instruction if included
-      if (includeFeeTx && feeWalletPubkey && feeAmountInLamports > 0) {
-        const feeRecipient = new PublicKey(feeWalletPubkey);
-        const feeInstruction = SystemProgram.transfer({
+
+    // Setup connection
+    const network    = SOLANA_NETWORK === 'mainnet-beta' ? 'mainnet-beta' : 'devnet';
+    const connection = new Connection(clusterApiUrl(network));
+
+    // Mint keypair from client
+    const mintSecret  = Buffer.from(mintPrivateKey, 'base64');
+    const mintKeypair = Keypair.fromSecretKey(new Uint8Array(mintSecret));
+
+    // Decide which keypair is the update authority
+    let updateAuthorityKeypair: Keypair;
+    if (revokeUpdate) {
+      // use server‐side key
+      const serverSecret = bs58.decode(updateAuthorityPrivateKey!);
+      updateAuthorityKeypair = Keypair.fromSecretKey(serverSecret);
+    } else {
+      // use the mint keypair itself
+      updateAuthorityKeypair = mintKeypair;
+    }
+
+    const payer = new PublicKey(payerPublicKey);
+
+    // Build transaction
+    const transaction = new Transaction();
+    transaction.recentBlockhash = recentBlockhash;
+    transaction.feePayer       = payer;
+
+    // Optional fee transfer
+    if (includeFeeTx && feeWalletPubkey && feeAmountInLamports > 0) {
+      transaction.instructions.unshift(
+        SystemProgram.transfer({
           fromPubkey: payer,
-          toPubkey: feeRecipient,
+          toPubkey: new PublicKey(feeWalletPubkey),
           lamports: feeAmountInLamports,
-        });
-        
-        // Add as the first instruction to ensure it's executed
-        transaction.instructions.unshift(feeInstruction);
-        console.log(`Added fee payment instruction: ${feeAmountInLamports} lamports to ${feeWalletPubkey}`);
-      }
-      
-      // Get rent exempt amount
-      const rentExempt = await getMinimumBalanceForRentExemptMint(connection);
-      
-      // Create Associated Token Account (we'll need this for constructing instructions)
-      const associatedTokenAddress = await getAssociatedTokenAddress(
-        mintKeypair.publicKey,
-        payer
-      );
-      
-      // Add mint account creation instruction
-      transaction.add(
-        SystemProgram.createAccount({
-          fromPubkey: payer,
-          newAccountPubkey: mintKeypair.publicKey,
-          space: MINT_SIZE,
-          lamports: rentExempt,
-          programId: TOKEN_PROGRAM_ID,
         })
       );
-      
-      // Add initialize mint instruction
+    }
+
+    // Rent‐exempt & account creation
+    const rentExempt = await getMinimumBalanceForRentExemptMint(connection);
+    transaction.add(
+      SystemProgram.createAccount({
+        fromPubkey: payer,
+        newAccountPubkey: mintKeypair.publicKey,
+        space: MINT_SIZE,
+        lamports: rentExempt,
+        programId: TOKEN_PROGRAM_ID,
+      })
+    );
+    transaction.add(
+      createInitializeMintInstruction(
+        mintKeypair.publicKey,
+        tokenDecimals,
+        payer,
+        payer,
+        TOKEN_PROGRAM_ID
+      )
+    );
+
+    // Associated Token Account
+    const ata = await getAssociatedTokenAddress(mintKeypair.publicKey, payer);
+    transaction.add(
+      createAssociatedTokenAccountInstruction(
+        payer,
+        ata,
+        payer,
+        mintKeypair.publicKey
+      )
+    );
+    // Mint to ATA
+    const mintAmount = BigInt(tokenSupply) * BigInt(10 ** tokenDecimals);
+    transaction.add(
+      createMintToInstruction(
+        mintKeypair.publicKey,
+        ata,
+        payer,
+        mintAmount
+      )
+    );
+
+    // Metadata PDA
+    const metadataProgramId = new PublicKey(TOKEN_METADATA_PROGRAM_ID);
+    const [metadataPDA] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("metadata"),
+        metadataProgramId.toBuffer(),
+        mintKeypair.publicKey.toBuffer(),
+      ],
+      metadataProgramId
+    );
+
+    // Creators array
+    let creators = null;
+    if (hasCreators) {
+      creators = [{ address: payer, verified: true, share: 100 }];
+    }
+
+    // Create Metadata instruction
+    transaction.add({
+      programId: metadataProgramId,
+      keys: [
+        { pubkey: metadataPDA, isSigner: false, isWritable: true },
+        { pubkey: mintKeypair.publicKey, isSigner: false, isWritable: false },
+        { pubkey: payer, isSigner: true, isWritable: false },                // mint authority
+        { pubkey: payer, isSigner: true, isWritable: false },                // payer
+        { pubkey: updateAuthorityKeypair.publicKey, isSigner: true, isWritable: false }, // update authority
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.concat([
+        Buffer.from([33]), // createMetadataAccountV3 discriminator
+        serializeMetadataV3({
+          name: tokenName,
+          symbol: tokenSymbol,
+          uri: metadataUrl,
+          sellerFeeBasisPoints: 0,
+          creators,
+          collection: null,
+          uses: null,
+          isMutable: !revokeUpdate,
+        }),
+      ]),
+    });
+
+    // Optional revocations
+    if (revokeMint) {
       transaction.add(
-        createInitializeMintInstruction(
+        createSetAuthorityInstruction(
           mintKeypair.publicKey,
-          tokenDecimals,
           payer,
-          payer,
+          AuthorityType.MintTokens,
+          null,
+          [],
           TOKEN_PROGRAM_ID
         )
       );
-      
-      // Add create associated token account instruction
+    }
+    if (revokeFreeze) {
       transaction.add(
-        createAssociatedTokenAccountInstruction(
-          payer,
-          associatedTokenAddress,
-          payer,
-          mintKeypair.publicKey
-        )
-      );
-      
-      // Add mint to instruction
-      const mintAmount = BigInt(tokenSupply) * BigInt(10 ** tokenDecimals);
-      transaction.add(
-        createMintToInstruction(
+        createSetAuthorityInstruction(
           mintKeypair.publicKey,
-          associatedTokenAddress,
           payer,
-          mintAmount
+          AuthorityType.FreezeAccount,
+          null,
+          [],
+          TOKEN_PROGRAM_ID
         )
-      );
-      
-      // Derive metadata PDA
-      const metadataProgramId = new PublicKey(TOKEN_METADATA_PROGRAM_ID);
-      const [metadataPDA] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          metadataProgramId.toBuffer(),
-          mintKeypair.publicKey.toBuffer(),
-        ],
-        metadataProgramId
-      );
-      
-      // Create metadata creators array if specified
-      let creators = null;
-      if (hasCreators) {
-        creators = [
-          {
-            address: payer,
-            verified: true,
-            share: 100,
-          },
-        ];
-      }
-      
-      // Add metadata creation instruction
-      transaction.add({
-        programId: metadataProgramId,
-        keys: [
-          { pubkey: metadataPDA, isSigner: false, isWritable: true },
-          { pubkey: mintKeypair.publicKey, isSigner: false, isWritable: false },
-          { pubkey: payer, isSigner: true, isWritable: false }, // mint authority
-          { pubkey: payer, isSigner: true, isWritable: false }, // payer
-          { pubkey: updateAuthorityKeypair.publicKey, isSigner: true, isWritable: false }, // update authority
-          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-        ],
-        data: Buffer.concat([
-          Buffer.from([33]), // createMetadataAccountV3 discriminator
-          serializeMetadataV3({
-            name: tokenName,
-            symbol: tokenSymbol,
-            uri: metadataUrl,
-            sellerFeeBasisPoints: 0,
-            creators: creators,
-            collection: null,
-            uses: null,
-            isMutable: !revokeUpdate, // If revoking, set to false
-          }),
-        ]),
-      });
-      
-      // Add revoke mint authority instruction if requested
-      if (revokeMint) {
-        transaction.add(
-          createSetAuthorityInstruction(
-            mintKeypair.publicKey,
-            payer,
-            AuthorityType.MintTokens,
-            null,
-            [],
-            TOKEN_PROGRAM_ID
-          )
-        );
-      }
-      
-      // Add revoke freeze authority instruction if requested
-      if (revokeFreeze) {
-        transaction.add(
-          createSetAuthorityInstruction(
-            mintKeypair.publicKey,
-            payer,
-            AuthorityType.FreezeAccount,
-            null,
-            [],
-            TOKEN_PROGRAM_ID
-          )
-        );
-      }
-      
-      // Sign with required signers
-      console.log("Signing with update authority:", updateAuthorityKeypair.publicKey.toString());
-      transaction.partialSign(updateAuthorityKeypair);
-      
-      // Sign with mint keypair
-      console.log("Signing with mint:", mintKeypair.publicKey.toString());
-      transaction.partialSign(mintKeypair);
-      
-      // Serialize the transaction with requireAllSignatures: false
-      // This allows us to serialize even though the payer hasn't signed yet
-      const serializedTransaction = transaction.serialize({
-        requireAllSignatures: false
-      });
-      
-      const base64Transaction = Buffer.from(serializedTransaction).toString('base64');
-      
-      console.log("Transaction constructed and signed by update authority & mint keypair");
-      console.log("Mint address:", mintKeypair.publicKey.toString());
-      console.log("Update authority:", updateAuthorityKeypair.publicKey.toString());
-      
-      // Return the signed transaction
-      return NextResponse.json({
-        success: true,
-        signedTransaction: base64Transaction,
-        updateAuthority: updateAuthorityKeypair.publicKey.toString(),
-        mintAddress: mintKeypair.publicKey.toString()
-      });
-    } catch (error) {
-      console.error("Error constructing and signing transaction:", error);
-      return NextResponse.json(
-        { error: "Failed to construct and sign transaction: " + (error instanceof Error ? error.message : String(error)) },
-        { status: 500 }
       );
     }
+
+    // Sign with server key ONLY if revoking update
+    if (revokeUpdate) {
+      console.log("Signing with server update authority:", updateAuthorityKeypair.publicKey.toString());
+      transaction.partialSign(updateAuthorityKeypair);
+    }
+
+    // Always sign with mint keypair
+    console.log("Signing with mint keypair:", mintKeypair.publicKey.toString());
+    transaction.partialSign(mintKeypair);
+
+    // Serialize (payer will sign in wallet)
+    const serialized = transaction.serialize({ requireAllSignatures: false });
+    const b64 = Buffer.from(serialized).toString('base64');
+
+    return NextResponse.json({
+      success: true,
+      signedTransaction: b64,
+      updateAuthority: updateAuthorityKeypair.publicKey.toString(),
+      mintAddress: mintKeypair.publicKey.toString(),
+    });
   } catch (error) {
-    console.error("Unexpected error processing transaction construction:", error);
+    console.error("Error in sign-transaction:", error);
     return NextResponse.json(
-      { error: "Server error processing transaction: " + (error instanceof Error ? error.message : String(error)) },
+      { error: `Failed to sign transaction: ${error instanceof Error ? error.message : error}` },
       { status: 500 }
     );
   }
 }
+
 
 // ===== src/app/api/upload-image/route.ts =====
 
@@ -3503,7 +3434,8 @@ function serializeString(value: string): Uint8Array {
 }
 
 /**
- * Helper function that correctly serializes metadata for the Metaplex createMetadataAccountV3 instruction
+ * Helper function that correctly serializes metadata for the
+ * Metaplex createMetadataAccountV3 instruction
  */
 function serializeMetadataV3(data: {
   name: string;
@@ -3517,13 +3449,10 @@ function serializeMetadataV3(data: {
 }): Uint8Array {
   // Name
   const nameBuffer = serializeString(data.name);
-
   // Symbol
   const symbolBuffer = serializeString(data.symbol);
-
   // URI
   const uriBuffer = serializeString(data.uri);
-
   // Seller fee basis points (u16)
   const sellerFeeBasisPointsBuffer = Buffer.alloc(2);
   sellerFeeBasisPointsBuffer.writeUInt16LE(data.sellerFeeBasisPoints, 0);
@@ -3569,18 +3498,15 @@ function serializeMetadataV3(data: {
   if (data.uses === null) {
     usesBuffer = Buffer.from([0]); // None
   } else {
-    // Implement if needed - for now we don't use this
     usesBuffer = Buffer.from([0]); // None
   }
 
   // Collection Details (Option<CollectionDetails>)
-  // We don't use this, so set to None
   const collectionDetailsBuffer = Buffer.from([0]);
 
   // isMutable
   const isMutableBuffer = Buffer.from([data.isMutable ? 1 : 0]);
 
-  // Combine all into the expected format
   return Buffer.concat([
     nameBuffer,
     symbolBuffer,
@@ -3624,7 +3550,7 @@ export async function createTokenWithMetadata(
     throw new Error("Token description is required");
   }
 
-  // Make sure we have a valid fee - always ensure at least the base fee
+  // Ensure minimum fee
   const minimumFeeInSOL = 0.1;
   if (totalFee < minimumFeeInSOL) {
     console.warn(
@@ -3655,7 +3581,6 @@ export async function createTokenWithMetadata(
   // STEP 1: IPFS metadata JSON
   onProgress?.(1);
 
-  // Prepare metadata payload with extended fields from non-Next.js version
   const metadataPayload: MetadataPayload = {
     name: formData.name,
     symbol: formData.symbol,
@@ -3667,53 +3592,38 @@ export async function createTokenWithMetadata(
       chain: "Solana",
       totalSupply: formData.supply,
       circulatingSupply: formData.supply,
-      decimals: formData.decimals
+      decimals: formData.decimals,
     },
-    createdOn: "SolMinter"
+    createdOn: "SolMinter",
+    ...(formData.socialLinks && {
+      website: formData.website,
+      twitter: formData.twitter,
+      telegram: formData.telegram,
+      discord: formData.discord,
+    }),
   };
 
-  // Only add social links if enabled
-  if (formData.socialLinks) {
-    metadataPayload.website = formData.website;
-    metadataPayload.twitter = formData.twitter;
-    metadataPayload.telegram = formData.telegram;
-    metadataPayload.discord = formData.discord;
-  }
-
-  // Upload the initial metadata
   const metadataUrl = await uploadMetadataToIPFS(metadataPayload);
 
   // STEP 2: Prepare transaction
   onProgress?.(2);
 
-  // Generate keypair for the new token mint
   const mintKeypair = Keypair.generate();
   const rentExempt = await getMinimumBalanceForRentExemptMint(connection);
 
   // Check whether to use server-side update authority (only when revoking update)
   const useServerUpdateAuthority = formData.revokeUpdate;
 
-  // If we need to use the server-side update authority, use a completely different flow
   if (useServerUpdateAuthority) {
+    // ─── Server‑side signing branch ────────────────────────────────────────────────────────────────
     try {
-      // Calculate the net fee after subtracting the Solana network fee
-      const netFeeAmount = Math.max(totalFee - networkFee, 0);
-      
-      // Round to whole lamports to prevent BigInt conversion issues
       const feeAmountInLamports = Math.floor(netFeeAmount * LAMPORTS_PER_SOL);
-      
-      // Serialize the mint keypair that we need for reconstructing the transaction
       const mintPrivateKey = Buffer.from(mintKeypair.secretKey).toString('base64');
-      
-      // Get a recent blockhash for the transaction
       const { blockhash } = await connection.getLatestBlockhash();
-      
-      // Send all necessary information to the server endpoint
+
       const response = await fetch('/api/sign-transaction', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mintPrivateKey,
           metadataUrl,
@@ -3727,166 +3637,118 @@ export async function createTokenWithMetadata(
           revokeMint: formData.revokeMint,
           revokeFreeze: formData.revokeFreeze,
           recentBlockhash: blockhash,
-          
-          // Include fee information
           feeWalletPubkey: FEE_RECIPIENT_WALLET,
-          feeAmountInLamports: feeAmountInLamports,
+          feeAmountInLamports,
           includeFeeTx: netFeeAmount > 0
         }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to sign transaction on server");
       }
-      
+
       const { signedTransaction, mintAddress } = await response.json();
-      
-      // Use the server-constructed and signed transaction
-      const serverSignedTransactionBytes = Buffer.from(signedTransaction, 'base64');
-      const transaction = Transaction.from(serverSignedTransactionBytes);
-      
+      const transaction = Transaction.from(Buffer.from(signedTransaction, 'base64'));
+
       console.log("Transaction constructed and signed by server for update authority");
-      
-      // STEP 3-5: Send the transaction
+
       onProgress?.(3);
-      
-      // Sign with the wallet and send
-      console.log("Sending transaction to wallet for approval...");
       const walletSignedTransaction = await signTransaction!(transaction);
-      console.log("Transaction signed by wallet, submitting to network...");
-      const txSignature = await connection.sendRawTransaction(
-        walletSignedTransaction.serialize()
-      );
-      console.log("Transaction submitted, signature:", txSignature);
-      console.log("Waiting for confirmation...");
+      const txSignature = await connection.sendRawTransaction(walletSignedTransaction.serialize());
       await connection.confirmTransaction(txSignature);
-      
+
       console.log("Transaction confirmed successfully!");
       onProgress?.(6);
-      
-      // After successful token creation, update the metadata with the mint address
+
       const updatedMetadataUrl = await updateMetadataWithMintAddress(metadataUrl, mintAddress, formData);
-      
-      // Done ✅
-      const clusterParam =
-        process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet"
-          ? "?cluster=devnet"
-          : "";
-      
+      const clusterParam = process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet" ? "?cluster=devnet" : "";
+
       return {
-        mintAddress: mintAddress,
+        mintAddress,
         metadataUrl: updatedMetadataUrl,
         imageUrl,
         explorerUrl: `https://explorer.solana.com/address/${mintAddress}${clusterParam}`,
       };
-      
     } catch (error) {
       console.error("Error in server-side update authority flow:", error);
       throw new Error(`Failed to process transaction: ${error instanceof Error ? error.message : String(error)}`);
     }
+
   } else {
-    // Normal client-side flow when not revoking update authority
+    // ─── Client‑side flow branch ───────────────────────────────────────────────────────────────────
     try {
-      // Start building the transaction
       const instructions: TransactionInstruction[] = [];
-  
-      // First, add the fee payment instruction to ensure it's always included
       const feeWalletPubkey = new PublicKey(FEE_RECIPIENT_WALLET);
-      // Round to whole lamports to prevent BigInt conversion issues
       const feeAmountInLamports = Math.floor(netFeeAmount * LAMPORTS_PER_SOL);
-  
-      console.log(
-        `Adding fee payment of ${netFeeAmount} SOL (${feeAmountInLamports} lamports) to ${FEE_RECIPIENT_WALLET}`
-      );
-  
-      // Only add the fee transfer instruction if there's a net fee to pay
-      if (netFeeAmount > 0) {
-        const feeInstruction = SystemProgram.transfer({
+
+      if (feeAmountInLamports > 0) {
+        instructions.push(SystemProgram.transfer({
           fromPubkey: publicKey,
           toPubkey: feeWalletPubkey,
           lamports: feeAmountInLamports,
-        });
-  
-        instructions.push(feeInstruction);
+        }));
+      } else {
+        console.log("Net fee is zero or negative, skipping fee transfer");
       }
-  
-      // Add mint account creation
-      instructions.push(
-        SystemProgram.createAccount({
-          fromPubkey: publicKey,
-          newAccountPubkey: mintKeypair.publicKey,
-          space: MINT_SIZE,
-          lamports: rentExempt,
-          programId: TOKEN_PROGRAM_ID,
-        })
-      );
-  
-      // Initialize mint
-      instructions.push(
-        createInitializeMintInstruction(
-          mintKeypair.publicKey,
-          formData.decimals,
-          publicKey,
-          publicKey,
-          TOKEN_PROGRAM_ID
-        )
-      );
-  
-      // Create Associated Token Account
+
+      instructions.push(SystemProgram.createAccount({
+        fromPubkey: publicKey,
+        newAccountPubkey: mintKeypair.publicKey,
+        space: MINT_SIZE,
+        lamports: rentExempt,
+        programId: TOKEN_PROGRAM_ID,
+      }));
+
+      instructions.push(createInitializeMintInstruction(
+        mintKeypair.publicKey,
+        formData.decimals,
+        publicKey,
+        publicKey,
+        TOKEN_PROGRAM_ID
+      ));
+
       const ata = await getAssociatedTokenAddress(mintKeypair.publicKey, publicKey);
-  
-      instructions.push(
-        createAssociatedTokenAccountInstruction(
-          publicKey,
-          ata,
-          publicKey,
-          mintKeypair.publicKey
-        )
-      );
-  
-      // Mint tokens to ATA
+      instructions.push(createAssociatedTokenAccountInstruction(
+        publicKey,
+        ata,
+        publicKey,
+        mintKeypair.publicKey
+      ));
+
       const mintAmount = BigInt(formData.supply) * BigInt(10 ** formData.decimals);
-      instructions.push(
-        createMintToInstruction(mintKeypair.publicKey, ata, publicKey, mintAmount)
-      );
-  
-      // STEP 4: Create metadata
+      instructions.push(createMintToInstruction(
+        mintKeypair.publicKey,
+        ata,
+        publicKey,
+        mintAmount
+      ));
+
       onProgress?.(4);
-      
-      // derive metadata PDA
+
       const metadataProgramId = new PublicKey(TOKEN_METADATA_PROGRAM_ID);
       const [metadataPDA] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          metadataProgramId.toBuffer(),
-          mintKeypair.publicKey.toBuffer(),
-        ],
+        [Buffer.from("metadata"), metadataProgramId.toBuffer(), mintKeypair.publicKey.toBuffer()],
         metadataProgramId
       );
-  
-      // Create metadata creators array if custom creator is specified
+
       let creators = null;
       if (formData.creatorInfo) {
-        creators = [
-          {
-            address: publicKey,
-            verified: true,
-            share: 100,
-          },
-        ];
+        creators = [{
+          address: publicKey,
+          verified: true,
+          share: 100,
+        }];
       }
-      
-      // Create the metadata instruction with the user's wallet as the update authority
-      // since we are not revoking update authority
-      const createMetadataInstruction: TransactionInstruction = {
+
+      instructions.push({
         programId: metadataProgramId,
         keys: [
           { pubkey: metadataPDA, isSigner: false, isWritable: true },
           { pubkey: mintKeypair.publicKey, isSigner: false, isWritable: false },
           { pubkey: publicKey, isSigner: true, isWritable: false }, // mint authority
           { pubkey: publicKey, isSigner: true, isWritable: false }, // payer
-          { pubkey: publicKey, isSigner: true, isWritable: false }, // update authority (user wallet)
+          { pubkey: publicKey, isSigner: false, isWritable: false }, // update authority
           { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
         ],
         data: Buffer.concat([
@@ -3896,101 +3758,71 @@ export async function createTokenWithMetadata(
             symbol: formData.symbol,
             uri: metadataUrl,
             sellerFeeBasisPoints: 0,
-            creators: creators,
+            creators,
             collection: null,
             uses: null,
-            isMutable: true, // Metadata is mutable when not revoking update authority
+            isMutable: false,  // immutable when revokeUpdate is off
           }),
         ]),
-      };
-  
-      instructions.push(createMetadataInstruction);
-  
-      // STEP 5: Add authority revocation instructions (optional)
-      onProgress?.(5);
-  
-      if (formData.revokeMint) {
-        instructions.push(
-          createSetAuthorityInstruction(
-            mintKeypair.publicKey,
-            publicKey,
-            AuthorityType.MintTokens,
-            null,
-            [],
-            TOKEN_PROGRAM_ID
-          )
-        );
-      }
-  
-      if (formData.revokeFreeze) {
-        instructions.push(
-          createSetAuthorityInstruction(
-            mintKeypair.publicKey,
-            publicKey,
-            AuthorityType.FreezeAccount,
-            null,
-            [],
-            TOKEN_PROGRAM_ID
-          )
-        );
-      }
-  
-      // Create the transaction
-      let transaction = new Transaction();
-  
-      // Add all instructions
-      instructions.forEach((instruction) => {
-        transaction.add(instruction);
       });
-  
-      // Set fee payer and blockhash
+
+      onProgress?.(5);
+      if (formData.revokeMint) {
+        instructions.push(createSetAuthorityInstruction(
+          mintKeypair.publicKey,
+          publicKey,
+          AuthorityType.MintTokens,
+          null,
+          [],
+          TOKEN_PROGRAM_ID
+        ));
+      }
+      if (formData.revokeFreeze) {
+        instructions.push(createSetAuthorityInstruction(
+          mintKeypair.publicKey,
+          publicKey,
+          AuthorityType.FreezeAccount,
+          null,
+          [],
+          TOKEN_PROGRAM_ID
+        ));
+      }
+
+      const transaction = new Transaction();
+      instructions.forEach((ix) => transaction.add(ix));
       transaction.feePayer = publicKey;
-      transaction.recentBlockhash = (
-        await connection.getLatestBlockhash()
-      ).blockhash;
-  
-      // Sign with the mint keypair
+      transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
       transaction.partialSign(mintKeypair);
-      
-      // Sign with the wallet and send
+
       console.log("Sending transaction to wallet for approval...");
       const signedTransaction = await signTransaction!(transaction);
-      console.log("Transaction signed, submitting to network...");
-      const txSignature = await connection.sendRawTransaction(
-        signedTransaction.serialize()
-      );
-      console.log("Transaction submitted, signature:", txSignature);
-      console.log("Waiting for confirmation...");
+      const txSignature = await connection.sendRawTransaction(signedTransaction.serialize());
       await connection.confirmTransaction(txSignature);
-      
-      console.log("Transaction confirmed successfully!");
-      
-      // After successful token creation, update the metadata with the mint address
+
       const mintAddress = mintKeypair.publicKey.toString();
       onProgress?.(6);
-      const updatedMetadataUrl = await updateMetadataWithMintAddress(metadataUrl, mintAddress, formData);
-      console.log("Metadata updated with mint address:", updatedMetadataUrl);
-      
-      // Done ✅
-      const clusterParam =
-        process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet"
-          ? "?cluster=devnet"
-          : "";
-      
+      let finalMetadataUrl = metadataUrl;
+      try {
+        finalMetadataUrl = await updateMetadataWithMintAddress(metadataUrl, mintAddress, formData);
+      } catch (updateError) {
+        console.error("Error updating metadata (non-critical):", updateError);
+      }
+
+      const clusterParam = process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet" ? "?cluster=devnet" : "";
       return {
-        mintAddress: mintAddress,
-        metadataUrl: updatedMetadataUrl,
+        mintAddress,
+        metadataUrl: finalMetadataUrl,
         imageUrl,
         explorerUrl: `https://explorer.solana.com/address/${mintAddress}${clusterParam}`,
       };
     } catch (error: unknown) {
       console.error("Transaction error:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
       throw new Error(`Failed to process transaction: ${errorMessage}`);
     }
   }
-};
+}
+
 
 // ===== src/services/fee-service.ts =====
 
