@@ -6,7 +6,3 @@ fix tick button on token creation successfull
 Check all console logs when minting coins.
 
 if the token is not paid for, remove the data from pinata.
-
-remove this text - (Single transaction includes all network fees)
-
-missing creator's key in metaplex metadata.

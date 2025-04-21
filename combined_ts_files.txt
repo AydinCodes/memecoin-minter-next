@@ -4001,7 +4001,7 @@ export async function createTokenClientSide(
           creators, // Always include creators array with user's wallet
           collection: null,
           uses: null,
-          isMutable: false, // immutable when revokeUpdate is off
+          isMutable: false,
         }),
       ]),
     });
