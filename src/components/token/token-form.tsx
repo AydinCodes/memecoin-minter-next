@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import {
   createTokenWithMetadata,
 } from "@/services/token-service"
@@ -13,6 +12,7 @@ import TokenFormBasic from "./token-form-basic"
 import TokenFormOptions from "./token-form-options"
 import TokenFormAuthorities from "./token-form-authorities"
 import TokenFormCreator from "./token-form-creator"
+import WalletRequired from "../wallet/wallet-required"
 import { FormDataType, TokenResult } from "@/types/token"
 import { SOLANA_NETWORK_FEE } from "@/config"
 
@@ -179,35 +179,18 @@ export default function TokenForm() {
     )
   }
 
+  // If wallet is not connected, use the shared WalletRequired component
+  if (!walletAdapter.connected) {
+    return <WalletRequired message="Please connect your wallet to create a new Solana token" />;
+  }
+
   // Calculate net fee after Solana network fee
   const netFee = Math.max(totalFee - SOLANA_NETWORK_FEE, 0);
-
-  // If wallet is not connected, show a better wallet connection UI
-  if (!walletAdapter.connected) {
-    return (
-      <div className="max-w-3xl mx-auto space-y-6 p-10 bg-[#171717] rounded-xl text-center">
-        <div className="w-20 h-20 bg-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
-          <svg className="w-10 h-10 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-          </svg>
-        </div>
-        
-        <h2 className="text-2xl font-bold text-white mb-4">Connect Your Wallet</h2>
-        <p className="text-gray-400 mb-8">
-          Please connect your wallet to create a new Solana token
-        </p>
-        
-        <div className="flex justify-center">
-          <WalletMultiButton className="wallet-adapter-button-trigger !bg-gradient-to-r from-purple-600 to-blue-500 !rounded-full transition-all hover:shadow-lg" />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl"
+      className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl my-12"
     >
       {error && (
         <div className="text-red-400 bg-red-800/30 p-3 rounded mb-4">{error}</div>
