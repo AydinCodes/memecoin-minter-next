@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     // Get the metadata from the request body
-    const { metadata, fileName } = await request.json();
+    const { metadata, fileName, pinataMetadata: customPinataMetadata } = await request.json();
     
     // Use the provided filename or create a default one
     const actualFileName = fileName || 'metadata.json';
@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
         }
       };
       
-      const pinataMetadata = {
+      // Create pinata metadata - either use the custom one passed or create a default
+      const pinataMetadata = customPinataMetadata || {
         name: actualFileName,
         keyvalues: {
           app: "SolMinter",

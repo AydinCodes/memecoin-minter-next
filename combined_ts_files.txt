@@ -158,6 +158,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import WalletRequired from '@/components/wallet/wallet-required';
 import TokenList from '@/components/token/token-list';
+import TokenAnalytics from '@/components/token/token-analytics';
 import Loading from '@/components/ui/loading';
 import NoTokensFound from '@/components/token/no-tokens-found';
 import TokenErrorState from '@/components/token/token-error-state';
@@ -264,6 +265,9 @@ export default function MyTokensPage() {
             Refresh Tokens
           </button>
         </div>
+        
+        {/* Add Token Analytics component */}
+        <TokenAnalytics tokens={tokens} />
         
         <TokenList tokens={tokens} />
       </div>
@@ -1274,13 +1278,16 @@ export async function GET(request: NextRequest) {
           
           const metadata = await response.json();
           
+          // Fix for image URL - make sure we preserve the actual image URL
+          const imageUrl = metadata.image || null;
+          
           // Structure the token data
           return {
             name: metadata.name,
             symbol: metadata.symbol,
             description: metadata.description,
-            mintAddress: metadata.mint,
-            imageUrl: metadata.image,
+            mintAddress: metadata.mint || '',
+            imageUrl: imageUrl, // Use the actual image URL 
             creator: metadata.creator,
             tokenInfo: metadata.tokenInfo,
             authorities: metadata.authorities,
@@ -2457,6 +2464,326 @@ export default function TokenForm() {
   )
 }
 
+// ===== src/components/token/token-detail-view.tsx =====
+
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { MintedTokenInfo } from '@/types/token';
+import { SOLANA_NETWORK } from '@/config';
+import { formatNumberWithCommas } from '@/utils/token-utils';
+
+interface TokenDetailViewProps {
+  token: MintedTokenInfo;
+  onClose: () => void;
+}
+
+export default function TokenDetailView({ token, onClose }: TokenDetailViewProps) {
+  const [activeTab, setActiveTab] = useState<'details' | 'social' | 'explorer'>('details');
+  
+  const networkParam = SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : '';
+  const explorerUrl = `https://explorer.solana.com/address/${token.mintAddress}${networkParam}`;
+  const raydiumLiquidityUrl = `https://raydium.io/liquidity/create-pool${networkParam.replace('?', '#')}`;
+  const raydiumSwapUrl = `https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${token.mintAddress}${networkParam.replace('?', '&')}`;
+
+  // Check if social links exist
+  const hasSocialLinks = !!(token.website || token.twitter || token.telegram || token.discord);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="relative bg-[#171717] rounded-xl shadow-xl border border-gray-800 max-w-2xl w-full max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex justify-between items-center p-6 border-b border-gray-800">
+          <h3 className="text-2xl font-bold text-white">{token.name} ({token.symbol})</h3>
+          <button 
+            onClick={onClose}
+            className="text-gray-400 hover:text-white"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        
+        {/* Tabs */}
+        <div className="flex border-b border-gray-800">
+          <button 
+            onClick={() => setActiveTab('details')}
+            className={`flex-1 py-3 px-4 text-center ${activeTab === 'details' 
+              ? 'text-purple-500 border-b-2 border-purple-500'
+              : 'text-gray-400 hover:text-gray-200'}`}
+          >
+            Token Details
+          </button>
+          {hasSocialLinks && (
+            <button 
+              onClick={() => setActiveTab('social')}
+              className={`flex-1 py-3 px-4 text-center ${activeTab === 'social' 
+                ? 'text-purple-500 border-b-2 border-purple-500'
+                : 'text-gray-400 hover:text-gray-200'}`}
+            >
+              Social Links
+            </button>
+          )}
+          <button 
+            onClick={() => setActiveTab('explorer')}
+            className={`flex-1 py-3 px-4 text-center ${activeTab === 'explorer' 
+              ? 'text-purple-500 border-b-2 border-purple-500'
+              : 'text-gray-400 hover:text-gray-200'}`}
+          >
+            Explorer
+          </button>
+        </div>
+        
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-130px)]">
+          {activeTab === 'details' && (
+            <div className="space-y-6">
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="w-32 h-32 rounded-full bg-gradient-to-r from-purple-900/20 to-blue-900/20 flex items-center justify-center">
+                  {token.imageUrl || token.image ? (
+                    <img 
+                      src={token.imageUrl || token.image} 
+                      alt={token.name} 
+                      className="w-28 h-28 object-contain rounded-full"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).parentElement!.innerHTML = `
+                          <div class="w-24 h-24 bg-gray-800 rounded-full flex items-center justify-center">
+                            <span class="text-3xl font-bold text-gray-600">${token.symbol.substring(0, 2)}</span>
+                          </div>
+                        `;
+                      }}
+                    />
+                  ) : (
+                    <div className="w-24 h-24 bg-gray-800 rounded-full flex items-center justify-center">
+                      <span className="text-3xl font-bold text-gray-600">{token.symbol.substring(0, 2)}</span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex-1 text-center md:text-left">
+                  <h4 className="text-xl font-bold text-white">{token.name}</h4>
+                  <p className="text-purple-400 font-mono">{token.symbol}</p>
+                  
+                  <div className="mt-2 space-y-1">
+                    <div className="text-gray-300">
+                      <span className="text-gray-500">Total Supply:</span> {formatNumberWithCommas(token.tokenInfo?.totalSupply || 0)}
+                    </div>
+                    <div className="text-gray-300">
+                      <span className="text-gray-500">Decimals:</span> {token.tokenInfo?.decimals || 9}
+                    </div>
+                    <div className="text-gray-300">
+                      <span className="text-gray-500">Creator:</span> {token.creator || 'Unknown'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <h5 className="text-white text-lg font-medium mb-2">Description</h5>
+                <p className="text-gray-300 bg-[#222] p-3 rounded-lg">
+                  {token.description || "No description provided"}
+                </p>
+              </div>
+              
+              <div>
+                <h5 className="text-white text-lg font-medium mb-2">Token Address</h5>
+                <div className="font-mono text-gray-300 bg-[#222] p-3 rounded-lg text-sm overflow-x-auto">
+                  {token.mintAddress || token.mint}
+                </div>
+              </div>
+              
+              <div>
+                <h5 className="text-white text-lg font-medium mb-2">Authorities</h5>
+                <div className="bg-[#222] p-3 rounded-lg">
+                  <ul className="space-y-2">
+                    <li className="flex items-center">
+                      <div className={`w-4 h-4 rounded-full mr-2 ${token.authorities?.mintRevoked ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span className="text-gray-300">Mint Authority: {token.authorities?.mintRevoked ? 'Revoked' : 'Active'}</span>
+                    </li>
+                    <li className="flex items-center">
+                      <div className={`w-4 h-4 rounded-full mr-2 ${token.authorities?.freezeRevoked ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span className="text-gray-300">Freeze Authority: {token.authorities?.freezeRevoked ? 'Revoked' : 'Active'}</span>
+                    </li>
+                    <li className="flex items-center">
+                      <div className={`w-4 h-4 rounded-full mr-2 ${token.authorities?.updateRevoked ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span className="text-gray-300">Update Authority: {token.authorities?.updateRevoked ? 'Revoked' : 'Active'}</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {activeTab === 'social' && hasSocialLinks && (
+            <div className="space-y-6">
+              {token.website && (
+                <div>
+                  <h5 className="text-white text-lg font-medium mb-2">Website</h5>
+                  <a 
+                    href={token.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center text-purple-400 hover:text-purple-300"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                    </svg>
+                    {token.website}
+                  </a>
+                </div>
+              )}
+              
+              {token.twitter && (
+                <div>
+                  <h5 className="text-white text-lg font-medium mb-2">Twitter</h5>
+                  <a 
+                    href={token.twitter}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center text-blue-400 hover:text-blue-300"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"></path>
+                    </svg>
+                    {token.twitter}
+                  </a>
+                </div>
+              )}
+              
+              {token.telegram && (
+                <div>
+                  <h5 className="text-white text-lg font-medium mb-2">Telegram</h5>
+                  <a 
+                    href={token.telegram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center text-blue-500 hover:text-blue-400"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                    {token.telegram}
+                  </a>
+                </div>
+              )}
+              
+              {token.discord && (
+                <div>
+                  <h5 className="text-white text-lg font-medium mb-2">Discord</h5>
+                  <a 
+                    href={token.discord}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center text-indigo-400 hover:text-indigo-300"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    {token.discord}
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {activeTab === 'explorer' && (
+            <div className="space-y-6">
+              <div>
+                <h5 className="text-white text-lg font-medium mb-2">Explorer Links</h5>
+                <div className="space-y-3">
+                  <a 
+                    href={explorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center text-purple-400 hover:text-purple-300 bg-[#222] p-3 rounded-lg"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                    View on Solana Explorer
+                  </a>
+                  
+                  <a 
+                    href={raydiumLiquidityUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center text-blue-400 hover:text-blue-300 bg-[#222] p-3 rounded-lg"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Create Liquidity Pool on Raydium
+                  </a>
+                  
+                  <a 
+                    href={raydiumSwapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center text-green-400 hover:text-green-300 bg-[#222] p-3 rounded-lg"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+                    </svg>
+                    Swap on Raydium
+                  </a>
+                </div>
+              </div>
+              
+              <div>
+                <h5 className="text-white text-lg font-medium mb-2">IPFS Links</h5>
+                <div className="space-y-3">
+                  <a 
+                    href={token.metadataUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center text-purple-400 hover:text-purple-300 bg-[#222] p-3 rounded-lg"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    View Metadata on IPFS
+                  </a>
+                  
+                  {(token.image || token.imageUrl) && (
+                    <a 
+                      href={token.image || token.imageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center text-blue-400 hover:text-blue-300 bg-[#222] p-3 rounded-lg"
+                    >
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                      </svg>
+                      View Image on IPFS
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Footer */}
+        <div className="border-t border-gray-800 p-6 flex justify-between items-center">
+          <div className="text-sm text-gray-500">
+            Created with SolMinter
+          </div>
+          
+          <button 
+            onClick={onClose}
+            className="bg-purple-600 hover:bg-purple-700 text-white py-2 px-6 rounded-full transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ===== src/components/token/token-creation-success.tsx =====
 
 'use client';
@@ -2727,6 +3054,86 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
             Create Another Token
           </Link>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== src/components/token/token-analytics.tsx =====
+
+'use client';
+
+import React from 'react';
+import { MintedTokenInfo } from '@/types/token';
+import { formatNumberWithCommas } from '@/utils/token-utils';
+
+interface TokenAnalyticsProps {
+  tokens: MintedTokenInfo[];
+}
+
+export default function TokenAnalytics({ tokens }: TokenAnalyticsProps) {
+  if (!tokens || tokens.length === 0) return null;
+
+  // Calculate total token count
+  const tokenCount = tokens.length;
+
+  // Calculate total supply across all tokens
+  const totalSupply = tokens.reduce((sum, token) => 
+    sum + (token.tokenInfo?.totalSupply || 0), 0);
+
+  // Count revoked authorities across all tokens
+  const revokedAuthoritiesCount = {
+    mint: tokens.filter(token => token.authorities?.mintRevoked).length,
+    freeze: tokens.filter(token => token.authorities?.freezeRevoked).length,
+    update: tokens.filter(token => token.authorities?.updateRevoked).length
+  };
+
+  // Count tokens with social links
+  const tokensWithSocialLinks = tokens.filter(token => 
+    token.website || token.twitter || token.telegram || token.discord
+  ).length;
+
+  return (
+    <div className="bg-[#171717] rounded-xl p-6 shadow-lg mb-8">
+      <h2 className="text-xl font-semibold text-white mb-4">Token Analytics</h2>
+      
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-[#222] p-4 rounded-lg">
+          <div className="text-purple-400 text-sm mb-1">Total Tokens</div>
+          <div className="text-white text-2xl font-bold">{tokenCount}</div>
+        </div>
+        
+        <div className="bg-[#222] p-4 rounded-lg">
+          <div className="text-blue-400 text-sm mb-1">Total Supply</div>
+          <div className="text-white text-2xl font-bold">{formatNumberWithCommas(totalSupply)}</div>
+        </div>
+        
+        <div className="bg-[#222] p-4 rounded-lg">
+          <div className="text-green-400 text-sm mb-1">Revoked Authorities</div>
+          <div className="flex space-x-2 mt-2">
+            <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">
+              Mint: {revokedAuthoritiesCount.mint}
+            </div>
+            <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">
+              Freeze: {revokedAuthoritiesCount.freeze}
+            </div>
+            <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">
+              Update: {revokedAuthoritiesCount.update}
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-[#222] p-4 rounded-lg">
+          <div className="text-yellow-400 text-sm mb-1">Social Links</div>
+          <div className="text-white">
+            <span className="text-2xl font-bold">{tokensWithSocialLinks}</span>
+            <span className="text-gray-400 text-sm ml-1">/ {tokenCount}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="mt-4 text-xs text-gray-500">
+        Overview of your created tokens and their configuration.
       </div>
     </div>
   );
@@ -3247,6 +3654,7 @@ import Link from 'next/link';
 import { MintedTokenInfo } from '@/types/token';
 import { SOLANA_NETWORK } from '@/config';
 import { formatNumberWithCommas } from '@/utils/token-utils';
+import TokenDetailView from './token-detail-view';
 
 interface TokenCardProps {
   token: MintedTokenInfo;
@@ -3255,6 +3663,7 @@ interface TokenCardProps {
 export default function TokenCard({ token }: TokenCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [showDetailView, setShowDetailView] = useState(false);
 
   const networkParam = SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : '';
   const explorerUrl = `https://explorer.solana.com/address/${token.mintAddress}${networkParam}`;
@@ -3288,147 +3697,195 @@ export default function TokenCard({ token }: TokenCardProps) {
     setImageError(true);
   };
 
-  return (
-    <div className="bg-[#171717] rounded-xl overflow-hidden shadow-lg border border-gray-800 hover:border-purple-500/30 transition-all">
-      {/* Token Image Header */}
-      <div className="h-48 bg-gradient-to-r from-purple-900/20 to-blue-900/20 relative flex items-center justify-center">
-        {!imageLoaded && !imageError && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-          </div>
-        )}
-        
-        {!imageError ? (
-          <img 
-            src={actualImageUrl} 
-            alt={`${token.name} logo`}
-            className={`object-contain max-h-40 mx-auto ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
-            style={{ transition: 'opacity 0.3s ease-in-out' }}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-          />
-        ) : (
-          <div className="w-24 h-24 bg-gray-800 rounded-full flex items-center justify-center">
-            <span className="text-2xl font-bold text-gray-600">{token.symbol.substring(0, 2)}</span>
-          </div>
-        )}
-      </div>
-      
-      {/* Token Info */}
-      <div className="p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h3 className="text-xl font-bold text-white">{token.name}</h3>
-            <p className="text-purple-400 font-mono">{token.symbol}</p>
-          </div>
-          <span className="bg-purple-900/30 text-purple-300 text-xs px-2 py-1 rounded-full">
-            {token.tokenInfo?.decimals || 9} decimals
-          </span>
-        </div>
-        
-        <p className="text-gray-400 text-sm mb-4 line-clamp-2">
-          {token.description || 'No description provided'}
-        </p>
-        
-        <div className="mb-4">
-          <div className="text-gray-500 text-xs mb-1">Token Address</div>
-          <div className="font-mono text-xs bg-[#222] p-2 rounded overflow-hidden text-ellipsis">
-            {token.mintAddress}
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <div className="text-gray-500 text-xs">Total Supply</div>
-            <div className="text-white font-medium">
-              {formatNumberWithCommas(token.tokenInfo?.totalSupply || 0)}
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-gray-500 text-xs">Revoked Authorities</div>
-            <div className="flex space-x-1">
-              {token.authorities?.mintRevoked && (
-                <span className="text-xs px-1 bg-green-900/30 text-green-300 rounded">Mint</span>
-              )}
-              {token.authorities?.freezeRevoked && (
-                <span className="text-xs px-1 bg-green-900/30 text-green-300 rounded">Freeze</span>
-              )}
-              {token.authorities?.updateRevoked && (
-                <span className="text-xs px-1 bg-green-900/30 text-green-300 rounded">Update</span>
-              )}
-            </div>
-          </div>
-        </div>
+  const openDetailView = () => {
+    setShowDetailView(true);
+  };
 
-        {/* Social Links (if available) */}
-        {(token.website || token.twitter || token.telegram || token.discord) && (
-          <div className="flex space-x-3 mb-4">
-            {token.website && (
-              <a href={token.website} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-purple-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
-                </svg>
-              </a>
-            )}
-            
-            {token.twitter && (
-              <a href={token.twitter} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"></path>
-                </svg>
-              </a>
-            )}
-            
-            {token.telegram && (
-              <a href={token.telegram} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-500">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                </svg>
-              </a>
-            )}
-            
-            {token.discord && (
-              <a href={token.discord} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-indigo-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                </svg>
-              </a>
-            )}
-          </div>
-        )}
+  const closeDetailView = () => {
+    setShowDetailView(false);
+  };
+
+  return (
+    <>
+      <div 
+        className="bg-[#171717] rounded-xl overflow-hidden shadow-lg border border-gray-800 hover:border-purple-500/30 transition-all cursor-pointer"
+        onClick={openDetailView}
+      >
+        {/* Token Image Header */}
+        <div className="h-48 bg-gradient-to-r from-purple-900/20 to-blue-900/20 relative flex items-center justify-center">
+          {!imageLoaded && !imageError && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+            </div>
+          )}
+          
+          {!imageError ? (
+            <img 
+              src={actualImageUrl} 
+              alt={`${token.name} logo`}
+              className={`object-contain max-h-40 mx-auto ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+              style={{ transition: 'opacity 0.3s ease-in-out' }}
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+            />
+          ) : (
+            <div className="w-24 h-24 bg-gray-800 rounded-full flex items-center justify-center">
+              <span className="text-2xl font-bold text-gray-600">{token.symbol.substring(0, 2)}</span>
+            </div>
+          )}
+        </div>
         
-        {/* Action Links */}
-        <div className="flex justify-between space-x-2 mt-6">
-          <a 
-            href={explorerUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex-1 text-center bg-transparent border border-purple-500 text-purple-500 hover:bg-purple-500 hover:text-white text-sm font-medium py-2 px-3 rounded-full transition-colors"
-          >
-            Explorer
-          </a>
+        {/* Token Info */}
+        <div className="p-6">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="text-xl font-bold text-white">{token.name}</h3>
+              <p className="text-purple-400 font-mono">{token.symbol}</p>
+            </div>
+            <span className="bg-purple-900/30 text-purple-300 text-xs px-2 py-1 rounded-full">
+              {token.tokenInfo?.decimals || 9} decimals
+            </span>
+          </div>
           
-          <a 
-            href={raydiumLiquidityUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex-1 text-center bg-transparent border border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white text-sm font-medium py-2 px-3 rounded-full transition-colors"
-          >
-            Create Pool
-          </a>
+          <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+            {token.description || 'No description provided'}
+          </p>
           
-          <a 
-            href={raydiumSwapUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex-1 text-center bg-transparent border border-green-500 text-green-500 hover:bg-green-500 hover:text-white text-sm font-medium py-2 px-3 rounded-full transition-colors"
-          >
-            Swap
-          </a>
+          <div className="mb-4">
+            <div className="text-gray-500 text-xs mb-1">Token Address</div>
+            <div className="font-mono text-xs bg-[#222] p-2 rounded overflow-hidden text-ellipsis">
+              {token.mintAddress}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <div className="text-gray-500 text-xs">Total Supply</div>
+              <div className="text-white font-medium">
+                {formatNumberWithCommas(token.tokenInfo?.totalSupply || 0)}
+              </div>
+            </div>
+            
+            <div>
+              <div className="text-gray-500 text-xs">Revoked Authorities</div>
+              <div className="flex space-x-1">
+                {token.authorities?.mintRevoked && (
+                  <span className="text-xs px-1 bg-green-900/30 text-green-300 rounded">Mint</span>
+                )}
+                {token.authorities?.freezeRevoked && (
+                  <span className="text-xs px-1 bg-green-900/30 text-green-300 rounded">Freeze</span>
+                )}
+                {token.authorities?.updateRevoked && (
+                  <span className="text-xs px-1 bg-green-900/30 text-green-300 rounded">Update</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Social Links (if available) */}
+          {(token.website || token.twitter || token.telegram || token.discord) && (
+            <div className="flex space-x-3 mb-4">
+              {token.website && (
+                <a 
+                  href={token.website} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-gray-400 hover:text-purple-400"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                  </svg>
+                </a>
+              )}
+              
+              {token.twitter && (
+                <a 
+                  href={token.twitter} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-gray-400 hover:text-blue-400"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"></path>
+                  </svg>
+                </a>
+              )}
+              
+              {token.telegram && (
+                <a 
+                  href={token.telegram} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-gray-400 hover:text-blue-500"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                  </svg>
+                </a>
+              )}
+              
+              {token.discord && (
+                <a 
+                  href={token.discord} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-gray-400 hover:text-indigo-400"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                  </svg>
+                </a>
+              )}
+            </div>
+          )}
+          
+          {/* Action Links */}
+          <div className="flex justify-between space-x-2 mt-6">
+            <a 
+              href={explorerUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex-1 text-center bg-transparent border border-purple-500 text-purple-500 hover:bg-purple-500 hover:text-white text-sm font-medium py-2 px-3 rounded-full transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Explorer
+            </a>
+            
+            <a 
+              href={raydiumLiquidityUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex-1 text-center bg-transparent border border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white text-sm font-medium py-2 px-3 rounded-full transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Create Pool
+            </a>
+            
+            <a 
+              href={raydiumSwapUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex-1 text-center bg-transparent border border-green-500 text-green-500 hover:bg-green-500 hover:text-white text-sm font-medium py-2 px-3 rounded-full transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Swap
+            </a>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Detail Modal */}
+      {showDetailView && (
+        <TokenDetailView 
+          token={token} 
+          onClose={closeDetailView} 
+        />
+      )}
+    </>
   );
 }
 
@@ -4035,9 +4492,9 @@ let currentSessionUuid: string | null = null;
 // Helper function to get the current wallet's public key
 function getCurrentWalletPublicKey(): string {
   // Check if we're in a browser environment and window is defined
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     // Try to get the public key from local storage if it's been saved there
-    const savedPublicKey = localStorage.getItem('walletPublicKey');
+    const savedPublicKey = localStorage.getItem("walletPublicKey");
     if (savedPublicKey) {
       return savedPublicKey;
     }
@@ -4051,7 +4508,7 @@ function getSessionUuid(): string {
   if (!currentSessionUuid) {
     currentSessionUuid = uuidv4();
     console.log(`Created new session UUID: ${currentSessionUuid}`);
-    
+
     // Sync with cleanup service
     setCurrentSessionUuid(currentSessionUuid);
   }
@@ -4062,32 +4519,35 @@ function getSessionUuid(): string {
 export function resetSessionUuid(): void {
   currentSessionUuid = null;
   console.log("Reset session UUID for new token creation");
-  
+
   // Sync with cleanup service
   setCurrentSessionUuid(null);
 }
 
 // Helper function to generate a unique file name based on wallet, UUID, and type
-function generateUniqueFileName(type: 'image' | 'metadata' | 'final_metadata', tokenKey?: string): string {
+function generateUniqueFileName(
+  type: "image" | "metadata" | "final_metadata",
+  tokenKey?: string
+): string {
   const walletPublicKey = getCurrentWalletPublicKey();
-  
+
   // For the initial uploads, use the same UUID for both image and metadata
-  if (type === 'image' || type === 'metadata') {
+  if (type === "image" || type === "metadata") {
     // Use the current session UUID
     const uuid = getSessionUuid();
-    
-    if (type === 'image') {
+
+    if (type === "image") {
       return `${walletPublicKey}_${uuid}_image`;
     } else {
       return `${walletPublicKey}_${uuid}_metadata`;
     }
   }
-  
+
   // For the final metadata after minting, use the token key
-  if (type === 'final_metadata' && tokenKey) {
+  if (type === "final_metadata" && tokenKey) {
     return `${walletPublicKey}_${tokenKey}`;
   }
-  
+
   // Fallback name with timestamp
   const timestamp = Date.now();
   return `${walletPublicKey}_${timestamp}_${type}`;
@@ -4097,41 +4557,47 @@ function generateUniqueFileName(type: 'image' | 'metadata' | 'final_metadata', t
  * Uploads an image file to IPFS via Pinata
  * @returns IPFS URL for the uploaded image
  */
-export async function uploadImageToIPFS(file: File, tokenName: string, tokenSymbol: string): Promise<string> {
+export async function uploadImageToIPFS(
+  file: File,
+  tokenName: string,
+  tokenSymbol: string
+): Promise<string> {
   try {
     // Reset the session UUID at the start of a new token creation
     resetSessionUuid();
-    
+
     // Generate a unique filename using our new naming convention
-    const uniqueFileName = generateUniqueFileName('image');
-    const fileExtension = file.name.split('.').pop() || 'png';
+    const uniqueFileName = generateUniqueFileName("image");
+    const fileExtension = file.name.split(".").pop() || "png";
     const newFileName = `${uniqueFileName}.${fileExtension}`;
-    
+
     // Create a new file with the unique name
     const uniqueFile = new File([file], newFileName, { type: file.type });
-    
+
     // Create FormData to send to the API
     const formData = new FormData();
-    formData.append('file', uniqueFile);
-    
+    formData.append("file", uniqueFile);
+
     // Add the unique filename as metadata
-    formData.append('fileName', newFileName);
-    
+    formData.append("fileName", newFileName);
+
     console.log(`Uploading image as: ${newFileName}`);
-    
-    const res = await fetch('/api/upload-image', {
-      method: 'POST',
+
+    const res = await fetch("/api/upload-image", {
+      method: "POST",
       body: formData,
     });
 
     if (!res.ok) {
       const errorData = await res.json();
-      throw new Error(`Image upload failed: ${errorData.error || res.statusText}`);
+      throw new Error(
+        `Image upload failed: ${errorData.error || res.statusText}`
+      );
     }
 
     const { cid, gateway } = await res.json();
     const imageUrl = `https://${gateway}/ipfs/${cid}`;
-    
+
     console.log(`Image uploaded successfully: ${imageUrl}`);
     return imageUrl;
   } catch (error) {
@@ -4173,12 +4639,14 @@ export interface MetadataPayload {
  * Uploads token metadata to IPFS via Pinata
  * @returns IPFS URL for the uploaded metadata
  */
-export async function uploadMetadataToIPFS(payload: MetadataPayload): Promise<string> {
+export async function uploadMetadataToIPFS(
+  payload: MetadataPayload
+): Promise<string> {
   try {
     // Generate a unique filename based on our new naming convention
     // This will use the same UUID as the image since we're using the session UUID
-    const uniqueFileName = generateUniqueFileName('metadata');
-    
+    const uniqueFileName = generateUniqueFileName("metadata");
+
     // Construct the complete metadata object similar to your non-Next.js version
     const metadata: any = {
       // Core token information
@@ -4186,59 +4654,63 @@ export async function uploadMetadataToIPFS(payload: MetadataPayload): Promise<st
       symbol: payload.symbol,
       description: payload.description,
       image: payload.image,
-      
+
       // Display preference
       showName: true,
-      
+
       // Token information
       tokenInfo: {
         chain: "Solana",
         totalSupply: payload.tokenInfo?.totalSupply || 0,
         circulatingSupply: payload.tokenInfo?.circulatingSupply || 0,
-        decimals: payload.tokenInfo?.decimals || 9
+        decimals: payload.tokenInfo?.decimals || 9,
       },
-      
+
       // Add mint address if available (could be added later)
       ...(payload.mint && { mint: payload.mint }),
-      
+
       // Add creator if provided
       ...(payload.creator && { creator: payload.creator }),
-      
+
       // Add social links if provided
       ...(payload.website && { website: payload.website }),
       ...(payload.twitter && { twitter: payload.twitter }),
       ...(payload.telegram && { telegram: payload.telegram }),
       ...(payload.discord && { discord: payload.discord }),
-      
+
       // Origin
       createdOn: "SolMinter",
-      
+
       // Add authority status if provided
       ...(payload.authorities && { authorities: payload.authorities }),
-      
+
       // Add the session UUID for debugging and file cleanup
-      sessionUuid: getSessionUuid()
+      sessionUuid: getSessionUuid(),
     };
 
-    console.log(`Uploading metadata for: ${payload.name} (${payload.symbol}) as ${uniqueFileName}`);
-    
-    const res = await fetch('/api/upload-metadata', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    console.log(
+      `Uploading metadata for: ${payload.name} (${payload.symbol}) as ${uniqueFileName}`
+    );
+
+    const res = await fetch("/api/upload-metadata", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         metadata,
-        fileName: `${uniqueFileName}.json`
+        fileName: `${uniqueFileName}.json`,
       }),
     });
 
     if (!res.ok) {
       const errorData = await res.json();
-      throw new Error(`Metadata upload failed: ${errorData.error || res.statusText}`);
+      throw new Error(
+        `Metadata upload failed: ${errorData.error || res.statusText}`
+      );
     }
 
     const { cid, gateway } = await res.json();
     const metadataUrl = `https://${gateway}/ipfs/${cid}`;
-    
+
     console.log(`Metadata uploaded successfully: ${metadataUrl}`);
     return metadataUrl;
   } catch (error) {
@@ -4251,10 +4723,13 @@ export async function uploadMetadataToIPFS(payload: MetadataPayload): Promise<st
  * Update token metadata with mint address after token creation
  * @returns IPFS URL for the updated metadata
  */
+// Here's the fix for the updateMetadataWithMintAddress function:
+
 export async function updateMetadataWithMintAddress(
-  originalMetadataUrl: string, 
-  mintAddress: string, 
-  formData: FormDataType
+  originalMetadataUrl: string,
+  mintAddress: string,
+  formData: FormDataType,
+  imageUrl: string // Add imageUrl parameter to ensure we use the correct image URL
 ): Promise<string> {
   try {
     // Create updated metadata payload with mint address and use the token key in the filename
@@ -4262,25 +4737,25 @@ export async function updateMetadataWithMintAddress(
       name: formData.name,
       symbol: formData.symbol,
       description: formData.description,
-      image: originalMetadataUrl.split('/ipfs/')[0] + '/ipfs/' + originalMetadataUrl.split('/ipfs/')[1],
+      image: imageUrl, // Use the actual image URL instead of the metadata URL
       mint: mintAddress,
       creator: formData.creatorInfo ? formData.creatorName : "SolMinter",
       tokenInfo: {
         chain: "Solana",
         totalSupply: formData.supply,
         circulatingSupply: formData.supply,
-        decimals: formData.decimals
+        decimals: formData.decimals,
       },
       // Add authority status information
       authorities: {
         mintRevoked: formData.revokeMint,
         freezeRevoked: formData.revokeFreeze,
-        updateRevoked: formData.revokeUpdate
+        updateRevoked: formData.revokeUpdate,
       },
       // Include the original session UUID for tracking
-      sessionUuid: currentSessionUuid || 'unknown'
+      sessionUuid: currentSessionUuid || "unknown",
     };
-    
+
     // Add social links if enabled
     if (formData.socialLinks) {
       payload.website = formData.website || undefined;
@@ -4288,35 +4763,41 @@ export async function updateMetadataWithMintAddress(
       payload.telegram = formData.telegram || undefined;
       payload.discord = formData.discord || undefined;
     }
-    
+
     // Generate the final metadata filename using the token mint address
-    const uniqueFileName = generateUniqueFileName('final_metadata', mintAddress);
-    
+    const uniqueFileName = generateUniqueFileName(
+      "final_metadata",
+      mintAddress
+    );
+
     // Upload the updated metadata with the new filename
-    const res = await fetch('/api/upload-metadata', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const res = await fetch("/api/upload-metadata", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         metadata: payload,
-        fileName: `${uniqueFileName}.json`
+        fileName: `${uniqueFileName}.json`,
       }),
     });
 
     if (!res.ok) {
       const errorData = await res.json();
-      throw new Error(`Updated metadata upload failed: ${errorData.error || res.statusText}`);
+      throw new Error(
+        `Updated metadata upload failed: ${errorData.error || res.statusText}`
+      );
     }
 
     const { cid, gateway } = await res.json();
     const metadataUrl = `https://${gateway}/ipfs/${cid}`;
-    
-    console.log(`Updated metadata uploaded successfully as ${uniqueFileName}: ${metadataUrl}`);
-    
+
+    console.log(
+      `Updated metadata uploaded successfully as ${uniqueFileName}: ${metadataUrl}`
+    );
+
     // Reset the session UUID after the token is fully created
     resetSessionUuid();
-    
+
     return metadataUrl;
-    
   } catch (error) {
     console.error("Error updating metadata with mint address:", error);
     throw error;
@@ -4330,6 +4811,7 @@ export async function updateMetadataWithMintAddress(
 export function getCurrentSessionUuid(): string | null {
   return currentSessionUuid;
 }
+
 
 // ===== src/services/pinata-cleanup.ts =====
 
@@ -4683,7 +5165,12 @@ export function formatFee(fee: number): string {
 // src/services/token-creation/server-side-creation.ts
 // Handles server-side token creation flow (when revokeUpdate is true)
 
-import { Connection, Transaction, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  Connection,
+  Transaction,
+  Keypair,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
 import type { WalletContextState } from "@solana/wallet-adapter-react";
 import { FormDataType, TokenResult } from "@/types/token";
 import { updateMetadataWithMintAddress } from "../ipfs-service";
@@ -4717,7 +5204,9 @@ export async function createTokenServerSide(
     // Generate mint keypair client-side
     const mintKeypair = Keypair.generate();
     const feeAmountInLamports = Math.floor(netFeeAmount * LAMPORTS_PER_SOL);
-    const mintPrivateKey = Buffer.from(mintKeypair.secretKey).toString("base64");
+    const mintPrivateKey = Buffer.from(mintKeypair.secretKey).toString(
+      "base64"
+    );
     const { blockhash } = await connection.getLatestBlockhash();
 
     // Request server-side signing
@@ -4745,12 +5234,18 @@ export async function createTokenServerSide(
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to sign transaction on server");
+      throw new Error(
+        errorData.error || "Failed to sign transaction on server"
+      );
     }
 
     const { signedTransaction, mintAddress } = await response.json();
-    const transaction = Transaction.from(Buffer.from(signedTransaction, "base64"));
-    console.log("Transaction constructed and signed by server for update authority");
+    const transaction = Transaction.from(
+      Buffer.from(signedTransaction, "base64")
+    );
+    console.log(
+      "Transaction constructed and signed by server for update authority"
+    );
 
     onProgress?.(3);
 
@@ -4761,7 +5256,9 @@ export async function createTokenServerSide(
     } catch (walletError) {
       console.error("Wallet signature rejected by user:", walletError);
       // Handle the error with cleanup
-      await handleErrorWithCleanup(new Error("Transaction was canceled by the user"));
+      await handleErrorWithCleanup(
+        new Error("Transaction was canceled by the user")
+      );
       throw new Error("Transaction was canceled by the user");
     }
 
@@ -4772,21 +5269,28 @@ export async function createTokenServerSide(
     }
 
     // Send and confirm transaction
-    const txSignature = await connection.sendRawTransaction(walletSignedTransaction.serialize());
+    const txSignature = await connection.sendRawTransaction(
+      walletSignedTransaction.serialize()
+    );
     await connection.confirmTransaction(txSignature);
     console.log("Transaction confirmed successfully!");
-    
+
     onProgress?.(6);
 
     // Update metadata with mint address
     // Now using {public_key}_{token_key} naming pattern
+    // Now using {public_key}_{token_key} naming pattern
     const updatedMetadataUrl = await updateMetadataWithMintAddress(
       metadataUrl,
       mintAddress,
-      formData
+      formData,
+      imageUrl // Pass the actual image URL
     );
-    
-    const clusterParam = process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet" ? "?cluster=devnet" : "";
+
+    const clusterParam =
+      process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet"
+        ? "?cluster=devnet"
+        : "";
 
     return {
       mintAddress,
@@ -4798,12 +5302,15 @@ export async function createTokenServerSide(
     console.error("Error in server-side update authority flow:", error);
     // Make sure to clean up Pinata files in case of an error
     await handleErrorWithCleanup(error);
-    
+
     throw new Error(
-      `Failed to process transaction: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to process transaction: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
   }
 }
+
 
 // ===== src/services/token-creation/token-types.ts =====
 
@@ -5042,7 +5549,7 @@ export async function createTokenClientSide(
   onProgress?: (step: number) => void
 ): Promise<TokenResult> {
   const { publicKey, signTransaction } = walletAdapter;
-  
+
   // Validate that publicKey is not null before proceeding
   if (!publicKey) {
     throw new Error("Public key is null. Wallet must be connected.");
@@ -5079,7 +5586,7 @@ export async function createTokenClientSide(
         programId: TOKEN_PROGRAM_ID,
       })
     );
-    
+
     instructions.push(
       createInitializeMintInstruction(
         mintKeypair.publicKey,
@@ -5095,7 +5602,7 @@ export async function createTokenClientSide(
       mintKeypair.publicKey,
       publicKey
     );
-    
+
     instructions.push(
       createAssociatedTokenAccountInstruction(
         publicKey,
@@ -5104,15 +5611,11 @@ export async function createTokenClientSide(
         mintKeypair.publicKey
       )
     );
-    
-    const mintAmount = BigInt(formData.supply) * BigInt(10 ** formData.decimals);
+
+    const mintAmount =
+      BigInt(formData.supply) * BigInt(10 ** formData.decimals);
     instructions.push(
-      createMintToInstruction(
-        mintKeypair.publicKey,
-        ata,
-        publicKey,
-        mintAmount
-      )
+      createMintToInstruction(mintKeypair.publicKey, ata, publicKey, mintAmount)
     );
 
     onProgress?.(4);
@@ -5140,7 +5643,7 @@ export async function createTokenClientSide(
 
     // If custom creator info is enabled, we'll update the creator name in the URI metadata
     // but the on-chain Metaplex metadata should still have the actual wallet address
-    
+
     instructions.push({
       programId: metadataProgramId,
       keys: [
@@ -5171,7 +5674,7 @@ export async function createTokenClientSide(
     });
 
     onProgress?.(5);
-    
+
     // Add authority revocation instructions if requested
     if (formData.revokeMint) {
       instructions.push(
@@ -5185,7 +5688,7 @@ export async function createTokenClientSide(
         )
       );
     }
-    
+
     if (formData.revokeFreeze) {
       instructions.push(
         createSetAuthorityInstruction(
@@ -5203,26 +5706,30 @@ export async function createTokenClientSide(
     const transaction = new Transaction();
     instructions.forEach((ix) => transaction.add(ix));
     transaction.feePayer = publicKey;
-    transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    transaction.recentBlockhash = (
+      await connection.getLatestBlockhash()
+    ).blockhash;
     transaction.partialSign(mintKeypair);
 
     console.log("Sending transaction to wallet for approval...");
-    
+
     // Handle wallet rejection properly
     if (!signTransaction) {
       throw new Error("Wallet does not support transaction signing");
     }
-    
+
     let signedTransaction;
     try {
       signedTransaction = await signTransaction(transaction);
     } catch (walletError) {
       console.error("Wallet signature rejected by user:", walletError);
       // Handle the error with cleanup
-      await handleErrorWithCleanup(new Error("Transaction was canceled by the user"));
+      await handleErrorWithCleanup(
+        new Error("Transaction was canceled by the user")
+      );
       throw new Error("Transaction was canceled by the user");
     }
-    
+
     if (!signedTransaction) {
       // Handle the error with cleanup
       await handleErrorWithCleanup(new Error("Transaction signing failed"));
@@ -5230,26 +5737,34 @@ export async function createTokenClientSide(
     }
 
     // Send and confirm transaction
-    const txSignature = await connection.sendRawTransaction(signedTransaction.serialize());
+    const txSignature = await connection.sendRawTransaction(
+      signedTransaction.serialize()
+    );
     await connection.confirmTransaction(txSignature);
 
     const mintAddress = mintKeypair.publicKey.toString();
     onProgress?.(6);
-    
+
+    // Fix in createTokenClientSide function:
+
     // Update metadata with mint address - now using {public_key}_{token_key} format
     let finalMetadataUrl = metadataUrl;
     try {
       finalMetadataUrl = await updateMetadataWithMintAddress(
         metadataUrl,
         mintAddress,
-        formData
+        formData,
+        imageUrl // Pass the actual image URL
       );
     } catch (updateError) {
       console.error("Error updating metadata (non-critical):", updateError);
     }
 
-    const clusterParam = process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet" ? "?cluster=devnet" : "";
-    
+    const clusterParam =
+      process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet"
+        ? "?cluster=devnet"
+        : "";
+
     return {
       mintAddress,
       metadataUrl: finalMetadataUrl,
@@ -5260,11 +5775,13 @@ export async function createTokenClientSide(
     console.error("Transaction error:", error);
     // Make sure to clean up Pinata files in case of an error
     await handleErrorWithCleanup(error);
-    
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Failed to process transaction: ${errorMessage}`);
   }
 }
+
 
 // ===== src/services/token-creation/token-validation.ts =====
 

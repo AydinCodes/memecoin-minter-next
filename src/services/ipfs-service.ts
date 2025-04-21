@@ -154,7 +154,7 @@ export interface MetadataPayload {
     freezeRevoked: boolean;
     updateRevoked: boolean;
   };
-  sessionUuid?: string | null | undefined;
+  // Removed sessionUuid from the interface as we don't want it in customer-facing metadata
 }
 
 /**
@@ -206,8 +206,19 @@ export async function uploadMetadataToIPFS(
       // Add authority status if provided
       ...(payload.authorities && { authorities: payload.authorities }),
 
-      // Add the session UUID for debugging and file cleanup
-      sessionUuid: getSessionUuid(),
+      // Removed sessionUuid from the actual metadata
+    };
+
+    // In Pinata metadata (separate from the token metadata)
+    const pinataMetadata = {
+      name: `${uniqueFileName}.json`,
+      keyvalues: {
+        app: "SolMinter",
+        type: "token_metadata",
+        symbol: payload.symbol,
+        timestamp: Date.now().toString(),
+        sessionUuid: getSessionUuid(), // Keep tracking the session UUID in Pinata metadata
+      }
     };
 
     console.log(
@@ -220,6 +231,7 @@ export async function uploadMetadataToIPFS(
       body: JSON.stringify({
         metadata,
         fileName: `${uniqueFileName}.json`,
+        pinataMetadata, // Pass the Pinata metadata separately
       }),
     });
 
@@ -245,8 +257,6 @@ export async function uploadMetadataToIPFS(
  * Update token metadata with mint address after token creation
  * @returns IPFS URL for the updated metadata
  */
-// Here's the fix for the updateMetadataWithMintAddress function:
-
 export async function updateMetadataWithMintAddress(
   originalMetadataUrl: string,
   mintAddress: string,
@@ -274,8 +284,7 @@ export async function updateMetadataWithMintAddress(
         freezeRevoked: formData.revokeFreeze,
         updateRevoked: formData.revokeUpdate,
       },
-      // Include the original session UUID for tracking
-      sessionUuid: currentSessionUuid || "unknown",
+      // Removed sessionUuid from the payload
     };
 
     // Add social links if enabled
@@ -291,6 +300,19 @@ export async function updateMetadataWithMintAddress(
       "final_metadata",
       mintAddress
     );
+    
+    // In Pinata metadata (separate from the token metadata)
+    const pinataMetadata = {
+      name: `${uniqueFileName}.json`,
+      keyvalues: {
+        app: "SolMinter",
+        type: "token_metadata",
+        symbol: formData.symbol,
+        mintAddress: mintAddress,
+        timestamp: Date.now().toString(),
+        sessionUuid: currentSessionUuid || "unknown", // Keep tracking in Pinata metadata only
+      }
+    };
 
     // Upload the updated metadata with the new filename
     const res = await fetch("/api/upload-metadata", {
@@ -299,6 +321,7 @@ export async function updateMetadataWithMintAddress(
       body: JSON.stringify({
         metadata: payload,
         fileName: `${uniqueFileName}.json`,
+        pinataMetadata, // Pass the Pinata metadata separately
       }),
     });
 

@@ -45,14 +45,15 @@ export async function POST(request: NextRequest) {
     
     const pinListData = await searchResponse.json();
     
-    // Find pins containing the UUID in their name
+    // Find pins containing the UUID in their keyvalues metadata
     // @ts-ignore
     const pinsToDelete = pinListData.rows.filter(pin => {
-      // Check if UUID exists in metadata name or in custom keyvalues
+      // Look for UUID in Pinata metadata keyvalues.sessionUuid
+      const metadataMatch = pin.metadata?.keyvalues?.sessionUuid === uuid;
+      // Also check in the name as a fallback in case keyvalues aren't used
       const nameMatch = pin.metadata?.name && pin.metadata.name.includes(uuid);
-      const keyvaluesMatch = pin.metadata?.keyvalues?.sessionUuid === uuid;
       
-      return nameMatch || keyvaluesMatch;
+      return metadataMatch || nameMatch;
     });
     
     console.log(`Found ${pinsToDelete.length} files containing UUID: ${uuid}`);
