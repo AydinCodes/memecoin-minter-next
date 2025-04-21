@@ -128,18 +128,19 @@ export async function createTokenClientSide(
       metadataProgramId
     );
 
-    // Create creators array if needed
-    let creators = null;
-    if (formData.creatorInfo) {
-      creators = [
-        {
-          address: publicKey,
-          verified: true,
-          share: 100,
-        },
-      ];
-    }
+    // IMPORTANT FIX: Always include creators array with the user's wallet
+    // This ensures the creator field is properly set in the Metaplex metadata
+    const creators = [
+      {
+        address: publicKey,
+        verified: true,
+        share: 100,
+      },
+    ];
 
+    // If custom creator info is enabled, we'll update the creator name in the URI metadata
+    // but the on-chain Metaplex metadata should still have the actual wallet address
+    
     instructions.push({
       programId: metadataProgramId,
       keys: [
@@ -161,10 +162,10 @@ export async function createTokenClientSide(
           symbol: formData.symbol,
           uri: metadataUrl,
           sellerFeeBasisPoints: 0,
-          creators,
+          creators, // Always include creators array with user's wallet
           collection: null,
           uses: null,
-          isMutable: false, // immutable when revokeUpdate is off
+          isMutable: false,
         }),
       ]),
     });

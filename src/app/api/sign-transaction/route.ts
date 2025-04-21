@@ -206,17 +206,16 @@ export async function POST(request: NextRequest) {
       metadataProgramId
     );
 
-    // **1.** Prepare creators array
-    let creators = null;
-    if (hasCreators) {
-      creators = [
-        {
-          address: payer,
-          verified: false,   // <- changed from `true` to `false`
-          share: 100,
-        },
-      ];
-    }
+    // **1.** Prepare creators array - IMPORTANT FIX: Always include creators
+    // The payer (wallet owner) must be the creator, but with verified=false
+    // They will sign the transaction later, which implicitly verifies them
+    const creators = [
+      {
+        address: payer,
+        verified: false,  // CRITICAL FIX: Set verified to false since the server can't verify on behalf of the user
+        share: 100,
+      }
+    ];
 
     // **2.** Create Metadata instruction
     transaction.add({
@@ -236,7 +235,7 @@ export async function POST(request: NextRequest) {
           symbol: tokenSymbol,
           uri: metadataUrl,
           sellerFeeBasisPoints: 0,
-          creators,
+          creators,  // Always include creators
           collection: null,
           uses: null,
           isMutable: !revokeUpdate,

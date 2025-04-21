@@ -49,7 +49,7 @@ export async function createTokenServerSide(
         tokenDecimals: formData.decimals,
         tokenSupply: formData.supply,
         payerPublicKey: publicKey.toString(), // Safe to call toString() now
-        hasCreators: formData.creatorInfo,
+        hasCreators: true, // IMPORTANT FIX: Always include creators
         revokeUpdate: formData.revokeUpdate,
         revokeMint: formData.revokeMint,
         revokeFreeze: formData.revokeFreeze,
