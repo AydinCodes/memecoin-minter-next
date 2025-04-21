@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import {
   createTokenWithMetadata,
-  TokenResult,
 } from "@/services/token-service"
 import { calculateFee, formatFee } from "@/services/fee-service"
 import TokenCreationSuccess from "./token-creation-success"
@@ -13,7 +12,7 @@ import TokenFormBasic from "./token-form-basic"
 import TokenFormOptions from "./token-form-options"
 import TokenFormAuthorities from "./token-form-authorities"
 import TokenFormCreator from "./token-form-creator"
-import { FormDataType } from "@/types/token"
+import { FormDataType, TokenResult } from "@/types/token"
 import { SOLANA_NETWORK_FEE } from "@/config"
 
 // Enhanced steps with more detail on IPFS operations

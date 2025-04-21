@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { formatWalletAddress, getWalletBalance, isWalletConnected } from '@/services/wallet-service';
+import { formatWalletAddress, getWalletBalance, isWalletConnected, saveWalletPublicKey } from '@/services/wallet-service';
 import { debugWallet, debugWalletCapabilities } from '@/utils/wallet-debug';
 import '@/styles/wallet-button.css';
 
@@ -35,6 +35,9 @@ export default function WalletButton() {
   useEffect(() => {
     if (connected && publicKey) {
       loadBalance();
+      
+      // Save the public key to localStorage for use in IPFS naming
+      saveWalletPublicKey(publicKey.toString());
     }
   }, [connected, publicKey, loadBalance]);
 

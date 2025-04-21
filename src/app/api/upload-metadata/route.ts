@@ -6,8 +6,11 @@ export async function POST(request: NextRequest) {
     // Get the metadata from the request body
     const { metadata, fileName } = await request.json();
     
-    console.log("Received metadata:", metadata);
-    console.log("Filename:", fileName || 'metadata.json');
+    // Use the provided filename or create a default one
+    const actualFileName = fileName || 'metadata.json';
+    
+    console.log("Received metadata for:", metadata.name);
+    console.log("Using filename:", actualFileName);
     
     // In a production environment, you would now upload to Pinata using their API
     // For demonstration purposes with the ENV variables you provided:
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest) {
       };
       
       const pinataMetadata = {
-        name: fileName || `${metadata.symbol}_metadata.json`,
+        name: actualFileName,
         keyvalues: {
           app: "SolMinter",
           type: "token_metadata",
@@ -72,7 +75,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         success: true, 
         cid: pinataResult.IpfsHash,
-        gateway: pinataGateway
+        gateway: pinataGateway,
+        fileName: actualFileName
       });
     }
     
@@ -83,7 +87,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       cid: fakeCid,
-      gateway: pinataGateway || 'gateway.pinata.cloud'
+      gateway: pinataGateway || 'gateway.pinata.cloud',
+      fileName: actualFileName
     });
   } catch (error) {
     console.error('Error uploading metadata:', error);

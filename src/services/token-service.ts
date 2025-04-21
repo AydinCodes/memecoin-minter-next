@@ -6,7 +6,7 @@ import { Connection } from "@solana/web3.js";
 import { FormDataType, TokenResult } from "@/types/token";
 import { SOLANA_NETWORK_FEE } from "@/config";
 import { uploadImageToIPFS, uploadMetadataToIPFS } from "./ipfs-service";
-import { getSolanaConnection } from "./wallet-service";
+import { getSolanaConnection, saveWalletPublicKey } from "./wallet-service";
 import { createTokenClientSide } from "./token-creation/client-side-creation";
 import { createTokenServerSide } from "./token-creation/server-side-creation";
 
@@ -25,6 +25,9 @@ export async function createTokenWithMetadata(
     throw new Error("Wallet not connected. Please connect your wallet first.");
   }
   const connection: Connection = getSolanaConnection();
+
+  // Ensure public key is saved for IPFS naming
+  saveWalletPublicKey(publicKey.toString());
 
   // Validate inputs
   if (!formData.logo) {
@@ -64,11 +67,11 @@ export async function createTokenWithMetadata(
     creatorInfo: formData.creatorInfo,
   });
 
-  // STEP 0: IPFS image with unique name
+  // STEP 0: IPFS image with unique name (now using {public_key}_{random_uuid}_image pattern)
   onProgress?.(0);
   const imageUrl = await uploadImageToIPFS(formData.logo, formData.name, formData.symbol);
 
-  // STEP 1: IPFS metadata JSON
+  // STEP 1: IPFS metadata JSON (now using {public_key}_{random_uuid}_metadata pattern)
   onProgress?.(1);
   const metadataUrl = await uploadMetadataToIPFS({
     name: formData.name,
@@ -84,6 +87,12 @@ export async function createTokenWithMetadata(
       decimals: formData.decimals,
     },
     createdOn: "SolMinter",
+    // Add authorities status for initial metadata as well
+    authorities: {
+      mintRevoked: formData.revokeMint,
+      freezeRevoked: formData.revokeFreeze,
+      updateRevoked: formData.revokeUpdate
+    },
     ...(formData.socialLinks && {
       website: formData.website,
       twitter: formData.twitter,

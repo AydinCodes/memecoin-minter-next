@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
     // Get the form data from the request
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const fileName = formData.get('fileName') as string; // Get the custom file name
     
     if (!file) {
       return NextResponse.json(
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log("Received file:", file.name, "Size:", file.size, "Type:", file.type);
+    console.log("Received file:", fileName || file.name, "Size:", file.size, "Type:", file.type);
     
     // In a production environment, you would now upload to Pinata using their API
     // For demonstration purposes with the ENV variables you provided:
@@ -26,7 +27,14 @@ export async function POST(request: NextRequest) {
     if (pinataJWT) {
       // Create a FormData object to send to Pinata
       const pinataFormData = new FormData();
-      pinataFormData.append('file', file);
+      
+      // If we have a custom fileName, create a new File object with that name
+      if (fileName) {
+        const newFile = new File([file], fileName, { type: file.type });
+        pinataFormData.append('file', newFile);
+      } else {
+        pinataFormData.append('file', file);
+      }
       
       // Add pin options as metadata
       const pinOptions = JSON.stringify({
@@ -48,7 +56,7 @@ export async function POST(request: NextRequest) {
       
       // Add metadata
       const metadata = JSON.stringify({
-        name: file.name,
+        name: fileName || file.name,
         keyvalues: {
           app: "SolMinter",
           type: "token_image",
@@ -80,7 +88,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         success: true, 
         cid: pinataResult.IpfsHash,
-        gateway: pinataGateway
+        gateway: pinataGateway,
+        fileName: fileName || file.name // Return the filename used
       });
     }
     
@@ -91,7 +100,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       cid: fakeCid,
-      gateway: pinataGateway || 'gateway.pinata.cloud'
+      gateway: pinataGateway || 'gateway.pinata.cloud',
+      fileName: fileName || file.name // Return the filename used
     });
   } catch (error) {
     console.error('Error uploading image:', error);

@@ -9,20 +9,36 @@ export const getSolanaConnection = (): Connection => {
   return new Connection(clusterApiUrl(network), 'confirmed');
 };
 
+// Save the current wallet's public key to localStorage for reference
+export const saveWalletPublicKey = (publicKey: string): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('walletPublicKey', publicKey);
+    console.log(`Wallet public key saved: ${publicKey}`);
+  }
+};
+
+// Get the saved wallet public key
+export const getSavedWalletPublicKey = (): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('walletPublicKey');
+  }
+  return null;
+};
+
 // Check if wallet is properly connected
 export const isWalletConnected = (wallet: any): boolean => {
-    // Debug log to help diagnose issues
-    console.log("Wallet connection check:", {
-      walletExists: !!wallet,
-      publicKeyExists: wallet ? !!wallet.publicKey : false,
-      adapterExists: wallet ? !!wallet.adapter : false,
-      adapterConnected: wallet?.adapter ? !!wallet.adapter.connected : false
-    });
-    
-    // For some wallets, adapter.connected might not be reliable
-    // Consider a wallet connected if it has a wallet object and a public key
-    return !!wallet && !!wallet.publicKey;
-  };
+  // Debug log to help diagnose issues
+  console.log("Wallet connection check:", {
+    walletExists: !!wallet,
+    publicKeyExists: wallet ? !!wallet.publicKey : false,
+    adapterExists: wallet ? !!wallet.adapter : false,
+    adapterConnected: wallet?.adapter ? !!wallet.adapter.connected : false
+  });
+  
+  // For some wallets, adapter.connected might not be reliable
+  // Consider a wallet connected if it has a wallet object and a public key
+  return !!wallet && !!wallet.publicKey;
+};
 
 // Get the wallet's SOL balance
 export const getWalletBalance = async (publicKey: PublicKey): Promise<number> => {

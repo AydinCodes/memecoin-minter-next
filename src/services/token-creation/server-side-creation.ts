@@ -92,6 +92,7 @@ export async function createTokenServerSide(
     onProgress?.(6);
 
     // Update metadata with mint address
+    // Now using {public_key}_{token_key} naming pattern
     const updatedMetadataUrl = await updateMetadataWithMintAddress(
       metadataUrl,
       mintAddress,

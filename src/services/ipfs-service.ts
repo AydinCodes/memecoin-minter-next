@@ -5,13 +5,64 @@
  */
 
 import { FormDataType } from "@/types/token";
+import { v4 as uuidv4 } from "uuid"; // Need to add this dependency
 
-// Helper function to generate a unique file name based on token details + timestamp
-function generateUniqueFileName(name: string, symbol: string): string {
+// Store the current UUID for the token creation session
+let currentSessionUuid: string | null = null;
+
+// Helper function to get the current wallet's public key
+function getCurrentWalletPublicKey(): string {
+  // Check if we're in a browser environment and window is defined
+  if (typeof window !== 'undefined') {
+    // Try to get the public key from local storage if it's been saved there
+    const savedPublicKey = localStorage.getItem('walletPublicKey');
+    if (savedPublicKey) {
+      return savedPublicKey;
+    }
+  }
+  // Fallback if we can't get the actual public key
+  return "unknown_wallet";
+}
+
+// Helper function to get the current session UUID or create a new one
+function getSessionUuid(): string {
+  if (!currentSessionUuid) {
+    currentSessionUuid = uuidv4();
+    console.log(`Created new session UUID: ${currentSessionUuid}`);
+  }
+  return currentSessionUuid;
+}
+
+// Helper function to reset the session UUID (call this at the start of a new token creation)
+export function resetSessionUuid(): void {
+  currentSessionUuid = null;
+  console.log("Reset session UUID for new token creation");
+}
+
+// Helper function to generate a unique file name based on wallet, UUID, and type
+function generateUniqueFileName(type: 'image' | 'metadata' | 'final_metadata', tokenKey?: string): string {
+  const walletPublicKey = getCurrentWalletPublicKey();
+  
+  // For the initial uploads, use the same UUID for both image and metadata
+  if (type === 'image' || type === 'metadata') {
+    // Use the current session UUID
+    const uuid = getSessionUuid();
+    
+    if (type === 'image') {
+      return `${walletPublicKey}_${uuid}_image`;
+    } else {
+      return `${walletPublicKey}_${uuid}_metadata`;
+    }
+  }
+  
+  // For the final metadata after minting, use the token key
+  if (type === 'final_metadata' && tokenKey) {
+    return `${walletPublicKey}_${tokenKey}`;
+  }
+  
+  // Fallback name with timestamp
   const timestamp = Date.now();
-  const sanitizedName = name.replace(/[^a-z0-9]/gi, '').toLowerCase();
-  const sanitizedSymbol = symbol.replace(/[^a-z0-9]/gi, '').toLowerCase();
-  return `${sanitizedSymbol}_${sanitizedName}_${timestamp}`;
+  return `${walletPublicKey}_${timestamp}_${type}`;
 }
 
 /**
@@ -20,8 +71,11 @@ function generateUniqueFileName(name: string, symbol: string): string {
  */
 export async function uploadImageToIPFS(file: File, tokenName: string, tokenSymbol: string): Promise<string> {
   try {
-    // Generate a unique filename based on token symbol and name
-    const uniqueFileName = generateUniqueFileName(tokenName, tokenSymbol);
+    // Reset the session UUID at the start of a new token creation
+    resetSessionUuid();
+    
+    // Generate a unique filename using our new naming convention
+    const uniqueFileName = generateUniqueFileName('image');
     const fileExtension = file.name.split('.').pop() || 'png';
     const newFileName = `${uniqueFileName}.${fileExtension}`;
     
@@ -78,6 +132,13 @@ export interface MetadataPayload {
     decimals: number;
   };
   createdOn?: string;
+  // New metadata fields for authority status
+  authorities?: {
+    mintRevoked: boolean;
+    freezeRevoked: boolean;
+    updateRevoked: boolean;
+  };
+  sessionUuid?: string | null | undefined;
 }
 
 /**
@@ -86,8 +147,9 @@ export interface MetadataPayload {
  */
 export async function uploadMetadataToIPFS(payload: MetadataPayload): Promise<string> {
   try {
-    // Generate a unique filename for the metadata
-    const uniqueFileName = generateUniqueFileName(payload.name, payload.symbol);
+    // Generate a unique filename based on our new naming convention
+    // This will use the same UUID as the image since we're using the session UUID
+    const uniqueFileName = generateUniqueFileName('metadata');
     
     // Construct the complete metadata object similar to your non-Next.js version
     const metadata: any = {
@@ -121,10 +183,16 @@ export async function uploadMetadataToIPFS(payload: MetadataPayload): Promise<st
       ...(payload.discord && { discord: payload.discord }),
       
       // Origin
-      createdOn: "SolMinter"
+      createdOn: "SolMinter",
+      
+      // Add authority status if provided
+      ...(payload.authorities && { authorities: payload.authorities }),
+      
+      // Add the session UUID for debugging
+      sessionUuid: getSessionUuid()
     };
 
-    console.log(`Uploading metadata for: ${payload.name} (${payload.symbol})`);
+    console.log(`Uploading metadata for: ${payload.name} (${payload.symbol}) as ${uniqueFileName}`);
     
     const res = await fetch('/api/upload-metadata', {
       method: 'POST',
@@ -161,7 +229,7 @@ export async function updateMetadataWithMintAddress(
   formData: FormDataType
 ): Promise<string> {
   try {
-    // Create updated metadata payload with mint address
+    // Create updated metadata payload with mint address and use the token key in the filename
     const payload: MetadataPayload = {
       name: formData.name,
       symbol: formData.symbol,
@@ -174,7 +242,15 @@ export async function updateMetadataWithMintAddress(
         totalSupply: formData.supply,
         circulatingSupply: formData.supply,
         decimals: formData.decimals
-      }
+      },
+      // Add authority status information
+      authorities: {
+        mintRevoked: formData.revokeMint,
+        freezeRevoked: formData.revokeFreeze,
+        updateRevoked: formData.revokeUpdate
+      },
+      // Include the original session UUID for tracking
+      sessionUuid: currentSessionUuid || 'unknown'
     };
     
     // Add social links if enabled
@@ -185,8 +261,34 @@ export async function updateMetadataWithMintAddress(
       payload.discord = formData.discord || undefined;
     }
     
-    // Upload the updated metadata
-    return await uploadMetadataToIPFS(payload);
+    // Generate the final metadata filename using the token mint address
+    const uniqueFileName = generateUniqueFileName('final_metadata', mintAddress);
+    
+    // Upload the updated metadata with the new filename
+    const res = await fetch('/api/upload-metadata', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        metadata: payload,
+        fileName: `${uniqueFileName}.json`
+      }),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(`Updated metadata upload failed: ${errorData.error || res.statusText}`);
+    }
+
+    const { cid, gateway } = await res.json();
+    const metadataUrl = `https://${gateway}/ipfs/${cid}`;
+    
+    console.log(`Updated metadata uploaded successfully as ${uniqueFileName}: ${metadataUrl}`);
+    
+    // Reset the session UUID after the token is fully created
+    resetSessionUuid();
+    
+    return metadataUrl;
+    
   } catch (error) {
     console.error("Error updating metadata with mint address:", error);
     throw error;

@@ -232,7 +232,7 @@ export async function createTokenClientSide(
     const mintAddress = mintKeypair.publicKey.toString();
     onProgress?.(6);
     
-    // Update metadata with mint address
+    // Update metadata with mint address - now using {public_key}_{token_key} format
     let finalMetadataUrl = metadataUrl;
     try {
       finalMetadataUrl = await updateMetadataWithMintAddress(
