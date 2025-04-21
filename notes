@@ -10,3 +10,5 @@ if the token is not paid for, remove the data from pinata.
 test with uploading the same file
 
 make sure image file sizes are not too large.
+
+make footer year dynamic so it updates.

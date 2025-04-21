@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import {
   createTokenWithMetadata,
 } from "@/services/token-service"
@@ -164,8 +165,6 @@ export default function TokenForm() {
     [walletAdapter, formData, totalFee]
   )
 
-  const buttonDisabled = !walletAdapter.connected || isSubmitting;
-
   if (tokenResult) {
     return <TokenCreationSuccess result={tokenResult} />
   }
@@ -182,6 +181,28 @@ export default function TokenForm() {
 
   // Calculate net fee after Solana network fee
   const netFee = Math.max(totalFee - SOLANA_NETWORK_FEE, 0);
+
+  // If wallet is not connected, show a better wallet connection UI
+  if (!walletAdapter.connected) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-6 p-10 bg-[#171717] rounded-xl text-center">
+        <div className="w-20 h-20 bg-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg className="w-10 h-10 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+          </svg>
+        </div>
+        
+        <h2 className="text-2xl font-bold text-white mb-4">Connect Your Wallet</h2>
+        <p className="text-gray-400 mb-8">
+          Please connect your wallet to create a new Solana token
+        </p>
+        
+        <div className="flex justify-center">
+          <WalletMultiButton className="wallet-adapter-button-trigger !bg-gradient-to-r from-purple-600 to-blue-500 !rounded-full transition-all hover:shadow-lg" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form
@@ -231,14 +252,9 @@ export default function TokenForm() {
 
       <button
         type="submit"
-        disabled={buttonDisabled}
-        className={`w-full py-3 rounded-full text-white font-medium transition cursor-pointer ${
-          !buttonDisabled
-            ? "bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90"
-            : "bg-gray-600 cursor-not-allowed"
-        }`}
+        className="w-full py-3 rounded-full text-white font-medium transition cursor-pointer bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90"
       >
-        {walletAdapter.connected ? "Launch Token" : "Connect Wallet"}
+        Launch Token
       </button>
     </form>
   )

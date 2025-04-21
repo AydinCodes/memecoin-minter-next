@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { formatWalletAddress, getWalletBalance, isWalletConnected, saveWalletPublicKey } from '@/services/wallet-service';
-import { debugWallet, debugWalletCapabilities } from '@/utils/wallet-debug';
-import '@/styles/wallet-button.css';
+import { formatWalletAddress, getWalletBalance, saveWalletPublicKey } from '@/services/wallet-service';
+import { debugWallet } from '@/utils/wallet-debug';
 
 export default function WalletButton() {
   const { publicKey, connected, connecting, disconnecting, wallet } = useWallet();
@@ -47,7 +46,7 @@ export default function WalletButton() {
     return formatWalletAddress(publicKey.toString());
   };
 
-  // Add some logging for debugging connection issues
+  // Add logging for debugging connection issues
   useEffect(() => {
     if (connecting) {
       console.log('Wallet connecting...');
@@ -55,23 +54,23 @@ export default function WalletButton() {
       console.log('Wallet disconnecting...');
     } else if (connected) {
       console.log('Wallet connected:', getFormattedAddress());
-      // Add additional debugging
       debugWallet(wallet);
-      debugWalletCapabilities(wallet);
     }
   }, [connecting, disconnecting, connected, publicKey, wallet]);
   
   if (!mounted) {
     // Return a placeholder with the same dimensions to prevent layout shift
-    return <div className="wallet-button-placeholder h-10 w-32"></div>;
+    return <div className="wallet-button-placeholder"></div>;
   }
   
   return (
     <div className="wallet-button relative">
-      <WalletMultiButton className="wallet-display hover:bg-opacity-90 transition-all" />
+      <WalletMultiButton 
+        className="wallet-adapter-button-trigger !bg-gradient-to-r from-purple-600 to-blue-500 !rounded-full transition-all hover:shadow-lg" 
+      />
       
       {connected && balance !== null && (
-        <div className="wallet-balance absolute -bottom-6 right-0 text-xs text-gray-400 bg-[#171717] px-2 py-1 rounded">
+        <div className="wallet-balance absolute -bottom-6 right-0 text-xs text-gray-300 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-full">
           {balance.toFixed(2)} SOL
         </div>
       )}

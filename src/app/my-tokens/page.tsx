@@ -39,7 +39,7 @@ export default function MyTokensPage() {
     fetchUserTokens();
   }, [fetchUserTokens]);
 
-  // If wallet is not connected, show connect wallet prompt
+  // If wallet is not connected, show connect wallet prompt with exactly the same styling as create-token page
   if (!connected) {
     return <WalletRequired message="Connect your wallet to see your minted tokens" />;
   }
@@ -102,7 +102,7 @@ export default function MyTokensPage() {
         <div className="flex justify-center mb-10">
           <button 
             onClick={fetchUserTokens}
-            className="flex items-center bg-purple-700 hover:bg-purple-600 text-white px-4 py-2 rounded-lg"
+            className="flex items-center bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-2 rounded-full hover:shadow-lg transition-all"
             disabled={loading}
           >
             <svg className={`w-5 h-5 mr-2 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

@@ -39,7 +39,8 @@ export default function RootLayout({
         <Providers>
           <div className="min-h-screen flex flex-col">
             <Navbar />
-            <main className="flex-grow">{children}</main>
+            {/* Add padding-top to main content to account for the fixed navbar */}
+            <main className="flex-grow pt-24">{children}</main>
             <Footer />
           </div>
         </Providers>
