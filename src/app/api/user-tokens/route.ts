@@ -78,13 +78,16 @@ export async function GET(request: NextRequest) {
           
           const metadata = await response.json();
           
+          // Fix for image URL - make sure we preserve the actual image URL
+          const imageUrl = metadata.image || null;
+          
           // Structure the token data
           return {
             name: metadata.name,
             symbol: metadata.symbol,
             description: metadata.description,
-            mintAddress: metadata.mint,
-            imageUrl: metadata.image,
+            mintAddress: metadata.mint || '',
+            imageUrl: imageUrl, // Use the actual image URL 
             creator: metadata.creator,
             tokenInfo: metadata.tokenInfo,
             authorities: metadata.authorities,

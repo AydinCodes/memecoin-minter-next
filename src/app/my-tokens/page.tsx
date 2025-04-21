@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import WalletRequired from '@/components/wallet/wallet-required';
 import TokenList from '@/components/token/token-list';
+import TokenAnalytics from '@/components/token/token-analytics';
 import Loading from '@/components/ui/loading';
 import NoTokensFound from '@/components/token/no-tokens-found';
 import TokenErrorState from '@/components/token/token-error-state';
@@ -110,6 +111,9 @@ export default function MyTokensPage() {
             Refresh Tokens
           </button>
         </div>
+        
+        {/* Add Token Analytics component */}
+        <TokenAnalytics tokens={tokens} />
         
         <TokenList tokens={tokens} />
       </div>
