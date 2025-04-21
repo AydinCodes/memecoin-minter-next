@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import WalletButton from '../wallet/wallet-button';
+import Link from "next/link";
+import WalletButton from "../wallet/wallet-button";
 
 export default function Navbar() {
   return (
@@ -10,38 +10,55 @@ export default function Navbar() {
         <div className="flex justify-between items-center">
           <Link href="/" className="logo-container flex items-center">
             <div className="logo-img">
-              <span className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">SolMinter</span>
+              <span className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
+                SolMinter
+              </span>
             </div>
           </Link>
-          
+
           <nav className="main-nav hidden md:flex space-x-6">
-            <Link href="/" className="nav-link text-gray-300 hover:text-white transition-colors">
+            <Link
+              href="/"
+              className="nav-link text-gray-300 hover:text-white transition-colors"
+            >
               Home
             </Link>
-            <Link href="/create-token" className="nav-link text-gray-300 hover:text-white transition-colors">
+            <Link
+              href="/create-token"
+              className="nav-link text-gray-300 hover:text-white transition-colors"
+            >
               Create Token
             </Link>
-            <a 
-              href="https://raydium.io/liquidity/create-pool" 
+            <Link
+              href="/my-tokens"
               className="nav-link text-gray-300 hover:text-white transition-colors"
-              rel="noopener noreferrer" 
+            >
+              My Tokens
+            </Link>
+            <a
+              href="https://raydium.io/liquidity/create-pool"
+              className="nav-link text-gray-300 hover:text-white transition-colors"
+              rel="noopener noreferrer"
               target="_blank"
             >
               Liquidity Pool
             </a>
-            <a 
-              href="https://raydium.io/swap" 
+            <a
+              href="https://raydium.io/swap"
               className="nav-link text-gray-300 hover:text-white transition-colors"
-              rel="noopener noreferrer" 
+              rel="noopener noreferrer"
               target="_blank"
             >
               Manage Liquidity
             </a>
-            <Link href="/guides" className="nav-link text-gray-300 hover:text-white transition-colors">
+            <Link
+              href="/guides"
+              className="nav-link text-gray-300 hover:text-white transition-colors"
+            >
               Guides
             </Link>
           </nav>
-          
+
           <div className="wallet-dropdown">
             <WalletButton />
           </div>

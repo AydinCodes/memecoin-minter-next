@@ -1,7 +1,12 @@
 // src/services/token-creation/server-side-creation.ts
 // Handles server-side token creation flow (when revokeUpdate is true)
 
-import { Connection, Transaction, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  Connection,
+  Transaction,
+  Keypair,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
 import type { WalletContextState } from "@solana/wallet-adapter-react";
 import { FormDataType, TokenResult } from "@/types/token";
 import { updateMetadataWithMintAddress } from "../ipfs-service";
@@ -35,7 +40,9 @@ export async function createTokenServerSide(
     // Generate mint keypair client-side
     const mintKeypair = Keypair.generate();
     const feeAmountInLamports = Math.floor(netFeeAmount * LAMPORTS_PER_SOL);
-    const mintPrivateKey = Buffer.from(mintKeypair.secretKey).toString("base64");
+    const mintPrivateKey = Buffer.from(mintKeypair.secretKey).toString(
+      "base64"
+    );
     const { blockhash } = await connection.getLatestBlockhash();
 
     // Request server-side signing
@@ -63,12 +70,18 @@ export async function createTokenServerSide(
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to sign transaction on server");
+      throw new Error(
+        errorData.error || "Failed to sign transaction on server"
+      );
     }
 
     const { signedTransaction, mintAddress } = await response.json();
-    const transaction = Transaction.from(Buffer.from(signedTransaction, "base64"));
-    console.log("Transaction constructed and signed by server for update authority");
+    const transaction = Transaction.from(
+      Buffer.from(signedTransaction, "base64")
+    );
+    console.log(
+      "Transaction constructed and signed by server for update authority"
+    );
 
     onProgress?.(3);
 
@@ -79,7 +92,9 @@ export async function createTokenServerSide(
     } catch (walletError) {
       console.error("Wallet signature rejected by user:", walletError);
       // Handle the error with cleanup
-      await handleErrorWithCleanup(new Error("Transaction was canceled by the user"));
+      await handleErrorWithCleanup(
+        new Error("Transaction was canceled by the user")
+      );
       throw new Error("Transaction was canceled by the user");
     }
 
@@ -90,21 +105,28 @@ export async function createTokenServerSide(
     }
 
     // Send and confirm transaction
-    const txSignature = await connection.sendRawTransaction(walletSignedTransaction.serialize());
+    const txSignature = await connection.sendRawTransaction(
+      walletSignedTransaction.serialize()
+    );
     await connection.confirmTransaction(txSignature);
     console.log("Transaction confirmed successfully!");
-    
+
     onProgress?.(6);
 
     // Update metadata with mint address
     // Now using {public_key}_{token_key} naming pattern
+    // Now using {public_key}_{token_key} naming pattern
     const updatedMetadataUrl = await updateMetadataWithMintAddress(
       metadataUrl,
       mintAddress,
-      formData
+      formData,
+      imageUrl // Pass the actual image URL
     );
-    
-    const clusterParam = process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet" ? "?cluster=devnet" : "";
+
+    const clusterParam =
+      process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet"
+        ? "?cluster=devnet"
+        : "";
 
     return {
       mintAddress,
@@ -116,9 +138,11 @@ export async function createTokenServerSide(
     console.error("Error in server-side update authority flow:", error);
     // Make sure to clean up Pinata files in case of an error
     await handleErrorWithCleanup(error);
-    
+
     throw new Error(
-      `Failed to process transaction: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to process transaction: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
   }
 }

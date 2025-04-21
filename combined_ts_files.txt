@@ -86,30 +86,190 @@ declare namespace NodeJS {
 // Update or create this in a shared location like src/types/token.ts
 
 export interface FormDataType {
-    name: string;
-    symbol: string;
-    decimals: number;
-    supply: number;
-    description: string;
-    logo: File | null;
-    revokeMint: boolean;
-    revokeFreeze: boolean;
-    revokeUpdate: boolean;
-    socialLinks: boolean;
-    creatorInfo: boolean;
-    creatorName: string; // Added for Creator's Info
-    website: string;
-    twitter: string;
-    telegram: string;
-    discord: string;
-  }
+  name: string;
+  symbol: string;
+  decimals: number;
+  supply: number;
+  description: string;
+  logo: File | null;
+  revokeMint: boolean;
+  revokeFreeze: boolean;
+  revokeUpdate: boolean;
+  socialLinks: boolean;
+  creatorInfo: boolean;
+  creatorName: string; // Added for Creator's Info
+  website: string;
+  twitter: string;
+  telegram: string;
+  discord: string;
+}
+
+export interface TokenResult {
+  mintAddress: string;
+  metadataUrl: string;
+  imageUrl: string;
+  explorerUrl: string;
+}
+
+// New interface for minted token information retrieved from Pinata/IPFS
+export interface MintedTokenInfo {
+  name: string;
+  symbol: string;
+  description?: string;
+  image?: string;
+  imageUrl?: string; // Alternative property name for image
+  mintAddress: string;
+  mint?: string;     // Alternative property name for mintAddress
+  creator?: string;
+  metadataUrl?: string;
+  pinHash?: string;
   
-  export interface TokenResult {
-    mintAddress: string;
-    metadataUrl: string;
-    imageUrl: string;
-    explorerUrl: string;
+  // Social links
+  website?: string;
+  twitter?: string;
+  telegram?: string;
+  discord?: string;
+  
+  // Token information
+  tokenInfo?: {
+    chain?: string;
+    totalSupply: number;
+    circulatingSupply?: number;
+    decimals: number;
+  };
+  
+  // Authority status
+  authorities?: {
+    mintRevoked: boolean;
+    freezeRevoked: boolean;
+    updateRevoked: boolean;
+  };
+  
+  // Session tracking
+  sessionUuid?: string;
+  createdOn?: string;
+}
+
+// ===== src/app/my-tokens/page.tsx =====
+
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
+import WalletRequired from '@/components/wallet/wallet-required';
+import TokenList from '@/components/token/token-list';
+import Loading from '@/components/ui/loading';
+import NoTokensFound from '@/components/token/no-tokens-found';
+import TokenErrorState from '@/components/token/token-error-state';
+import { TokenSkeletonList } from '@/components/token/token-skeleton';
+import { getUserMintedTokens } from '@/services/token-discovery-service';
+import { MintedTokenInfo } from '@/types/token';
+
+export default function MyTokensPage() {
+  const { connected, publicKey } = useWallet();
+  const [tokens, setTokens] = useState<MintedTokenInfo[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchUserTokens = useCallback(async () => {
+    if (!connected || !publicKey) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const userTokens = await getUserMintedTokens(publicKey.toString());
+      setTokens(userTokens);
+    } catch (err) {
+      console.error('Error fetching user tokens:', err);
+      setError('Failed to fetch your minted tokens. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  }, [connected, publicKey]);
+
+  useEffect(() => {
+    fetchUserTokens();
+  }, [fetchUserTokens]);
+
+  // If wallet is not connected, show connect wallet prompt
+  if (!connected) {
+    return <WalletRequired message="Connect your wallet to see your minted tokens" />;
   }
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <h1 className="text-4xl font-bold text-center mb-6">
+            <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
+              Discovering Your Tokens
+            </span>
+          </h1>
+          <div className="flex justify-center mb-10">
+            <Loading message="Please wait while we fetch your tokens..." steps={["Connecting to wallet", "Searching blockchain", "Retrieving token data"]} currentStepIndex={2} />
+          </div>
+          
+          {/* Show skeleton UI while loading */}
+          <div className="mt-12">
+            <TokenSkeletonList />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error message if there was an error
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <TokenErrorState 
+            message={error} 
+            onRetry={fetchUserTokens} 
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // If no tokens are found, show no tokens message
+  if (tokens.length === 0) {
+    return <NoTokensFound />;
+  }
+
+  // Show token list
+  return (
+    <div className="min-h-screen bg-[#0a0a0a]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <h1 className="text-4xl font-bold text-center mb-6">
+          <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
+            My Minted Tokens
+          </span>
+        </h1>
+        <p className="text-center text-gray-400 mb-6">
+          View and manage all tokens you've created with SolMinter
+        </p>
+        
+        <div className="flex justify-center mb-10">
+          <button 
+            onClick={fetchUserTokens}
+            className="flex items-center bg-purple-700 hover:bg-purple-600 text-white px-4 py-2 rounded-lg"
+            disabled={loading}
+          >
+            <svg className={`w-5 h-5 mr-2 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Refresh Tokens
+          </button>
+        </div>
+        
+        <TokenList tokens={tokens} />
+      </div>
+    </div>
+  );
+}
 
 // ===== src/app/guides/page.tsx =====
 
@@ -908,6 +1068,249 @@ export async function GET(request: NextRequest) {
         error: "Server error", 
         message: "An unexpected error occurred while validating the server configuration."
       },
+      { status: 500 }
+    );
+  }
+}
+
+// ===== src/app/api/delete-pinata-files/route.ts =====
+
+// src/app/api/delete-pinata-files/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    const { uuid } = await request.json();
+    
+    if (!uuid) {
+      return NextResponse.json(
+        { error: 'UUID parameter is required' },
+        { status: 400 }
+      );
+    }
+    
+    console.log(`Attempting to delete Pinata files with UUID: ${uuid}`);
+    
+    // Get Pinata credentials from environment variables
+    const pinataJWT = process.env.PINATA_JWT;
+    const pinataGateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud';
+    
+    if (!pinataJWT) {
+      console.warn('No Pinata JWT found in environment variables');
+      return NextResponse.json(
+        { error: 'Pinata API credentials not configured' },
+        { status: 500 }
+      );
+    }
+    
+    // First, we need to get a list of all files
+    const searchResponse = await fetch('https://api.pinata.cloud/data/pinList?status=pinned', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${pinataJWT}`
+      }
+    });
+    
+    if (!searchResponse.ok) {
+      const searchError = await searchResponse.text();
+      console.error('Error fetching pin list from Pinata:', searchError);
+      return NextResponse.json(
+        { error: `Failed to fetch file list from Pinata: ${searchError}` },
+        { status: 500 }
+      );
+    }
+    
+    const pinListData = await searchResponse.json();
+    
+    // Find pins containing the UUID in their name
+    // @ts-ignore
+    const pinsToDelete = pinListData.rows.filter(pin => {
+      // Check if UUID exists in metadata name or in custom keyvalues
+      const nameMatch = pin.metadata?.name && pin.metadata.name.includes(uuid);
+      const keyvaluesMatch = pin.metadata?.keyvalues?.sessionUuid === uuid;
+      
+      return nameMatch || keyvaluesMatch;
+    });
+    
+    console.log(`Found ${pinsToDelete.length} files containing UUID: ${uuid}`);
+    
+    // Track deletion results
+    const deletionResults = [];
+    
+    // Delete each matching pin
+    for (const pin of pinsToDelete) {
+      try {
+        const deleteResponse = await fetch(`https://api.pinata.cloud/pinning/unpin/${pin.ipfs_pin_hash}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${pinataJWT}`
+          }
+        });
+        
+        if (deleteResponse.ok) {
+          console.log(`Successfully deleted: ${pin.ipfs_pin_hash} (${pin.metadata?.name || 'unnamed'})`);
+          deletionResults.push({
+            cid: pin.ipfs_pin_hash,
+            name: pin.metadata?.name || 'unnamed',
+            status: 'deleted'
+          });
+        } else {
+          const deleteError = await deleteResponse.text();
+          console.error(`Failed to delete ${pin.ipfs_pin_hash}:`, deleteError);
+          deletionResults.push({
+            cid: pin.ipfs_pin_hash,
+            name: pin.metadata?.name || 'unnamed',
+            status: 'error',
+            error: deleteError
+          });
+        }
+      } catch (error) {
+        console.error(`Error deleting ${pin.ipfs_pin_hash}:`, error);
+        deletionResults.push({
+          cid: pin.ipfs_pin_hash,
+          name: pin.metadata?.name || 'unnamed',
+          status: 'error',
+          error: String(error)
+        });
+      }
+    }
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: `Deletion process completed for UUID: ${uuid}`,
+      deletedCount: deletionResults.filter(r => r.status === 'deleted').length,
+      errorCount: deletionResults.filter(r => r.status === 'error').length,
+      details: deletionResults
+    });
+    
+  } catch (error) {
+    console.error('Error in delete-pinata-files endpoint:', error);
+    return NextResponse.json(
+      { error: 'Failed to process deletion request', details: String(error) },
+      { status: 500 }
+    );
+  }
+}
+
+// ===== src/app/api/user-tokens/route.ts =====
+
+// src/app/api/user-tokens/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { MintedTokenInfo } from '@/types/token';
+
+export async function GET(request: NextRequest) {
+  try {
+    // Get the wallet public key from the query parameters
+    const url = new URL(request.url);
+    const publicKey = url.searchParams.get('publicKey');
+    
+    if (!publicKey) {
+      return NextResponse.json(
+        { error: 'Public key is required' },
+        { status: 400 }
+      );
+    }
+    
+    console.log(`Searching for tokens minted by: ${publicKey}`);
+    
+    // Get Pinata credentials from environment variables
+    const pinataJWT = process.env.PINATA_JWT;
+    const pinataGateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud';
+    
+    if (!pinataJWT) {
+      console.warn('No Pinata JWT found in environment variables');
+      return NextResponse.json(
+        { error: 'Pinata API credentials not configured' },
+        { status: 500 }
+      );
+    }
+    
+    // Build the search query for Pinata - find files that contain the public key
+    // but exclude files with 'image' or 'metadata' in their name
+    const searchResponse = await fetch('https://api.pinata.cloud/data/pinList?status=pinned', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${pinataJWT}`
+      }
+    });
+    
+    if (!searchResponse.ok) {
+      const searchError = await searchResponse.text();
+      console.error('Error fetching pin list from Pinata:', searchError);
+      return NextResponse.json(
+        { error: `Failed to search Pinata: ${searchError}` },
+        { status: 500 }
+      );
+    }
+    
+    const pinListData = await searchResponse.json();
+    
+    // Filter pins to find the token metadata files:
+    // 1. Contains the user's public key in the name 
+    // 2. Does NOT contain 'metadata' or 'image' in the name
+    // These should be the final token metadata files with the format: {public-key_token-id}
+    const userTokenPins = pinListData.rows.filter((pin: any) => {
+      const nameContainsPublicKey = pin.metadata?.name && pin.metadata.name.includes(publicKey);
+      const isNotTempMetadata = pin.metadata?.name && 
+        !pin.metadata.name.includes('metadata') && 
+        !pin.metadata.name.includes('image');
+      
+      return nameContainsPublicKey && isNotTempMetadata;
+    });
+    
+    console.log(`Found ${userTokenPins.length} tokens for wallet: ${publicKey}`);
+    
+    // For each pin, fetch and parse the token metadata
+    const tokens: MintedTokenInfo[] = await Promise.all(
+      userTokenPins.map(async (pin: any) => {
+        try {
+          const ipfsUrl = `https://${pinataGateway}/ipfs/${pin.ipfs_pin_hash}`;
+          const response = await fetch(ipfsUrl);
+          
+          if (!response.ok) {
+            console.error(`Failed to fetch metadata from ${ipfsUrl}`);
+            return null;
+          }
+          
+          const metadata = await response.json();
+          
+          // Structure the token data
+          return {
+            name: metadata.name,
+            symbol: metadata.symbol,
+            description: metadata.description,
+            mintAddress: metadata.mint,
+            imageUrl: metadata.image,
+            creator: metadata.creator,
+            tokenInfo: metadata.tokenInfo,
+            authorities: metadata.authorities,
+            website: metadata.website,
+            twitter: metadata.twitter,
+            telegram: metadata.telegram,
+            discord: metadata.discord,
+            metadataUrl: ipfsUrl,
+            pinHash: pin.ipfs_pin_hash,
+          } as MintedTokenInfo;
+        } catch (err) {
+          console.error(`Error processing pin ${pin.ipfs_pin_hash}:`, err);
+          return null;
+        }
+      })
+    );
+    
+    // Filter out any null entries from errors
+    const validTokens = tokens.filter(token => token !== null) as MintedTokenInfo[];
+    
+    return NextResponse.json({
+      success: true,
+      count: validTokens.length,
+      tokens: validTokens
+    });
+    
+  } catch (error) {
+    console.error('Error in user-tokens API:', error);
+    return NextResponse.json(
+      { error: 'Failed to retrieve user tokens', details: String(error) },
       { status: 500 }
     );
   }
@@ -2374,6 +2777,82 @@ export default function TokenFormCreator({
   );
 }
 
+// ===== src/components/token/token-list.tsx =====
+
+'use client';
+
+import { MintedTokenInfo } from '@/types/token';
+import TokenCard from './token-card';
+
+interface TokenListProps {
+  tokens: MintedTokenInfo[];
+}
+
+export default function TokenList({ tokens }: TokenListProps) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {tokens.map((token) => (
+        <TokenCard key={token.mintAddress} token={token} />
+      ))}
+    </div>
+  );
+}
+
+// ===== src/components/token/token-error-state.tsx =====
+
+'use client';
+
+import Link from 'next/link';
+
+interface TokenErrorStateProps {
+  message: string;
+  onRetry?: () => void;
+}
+
+export default function TokenErrorState({ message, onRetry }: TokenErrorStateProps) {
+  return (
+    <div className="bg-[#171717] rounded-xl p-8 shadow-lg border border-red-800 max-w-2xl mx-auto">
+      <div className="text-center mb-6">
+        <div className="w-20 h-20 bg-red-500 bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        
+        <h2 className="text-2xl font-bold text-white mb-2">Something Went Wrong</h2>
+        <p className="text-gray-400 mb-6">
+          {message || "We couldn't load your token information. Please try again later."}
+        </p>
+        
+        <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+          {onRetry && (
+            <button 
+              onClick={onRetry}
+              className="bg-red-700 hover:bg-red-600 text-white font-medium py-2 px-6 rounded-full transition-colors"
+            >
+              Try Again
+            </button>
+          )}
+          
+          <Link 
+            href="/create-token"
+            className="bg-purple-700 hover:bg-purple-600 text-white font-medium py-2 px-6 rounded-full transition-colors"
+          >
+            Create New Token
+          </Link>
+          
+          <Link 
+            href="/"
+            className="bg-transparent border border-gray-600 text-gray-300 hover:border-gray-400 hover:text-white font-medium py-2 px-6 rounded-full transition-colors"
+          >
+            Back to Home
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ===== src/components/token/token-form-authorities.tsx =====
 
 'use client';
@@ -2585,6 +3064,74 @@ export default function TokenFormAuthorities({
   );
 }
 
+// ===== src/components/token/token-skeleton.tsx =====
+
+'use client';
+
+export default function TokenSkeleton() {
+  return (
+    <div className="bg-[#171717] rounded-xl overflow-hidden shadow-lg border border-gray-800 animate-pulse">
+      {/* Image Skeleton */}
+      <div className="h-48 bg-gray-800 relative flex items-center justify-center">
+        <div className="w-20 h-20 bg-gray-700 rounded-full"></div>
+      </div>
+      
+      {/* Content Skeleton */}
+      <div className="p-6">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <div className="h-6 bg-gray-700 rounded w-32 mb-2"></div>
+            <div className="h-4 bg-gray-700 rounded w-16"></div>
+          </div>
+          <div className="h-6 bg-gray-700 rounded w-20"></div>
+        </div>
+        
+        <div className="h-4 bg-gray-700 rounded w-full mb-2"></div>
+        <div className="h-4 bg-gray-700 rounded w-3/4 mb-4"></div>
+        
+        <div className="mb-4">
+          <div className="h-3 bg-gray-700 rounded w-24 mb-2"></div>
+          <div className="h-8 bg-gray-700 rounded w-full"></div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <div className="h-3 bg-gray-700 rounded w-20 mb-2"></div>
+            <div className="h-5 bg-gray-700 rounded w-24"></div>
+          </div>
+          
+          <div>
+            <div className="h-3 bg-gray-700 rounded w-32 mb-2"></div>
+            <div className="h-5 bg-gray-700 rounded w-28"></div>
+          </div>
+        </div>
+        
+        <div className="flex space-x-3 mb-4">
+          <div className="h-5 w-5 bg-gray-700 rounded-full"></div>
+          <div className="h-5 w-5 bg-gray-700 rounded-full"></div>
+          <div className="h-5 w-5 bg-gray-700 rounded-full"></div>
+        </div>
+        
+        <div className="flex justify-between space-x-2 mt-6">
+          <div className="flex-1 h-10 bg-gray-700 rounded-full"></div>
+          <div className="flex-1 h-10 bg-gray-700 rounded-full"></div>
+          <div className="flex-1 h-10 bg-gray-700 rounded-full"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TokenSkeletonList() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <TokenSkeleton />
+      <TokenSkeleton />
+      <TokenSkeleton />
+    </div>
+  );
+}
+
 // ===== src/components/token/social-links-form.tsx =====
 
 'use client';
@@ -2686,6 +3233,200 @@ export default function SocialLinksForm({ formData, handleInputChange }: SocialL
       
       <div className="mt-4 text-xs text-gray-500">
         Adding social links helps your community find and connect with your project. All fields are optional.
+      </div>
+    </div>
+  );
+}
+
+// ===== src/components/token/token-card.tsx =====
+
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { MintedTokenInfo } from '@/types/token';
+import { SOLANA_NETWORK } from '@/config';
+import { formatNumberWithCommas } from '@/utils/token-utils';
+
+interface TokenCardProps {
+  token: MintedTokenInfo;
+}
+
+export default function TokenCard({ token }: TokenCardProps) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  const networkParam = SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : '';
+  const explorerUrl = `https://explorer.solana.com/address/${token.mintAddress}${networkParam}`;
+  const raydiumLiquidityUrl = `https://raydium.io/liquidity/create-pool${networkParam.replace('?', '#')}`;
+  const raydiumSwapUrl = `https://raydium.io/swap/?inputCurrency=sol&outputCurrency=${token.mintAddress}${networkParam.replace('?', '&')}`;
+
+  // Determine the image URL - might be in imageUrl or image property
+  const actualImageUrl = token.imageUrl || token.image || '';
+
+  useEffect(() => {
+    // Reset image states when token changes
+    setImageLoaded(false);
+    setImageError(false);
+    
+    // Preload the image to check if it's valid
+    if (actualImageUrl) {
+      const img = new Image();
+      img.onload = () => setImageLoaded(true);
+      img.onerror = () => setImageError(true);
+      img.src = actualImageUrl;
+    } else {
+      setImageError(true);
+    }
+  }, [token, actualImageUrl]);
+
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+  };
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  return (
+    <div className="bg-[#171717] rounded-xl overflow-hidden shadow-lg border border-gray-800 hover:border-purple-500/30 transition-all">
+      {/* Token Image Header */}
+      <div className="h-48 bg-gradient-to-r from-purple-900/20 to-blue-900/20 relative flex items-center justify-center">
+        {!imageLoaded && !imageError && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+          </div>
+        )}
+        
+        {!imageError ? (
+          <img 
+            src={actualImageUrl} 
+            alt={`${token.name} logo`}
+            className={`object-contain max-h-40 mx-auto ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+            style={{ transition: 'opacity 0.3s ease-in-out' }}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+          />
+        ) : (
+          <div className="w-24 h-24 bg-gray-800 rounded-full flex items-center justify-center">
+            <span className="text-2xl font-bold text-gray-600">{token.symbol.substring(0, 2)}</span>
+          </div>
+        )}
+      </div>
+      
+      {/* Token Info */}
+      <div className="p-6">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-xl font-bold text-white">{token.name}</h3>
+            <p className="text-purple-400 font-mono">{token.symbol}</p>
+          </div>
+          <span className="bg-purple-900/30 text-purple-300 text-xs px-2 py-1 rounded-full">
+            {token.tokenInfo?.decimals || 9} decimals
+          </span>
+        </div>
+        
+        <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+          {token.description || 'No description provided'}
+        </p>
+        
+        <div className="mb-4">
+          <div className="text-gray-500 text-xs mb-1">Token Address</div>
+          <div className="font-mono text-xs bg-[#222] p-2 rounded overflow-hidden text-ellipsis">
+            {token.mintAddress}
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <div className="text-gray-500 text-xs">Total Supply</div>
+            <div className="text-white font-medium">
+              {formatNumberWithCommas(token.tokenInfo?.totalSupply || 0)}
+            </div>
+          </div>
+          
+          <div>
+            <div className="text-gray-500 text-xs">Revoked Authorities</div>
+            <div className="flex space-x-1">
+              {token.authorities?.mintRevoked && (
+                <span className="text-xs px-1 bg-green-900/30 text-green-300 rounded">Mint</span>
+              )}
+              {token.authorities?.freezeRevoked && (
+                <span className="text-xs px-1 bg-green-900/30 text-green-300 rounded">Freeze</span>
+              )}
+              {token.authorities?.updateRevoked && (
+                <span className="text-xs px-1 bg-green-900/30 text-green-300 rounded">Update</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Social Links (if available) */}
+        {(token.website || token.twitter || token.telegram || token.discord) && (
+          <div className="flex space-x-3 mb-4">
+            {token.website && (
+              <a href={token.website} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-purple-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                </svg>
+              </a>
+            )}
+            
+            {token.twitter && (
+              <a href={token.twitter} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"></path>
+                </svg>
+              </a>
+            )}
+            
+            {token.telegram && (
+              <a href={token.telegram} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-500">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                </svg>
+              </a>
+            )}
+            
+            {token.discord && (
+              <a href={token.discord} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-indigo-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+              </a>
+            )}
+          </div>
+        )}
+        
+        {/* Action Links */}
+        <div className="flex justify-between space-x-2 mt-6">
+          <a 
+            href={explorerUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex-1 text-center bg-transparent border border-purple-500 text-purple-500 hover:bg-purple-500 hover:text-white text-sm font-medium py-2 px-3 rounded-full transition-colors"
+          >
+            Explorer
+          </a>
+          
+          <a 
+            href={raydiumLiquidityUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex-1 text-center bg-transparent border border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white text-sm font-medium py-2 px-3 rounded-full transition-colors"
+          >
+            Create Pool
+          </a>
+          
+          <a 
+            href={raydiumSwapUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex-1 text-center bg-transparent border border-green-500 text-green-500 hover:bg-green-500 hover:text-white text-sm font-medium py-2 px-3 rounded-full transition-colors"
+          >
+            Swap
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -2841,6 +3582,35 @@ export default function TokenFormBasic({
   );
 }
 
+// ===== src/components/token/no-tokens-found.tsx =====
+
+'use client';
+
+import Link from 'next/link';
+
+export default function NoTokensFound() {
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="max-w-md mx-auto p-8 bg-[#171717] rounded-xl text-center">
+        <div className="w-20 h-20 bg-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg className="w-10 h-10 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        
+        <h2 className="text-2xl font-bold text-white mb-4">No Tokens Found</h2>
+        <p className="text-gray-400 mb-6">
+          You haven't created any tokens with SolMinter yet. Get started by creating your first token!
+        </p>
+        
+        <Link href="/create-token" className="inline-block bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium py-3 px-8 rounded-full hover:shadow-lg transition-all">
+          Create Your First Token
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 // ===== src/components/ui/loading.tsx =====
 
 // src/components/ui/loading.tsx
@@ -2911,10 +3681,10 @@ export default function Loading({
 
 // ===== src/components/layout/navbar.tsx =====
 
-'use client';
+"use client";
 
-import Link from 'next/link';
-import WalletButton from '../wallet/wallet-button';
+import Link from "next/link";
+import WalletButton from "../wallet/wallet-button";
 
 export default function Navbar() {
   return (
@@ -2923,38 +3693,55 @@ export default function Navbar() {
         <div className="flex justify-between items-center">
           <Link href="/" className="logo-container flex items-center">
             <div className="logo-img">
-              <span className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">SolMinter</span>
+              <span className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
+                SolMinter
+              </span>
             </div>
           </Link>
-          
+
           <nav className="main-nav hidden md:flex space-x-6">
-            <Link href="/" className="nav-link text-gray-300 hover:text-white transition-colors">
+            <Link
+              href="/"
+              className="nav-link text-gray-300 hover:text-white transition-colors"
+            >
               Home
             </Link>
-            <Link href="/create-token" className="nav-link text-gray-300 hover:text-white transition-colors">
+            <Link
+              href="/create-token"
+              className="nav-link text-gray-300 hover:text-white transition-colors"
+            >
               Create Token
             </Link>
-            <a 
-              href="https://raydium.io/liquidity/create-pool" 
+            <Link
+              href="/my-tokens"
               className="nav-link text-gray-300 hover:text-white transition-colors"
-              rel="noopener noreferrer" 
+            >
+              My Tokens
+            </Link>
+            <a
+              href="https://raydium.io/liquidity/create-pool"
+              className="nav-link text-gray-300 hover:text-white transition-colors"
+              rel="noopener noreferrer"
               target="_blank"
             >
               Liquidity Pool
             </a>
-            <a 
-              href="https://raydium.io/swap" 
+            <a
+              href="https://raydium.io/swap"
               className="nav-link text-gray-300 hover:text-white transition-colors"
-              rel="noopener noreferrer" 
+              rel="noopener noreferrer"
               target="_blank"
             >
               Manage Liquidity
             </a>
-            <Link href="/guides" className="nav-link text-gray-300 hover:text-white transition-colors">
+            <Link
+              href="/guides"
+              className="nav-link text-gray-300 hover:text-white transition-colors"
+            >
               Guides
             </Link>
           </nav>
-          
+
           <div className="wallet-dropdown">
             <WalletButton />
           </div>
@@ -2963,6 +3750,7 @@ export default function Navbar() {
     </div>
   );
 }
+
 
 // ===== src/components/layout/footer.tsx =====
 
@@ -3127,6 +3915,46 @@ export const WalletContextProvider: FC<WalletContextProviderProps> = ({ children
   );
 };
 
+// ===== src/components/wallet/wallet-required.tsx =====
+
+'use client';
+
+import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+
+interface WalletRequiredProps {
+  message?: string;
+}
+
+export default function WalletRequired({ message = 'Please connect your wallet to continue' }: WalletRequiredProps) {
+  const { connected } = useWallet();
+
+  if (connected) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="max-w-md mx-auto p-8 bg-[#171717] rounded-xl text-center">
+        <div className="w-20 h-20 bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+          </svg>
+        </div>
+        
+        <h2 className="text-2xl font-bold text-white mb-4">Wallet Required</h2>
+        <p className="text-gray-400 mb-6">
+          {message}
+        </p>
+        
+        <div className="flex justify-center">
+          <WalletMultiButton className="wallet-button-custom bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium py-3 px-8 rounded-full hover:shadow-lg transition-all" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ===== src/components/wallet/wallet-provider-client.tsx =====
 
 'use client';
@@ -3199,6 +4027,7 @@ export function ClientWalletProvider({ children }: ClientWalletProviderProps) {
 
 import { FormDataType } from "@/types/token";
 import { v4 as uuidv4 } from "uuid"; // Need to add this dependency
+import { setCurrentSessionUuid } from "./pinata-cleanup";
 
 // Store the current UUID for the token creation session
 let currentSessionUuid: string | null = null;
@@ -3222,6 +4051,9 @@ function getSessionUuid(): string {
   if (!currentSessionUuid) {
     currentSessionUuid = uuidv4();
     console.log(`Created new session UUID: ${currentSessionUuid}`);
+    
+    // Sync with cleanup service
+    setCurrentSessionUuid(currentSessionUuid);
   }
   return currentSessionUuid;
 }
@@ -3230,6 +4062,9 @@ function getSessionUuid(): string {
 export function resetSessionUuid(): void {
   currentSessionUuid = null;
   console.log("Reset session UUID for new token creation");
+  
+  // Sync with cleanup service
+  setCurrentSessionUuid(null);
 }
 
 // Helper function to generate a unique file name based on wallet, UUID, and type
@@ -3381,7 +4216,7 @@ export async function uploadMetadataToIPFS(payload: MetadataPayload): Promise<st
       // Add authority status if provided
       ...(payload.authorities && { authorities: payload.authorities }),
       
-      // Add the session UUID for debugging
+      // Add the session UUID for debugging and file cleanup
       sessionUuid: getSessionUuid()
     };
 
@@ -3488,6 +4323,108 @@ export async function updateMetadataWithMintAddress(
   }
 }
 
+/**
+ * Gets the current session UUID
+ * Useful for cleanup operations
+ */
+export function getCurrentSessionUuid(): string | null {
+  return currentSessionUuid;
+}
+
+// ===== src/services/pinata-cleanup.ts =====
+
+// src/services/pinata-cleanup.ts
+
+/**
+ * Utility functions for cleaning up Pinata IPFS files
+ * Used when a token creation transaction is canceled
+ */
+
+let currentSessionUuid: string | null = null;
+
+/**
+ * Gets the current session UUID
+ * This UUID is used to track files uploaded during a token creation attempt
+ */
+export function getCurrentSessionUuid(): string | null {
+  return currentSessionUuid;
+}
+
+/**
+ * Sets the current session UUID from the IPFS service
+ * Should be called when the IPFS service generates a new UUID
+ */
+export function setCurrentSessionUuid(uuid: string | null): void {
+  currentSessionUuid = uuid;
+  console.log(`Session UUID ${uuid ? `set to: ${uuid}` : 'cleared'}`);
+}
+
+/**
+ * Deletes all Pinata files associated with the current session UUID
+ * Called when a token creation transaction fails or is canceled
+ */
+export async function cleanupSessionFiles(): Promise<boolean> {
+  if (!currentSessionUuid) {
+    console.log('No session UUID to cleanup');
+    return false;
+  }
+  
+  try {
+    console.log(`Cleaning up Pinata files for session: ${currentSessionUuid}`);
+    
+    const response = await fetch('/api/delete-pinata-files', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        uuid: currentSessionUuid
+      }),
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to cleanup Pinata files:', await response.text());
+      return false;
+    }
+    
+    const result = await response.json();
+    console.log('Pinata cleanup result:', result);
+    
+    // Clear the session UUID after successful cleanup
+    currentSessionUuid = null;
+    
+    return true;
+  } catch (error) {
+    console.error('Error cleaning up Pinata files:', error);
+    return false;
+  }
+}
+
+/**
+ * Handles error by cleaning up any uploaded files if the error matches known patterns
+ * for user cancellation or transaction failure
+ * 
+ * @param error The error object or string
+ * @returns The original error for further handling
+ */
+export async function handleErrorWithCleanup(error: unknown): Promise<unknown> {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  
+  // Check if the error is a user cancellation or transaction failure
+  if (
+    errorMessage.includes('Transaction was canceled by the user') ||
+    errorMessage.includes('User rejected') ||
+    errorMessage.includes('Wallet adapter error') ||
+    errorMessage.includes('Failed to process transaction')
+  ) {
+    console.log('Transaction was canceled. Cleaning up Pinata files...');
+    await cleanupSessionFiles();
+  }
+  
+  // Return the original error for further handling
+  return error;
+}
+
 // ===== src/services/token-service.ts =====
 
 // src/services/token-service.ts
@@ -3501,6 +4438,7 @@ import { uploadImageToIPFS, uploadMetadataToIPFS } from "./ipfs-service";
 import { getSolanaConnection, saveWalletPublicKey } from "./wallet-service";
 import { createTokenClientSide } from "./token-creation/client-side-creation";
 import { createTokenServerSide } from "./token-creation/server-side-creation";
+import { handleErrorWithCleanup } from "./pinata-cleanup";
 
 /**
  * Orchestrates token creation with a single transaction
@@ -3559,64 +4497,152 @@ export async function createTokenWithMetadata(
     creatorInfo: formData.creatorInfo,
   });
 
-  // STEP 0: IPFS image with unique name (now using {public_key}_{random_uuid}_image pattern)
-  onProgress?.(0);
-  const imageUrl = await uploadImageToIPFS(formData.logo, formData.name, formData.symbol);
+  try {
+    // STEP 0: IPFS image with unique name (now using {public_key}_{random_uuid}_image pattern)
+    onProgress?.(0);
+    const imageUrl = await uploadImageToIPFS(formData.logo, formData.name, formData.symbol);
 
-  // STEP 1: IPFS metadata JSON (now using {public_key}_{random_uuid}_metadata pattern)
-  onProgress?.(1);
-  const metadataUrl = await uploadMetadataToIPFS({
-    name: formData.name,
-    symbol: formData.symbol,
-    description: formData.description,
-    image: imageUrl,
-    creator: formData.creatorInfo ? formData.creatorName : "SolMinter",
-    showName: true,
-    tokenInfo: {
-      chain: "Solana",
-      totalSupply: formData.supply,
-      circulatingSupply: formData.supply,
-      decimals: formData.decimals,
-    },
-    createdOn: "SolMinter",
-    // Add authorities status for initial metadata as well
-    authorities: {
-      mintRevoked: formData.revokeMint,
-      freezeRevoked: formData.revokeFreeze,
-      updateRevoked: formData.revokeUpdate
-    },
-    ...(formData.socialLinks && {
-      website: formData.website,
-      twitter: formData.twitter,
-      telegram: formData.telegram,
-      discord: formData.discord,
-    }),
-  });
+    // STEP 1: IPFS metadata JSON (now using {public_key}_{random_uuid}_metadata pattern)
+    onProgress?.(1);
+    const metadataUrl = await uploadMetadataToIPFS({
+      name: formData.name,
+      symbol: formData.symbol,
+      description: formData.description,
+      image: imageUrl,
+      creator: formData.creatorInfo ? formData.creatorName : "SolMinter",
+      showName: true,
+      tokenInfo: {
+        chain: "Solana",
+        totalSupply: formData.supply,
+        circulatingSupply: formData.supply,
+        decimals: formData.decimals,
+      },
+      createdOn: "SolMinter",
+      // Add authorities status for initial metadata as well
+      authorities: {
+        mintRevoked: formData.revokeMint,
+        freezeRevoked: formData.revokeFreeze,
+        updateRevoked: formData.revokeUpdate
+      },
+      ...(formData.socialLinks && {
+        website: formData.website,
+        twitter: formData.twitter,
+        telegram: formData.telegram,
+        discord: formData.discord,
+      }),
+    });
 
-  // STEP 2: Choose flow based on whether we need to revoke update authority
-  onProgress?.(2);
-  
-  // Check whether to use server-side update authority (only when revoking update)
-  if (formData.revokeUpdate) {
-    return createTokenServerSide(
-      walletAdapter,
-      connection,
-      formData,
-      metadataUrl,
-      imageUrl,
-      netFeeAmount,
-      onProgress
-    );
-  } else {
-    return createTokenClientSide(
-      walletAdapter,
-      connection,
-      formData,
-      metadataUrl,
-      imageUrl,
-      netFeeAmount,
-      onProgress
-    );
+    // STEP 2: Choose flow based on whether we need to revoke update authority
+    onProgress?.(2);
+    
+    // Check whether to use server-side update authority (only when revoking update)
+    if (formData.revokeUpdate) {
+      return createTokenServerSide(
+        walletAdapter,
+        connection,
+        formData,
+        metadataUrl,
+        imageUrl,
+        netFeeAmount,
+        onProgress
+      );
+    } else {
+      return createTokenClientSide(
+        walletAdapter,
+        connection,
+        formData,
+        metadataUrl,
+        imageUrl,
+        netFeeAmount,
+        onProgress
+      );
+    }
+  } catch (error) {
+    // Handle error with Pinata cleanup
+    console.error("Error in token creation process:", error);
+    await handleErrorWithCleanup(error);
+    
+    // Rethrow the error for the UI to handle
+    throw error;
+  }
+}
+
+// ===== src/services/token-discovery-service.ts =====
+
+// src/services/token-discovery-service.ts
+// Service to discover tokens minted by the user
+
+import { MintedTokenInfo } from '@/types/token';
+import { PINATA_GATEWAY } from '@/config';
+
+/**
+ * Fetches tokens minted by a user from Pinata IPFS
+ * @param publicKey - The public key of the user's wallet
+ * @returns Array of minted token information
+ */
+export async function getUserMintedTokens(publicKey: string): Promise<MintedTokenInfo[]> {
+  try {
+    console.log(`Fetching tokens for wallet: ${publicKey}`);
+    
+    // Call our API endpoint that will search Pinata for user tokens
+    const response = await fetch(`/api/user-tokens?publicKey=${encodeURIComponent(publicKey)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user tokens: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.tokens;
+  } catch (error) {
+    console.error('Error in getUserMintedTokens:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches individual token data from IPFS URL
+ * @param ipfsUrl - The IPFS URL to the token metadata
+ * @returns Parsed token metadata
+ */
+export async function getTokenMetadata(ipfsUrl: string): Promise<MintedTokenInfo> {
+  try {
+    const response = await fetch(ipfsUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch token metadata: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching token metadata:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches token metadata for multiple tokens
+ * @param cidList - List of CIDs to fetch
+ * @returns Mapped token information
+ */
+export async function getTokensMetadata(cidList: string[]): Promise<MintedTokenInfo[]> {
+  try {
+    const gateway = PINATA_GATEWAY || 'gateway.pinata.cloud';
+    
+    // Fetch all token metadata in parallel
+    const tokenPromises = cidList.map(async (cid) => {
+      const url = `https://${gateway}/ipfs/${cid}`;
+      return getTokenMetadata(url);
+    });
+    
+    return await Promise.all(tokenPromises);
+  } catch (error) {
+    console.error('Error in getTokensMetadata:', error);
+    throw error;
   }
 }
 
@@ -3661,6 +4687,7 @@ import { Connection, Transaction, Keypair, LAMPORTS_PER_SOL } from "@solana/web3
 import type { WalletContextState } from "@solana/wallet-adapter-react";
 import { FormDataType, TokenResult } from "@/types/token";
 import { updateMetadataWithMintAddress } from "../ipfs-service";
+import { handleErrorWithCleanup } from "../pinata-cleanup";
 
 /**
  * Creates a token using server-side signing for update authority
@@ -3733,10 +4760,14 @@ export async function createTokenServerSide(
       walletSignedTransaction = await signTransaction(transaction);
     } catch (walletError) {
       console.error("Wallet signature rejected by user:", walletError);
+      // Handle the error with cleanup
+      await handleErrorWithCleanup(new Error("Transaction was canceled by the user"));
       throw new Error("Transaction was canceled by the user");
     }
 
     if (!walletSignedTransaction) {
+      // Handle the error with cleanup
+      await handleErrorWithCleanup(new Error("Transaction signing failed"));
       throw new Error("Transaction signing failed");
     }
 
@@ -3765,6 +4796,9 @@ export async function createTokenServerSide(
     };
   } catch (error) {
     console.error("Error in server-side update authority flow:", error);
+    // Make sure to clean up Pinata files in case of an error
+    await handleErrorWithCleanup(error);
+    
     throw new Error(
       `Failed to process transaction: ${error instanceof Error ? error.message : String(error)}`
     );
@@ -3992,6 +5026,7 @@ import { FormDataType, TokenResult } from "@/types/token";
 import { TOKEN_METADATA_PROGRAM_ID, FEE_RECIPIENT_WALLET } from "@/config";
 import { serializeMetadataV3 } from "./metadata-serializer";
 import { updateMetadataWithMintAddress } from "../ipfs-service";
+import { handleErrorWithCleanup } from "../pinata-cleanup";
 
 /**
  * Creates a token using client-side transaction flow
@@ -4183,10 +5218,14 @@ export async function createTokenClientSide(
       signedTransaction = await signTransaction(transaction);
     } catch (walletError) {
       console.error("Wallet signature rejected by user:", walletError);
+      // Handle the error with cleanup
+      await handleErrorWithCleanup(new Error("Transaction was canceled by the user"));
       throw new Error("Transaction was canceled by the user");
     }
     
     if (!signedTransaction) {
+      // Handle the error with cleanup
+      await handleErrorWithCleanup(new Error("Transaction signing failed"));
       throw new Error("Transaction signing failed");
     }
 
@@ -4219,6 +5258,9 @@ export async function createTokenClientSide(
     };
   } catch (error: unknown) {
     console.error("Transaction error:", error);
+    // Make sure to clean up Pinata files in case of an error
+    await handleErrorWithCleanup(error);
+    
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Failed to process transaction: ${errorMessage}`);
   }

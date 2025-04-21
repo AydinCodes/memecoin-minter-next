@@ -43,7 +43,7 @@ export async function createTokenClientSide(
   onProgress?: (step: number) => void
 ): Promise<TokenResult> {
   const { publicKey, signTransaction } = walletAdapter;
-  
+
   // Validate that publicKey is not null before proceeding
   if (!publicKey) {
     throw new Error("Public key is null. Wallet must be connected.");
@@ -80,7 +80,7 @@ export async function createTokenClientSide(
         programId: TOKEN_PROGRAM_ID,
       })
     );
-    
+
     instructions.push(
       createInitializeMintInstruction(
         mintKeypair.publicKey,
@@ -96,7 +96,7 @@ export async function createTokenClientSide(
       mintKeypair.publicKey,
       publicKey
     );
-    
+
     instructions.push(
       createAssociatedTokenAccountInstruction(
         publicKey,
@@ -105,15 +105,11 @@ export async function createTokenClientSide(
         mintKeypair.publicKey
       )
     );
-    
-    const mintAmount = BigInt(formData.supply) * BigInt(10 ** formData.decimals);
+
+    const mintAmount =
+      BigInt(formData.supply) * BigInt(10 ** formData.decimals);
     instructions.push(
-      createMintToInstruction(
-        mintKeypair.publicKey,
-        ata,
-        publicKey,
-        mintAmount
-      )
+      createMintToInstruction(mintKeypair.publicKey, ata, publicKey, mintAmount)
     );
 
     onProgress?.(4);
@@ -141,7 +137,7 @@ export async function createTokenClientSide(
 
     // If custom creator info is enabled, we'll update the creator name in the URI metadata
     // but the on-chain Metaplex metadata should still have the actual wallet address
-    
+
     instructions.push({
       programId: metadataProgramId,
       keys: [
@@ -172,7 +168,7 @@ export async function createTokenClientSide(
     });
 
     onProgress?.(5);
-    
+
     // Add authority revocation instructions if requested
     if (formData.revokeMint) {
       instructions.push(
@@ -186,7 +182,7 @@ export async function createTokenClientSide(
         )
       );
     }
-    
+
     if (formData.revokeFreeze) {
       instructions.push(
         createSetAuthorityInstruction(
@@ -204,26 +200,30 @@ export async function createTokenClientSide(
     const transaction = new Transaction();
     instructions.forEach((ix) => transaction.add(ix));
     transaction.feePayer = publicKey;
-    transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    transaction.recentBlockhash = (
+      await connection.getLatestBlockhash()
+    ).blockhash;
     transaction.partialSign(mintKeypair);
 
     console.log("Sending transaction to wallet for approval...");
-    
+
     // Handle wallet rejection properly
     if (!signTransaction) {
       throw new Error("Wallet does not support transaction signing");
     }
-    
+
     let signedTransaction;
     try {
       signedTransaction = await signTransaction(transaction);
     } catch (walletError) {
       console.error("Wallet signature rejected by user:", walletError);
       // Handle the error with cleanup
-      await handleErrorWithCleanup(new Error("Transaction was canceled by the user"));
+      await handleErrorWithCleanup(
+        new Error("Transaction was canceled by the user")
+      );
       throw new Error("Transaction was canceled by the user");
     }
-    
+
     if (!signedTransaction) {
       // Handle the error with cleanup
       await handleErrorWithCleanup(new Error("Transaction signing failed"));
@@ -231,26 +231,34 @@ export async function createTokenClientSide(
     }
 
     // Send and confirm transaction
-    const txSignature = await connection.sendRawTransaction(signedTransaction.serialize());
+    const txSignature = await connection.sendRawTransaction(
+      signedTransaction.serialize()
+    );
     await connection.confirmTransaction(txSignature);
 
     const mintAddress = mintKeypair.publicKey.toString();
     onProgress?.(6);
-    
+
+    // Fix in createTokenClientSide function:
+
     // Update metadata with mint address - now using {public_key}_{token_key} format
     let finalMetadataUrl = metadataUrl;
     try {
       finalMetadataUrl = await updateMetadataWithMintAddress(
         metadataUrl,
         mintAddress,
-        formData
+        formData,
+        imageUrl // Pass the actual image URL
       );
     } catch (updateError) {
       console.error("Error updating metadata (non-critical):", updateError);
     }
 
-    const clusterParam = process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet" ? "?cluster=devnet" : "";
-    
+    const clusterParam =
+      process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet"
+        ? "?cluster=devnet"
+        : "";
+
     return {
       mintAddress,
       metadataUrl: finalMetadataUrl,
@@ -261,8 +269,9 @@ export async function createTokenClientSide(
     console.error("Transaction error:", error);
     // Make sure to clean up Pinata files in case of an error
     await handleErrorWithCleanup(error);
-    
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Failed to process transaction: ${errorMessage}`);
   }
 }
