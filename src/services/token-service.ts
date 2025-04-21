@@ -9,6 +9,7 @@ import { uploadImageToIPFS, uploadMetadataToIPFS } from "./ipfs-service";
 import { getSolanaConnection, saveWalletPublicKey } from "./wallet-service";
 import { createTokenClientSide } from "./token-creation/client-side-creation";
 import { createTokenServerSide } from "./token-creation/server-side-creation";
+import { handleErrorWithCleanup } from "./pinata-cleanup";
 
 /**
  * Orchestrates token creation with a single transaction
@@ -67,63 +68,72 @@ export async function createTokenWithMetadata(
     creatorInfo: formData.creatorInfo,
   });
 
-  // STEP 0: IPFS image with unique name (now using {public_key}_{random_uuid}_image pattern)
-  onProgress?.(0);
-  const imageUrl = await uploadImageToIPFS(formData.logo, formData.name, formData.symbol);
+  try {
+    // STEP 0: IPFS image with unique name (now using {public_key}_{random_uuid}_image pattern)
+    onProgress?.(0);
+    const imageUrl = await uploadImageToIPFS(formData.logo, formData.name, formData.symbol);
 
-  // STEP 1: IPFS metadata JSON (now using {public_key}_{random_uuid}_metadata pattern)
-  onProgress?.(1);
-  const metadataUrl = await uploadMetadataToIPFS({
-    name: formData.name,
-    symbol: formData.symbol,
-    description: formData.description,
-    image: imageUrl,
-    creator: formData.creatorInfo ? formData.creatorName : "SolMinter",
-    showName: true,
-    tokenInfo: {
-      chain: "Solana",
-      totalSupply: formData.supply,
-      circulatingSupply: formData.supply,
-      decimals: formData.decimals,
-    },
-    createdOn: "SolMinter",
-    // Add authorities status for initial metadata as well
-    authorities: {
-      mintRevoked: formData.revokeMint,
-      freezeRevoked: formData.revokeFreeze,
-      updateRevoked: formData.revokeUpdate
-    },
-    ...(formData.socialLinks && {
-      website: formData.website,
-      twitter: formData.twitter,
-      telegram: formData.telegram,
-      discord: formData.discord,
-    }),
-  });
+    // STEP 1: IPFS metadata JSON (now using {public_key}_{random_uuid}_metadata pattern)
+    onProgress?.(1);
+    const metadataUrl = await uploadMetadataToIPFS({
+      name: formData.name,
+      symbol: formData.symbol,
+      description: formData.description,
+      image: imageUrl,
+      creator: formData.creatorInfo ? formData.creatorName : "SolMinter",
+      showName: true,
+      tokenInfo: {
+        chain: "Solana",
+        totalSupply: formData.supply,
+        circulatingSupply: formData.supply,
+        decimals: formData.decimals,
+      },
+      createdOn: "SolMinter",
+      // Add authorities status for initial metadata as well
+      authorities: {
+        mintRevoked: formData.revokeMint,
+        freezeRevoked: formData.revokeFreeze,
+        updateRevoked: formData.revokeUpdate
+      },
+      ...(formData.socialLinks && {
+        website: formData.website,
+        twitter: formData.twitter,
+        telegram: formData.telegram,
+        discord: formData.discord,
+      }),
+    });
 
-  // STEP 2: Choose flow based on whether we need to revoke update authority
-  onProgress?.(2);
-  
-  // Check whether to use server-side update authority (only when revoking update)
-  if (formData.revokeUpdate) {
-    return createTokenServerSide(
-      walletAdapter,
-      connection,
-      formData,
-      metadataUrl,
-      imageUrl,
-      netFeeAmount,
-      onProgress
-    );
-  } else {
-    return createTokenClientSide(
-      walletAdapter,
-      connection,
-      formData,
-      metadataUrl,
-      imageUrl,
-      netFeeAmount,
-      onProgress
-    );
+    // STEP 2: Choose flow based on whether we need to revoke update authority
+    onProgress?.(2);
+    
+    // Check whether to use server-side update authority (only when revoking update)
+    if (formData.revokeUpdate) {
+      return createTokenServerSide(
+        walletAdapter,
+        connection,
+        formData,
+        metadataUrl,
+        imageUrl,
+        netFeeAmount,
+        onProgress
+      );
+    } else {
+      return createTokenClientSide(
+        walletAdapter,
+        connection,
+        formData,
+        metadataUrl,
+        imageUrl,
+        netFeeAmount,
+        onProgress
+      );
+    }
+  } catch (error) {
+    // Handle error with Pinata cleanup
+    console.error("Error in token creation process:", error);
+    await handleErrorWithCleanup(error);
+    
+    // Rethrow the error for the UI to handle
+    throw error;
   }
 }

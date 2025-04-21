@@ -27,6 +27,7 @@ import { FormDataType, TokenResult } from "@/types/token";
 import { TOKEN_METADATA_PROGRAM_ID, FEE_RECIPIENT_WALLET } from "@/config";
 import { serializeMetadataV3 } from "./metadata-serializer";
 import { updateMetadataWithMintAddress } from "../ipfs-service";
+import { handleErrorWithCleanup } from "../pinata-cleanup";
 
 /**
  * Creates a token using client-side transaction flow
@@ -218,10 +219,14 @@ export async function createTokenClientSide(
       signedTransaction = await signTransaction(transaction);
     } catch (walletError) {
       console.error("Wallet signature rejected by user:", walletError);
+      // Handle the error with cleanup
+      await handleErrorWithCleanup(new Error("Transaction was canceled by the user"));
       throw new Error("Transaction was canceled by the user");
     }
     
     if (!signedTransaction) {
+      // Handle the error with cleanup
+      await handleErrorWithCleanup(new Error("Transaction signing failed"));
       throw new Error("Transaction signing failed");
     }
 
@@ -254,6 +259,9 @@ export async function createTokenClientSide(
     };
   } catch (error: unknown) {
     console.error("Transaction error:", error);
+    // Make sure to clean up Pinata files in case of an error
+    await handleErrorWithCleanup(error);
+    
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Failed to process transaction: ${errorMessage}`);
   }

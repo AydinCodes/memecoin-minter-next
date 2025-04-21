@@ -273,8 +273,11 @@ export async function POST(request: NextRequest) {
     // Get the metadata from the request body
     const { metadata, fileName } = await request.json();
     
-    console.log("Received metadata:", metadata);
-    console.log("Filename:", fileName || 'metadata.json');
+    // Use the provided filename or create a default one
+    const actualFileName = fileName || 'metadata.json';
+    
+    console.log("Received metadata for:", metadata.name);
+    console.log("Using filename:", actualFileName);
     
     // In a production environment, you would now upload to Pinata using their API
     // For demonstration purposes with the ENV variables you provided:
@@ -302,7 +305,7 @@ export async function POST(request: NextRequest) {
       };
       
       const pinataMetadata = {
-        name: fileName || `${metadata.symbol}_metadata.json`,
+        name: actualFileName,
         keyvalues: {
           app: "SolMinter",
           type: "token_metadata",
@@ -339,7 +342,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         success: true, 
         cid: pinataResult.IpfsHash,
-        gateway: pinataGateway
+        gateway: pinataGateway,
+        fileName: actualFileName
       });
     }
     
@@ -350,7 +354,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       cid: fakeCid,
-      gateway: pinataGateway || 'gateway.pinata.cloud'
+      gateway: pinataGateway || 'gateway.pinata.cloud',
+      fileName: actualFileName
     });
   } catch (error) {
     console.error('Error uploading metadata:', error);
@@ -736,6 +741,7 @@ export async function POST(request: NextRequest) {
     // Get the form data from the request
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const fileName = formData.get('fileName') as string; // Get the custom file name
     
     if (!file) {
       return NextResponse.json(
@@ -744,7 +750,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log("Received file:", file.name, "Size:", file.size, "Type:", file.type);
+    console.log("Received file:", fileName || file.name, "Size:", file.size, "Type:", file.type);
     
     // In a production environment, you would now upload to Pinata using their API
     // For demonstration purposes with the ENV variables you provided:
@@ -756,7 +762,14 @@ export async function POST(request: NextRequest) {
     if (pinataJWT) {
       // Create a FormData object to send to Pinata
       const pinataFormData = new FormData();
-      pinataFormData.append('file', file);
+      
+      // If we have a custom fileName, create a new File object with that name
+      if (fileName) {
+        const newFile = new File([file], fileName, { type: file.type });
+        pinataFormData.append('file', newFile);
+      } else {
+        pinataFormData.append('file', file);
+      }
       
       // Add pin options as metadata
       const pinOptions = JSON.stringify({
@@ -778,7 +791,7 @@ export async function POST(request: NextRequest) {
       
       // Add metadata
       const metadata = JSON.stringify({
-        name: file.name,
+        name: fileName || file.name,
         keyvalues: {
           app: "SolMinter",
           type: "token_image",
@@ -810,7 +823,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         success: true, 
         cid: pinataResult.IpfsHash,
-        gateway: pinataGateway
+        gateway: pinataGateway,
+        fileName: fileName || file.name // Return the filename used
       });
     }
     
@@ -821,7 +835,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       cid: fakeCid,
-      gateway: pinataGateway || 'gateway.pinata.cloud'
+      gateway: pinataGateway || 'gateway.pinata.cloud',
+      fileName: fileName || file.name // Return the filename used
     });
   } catch (error) {
     console.error('Error uploading image:', error);
@@ -2994,7 +3009,7 @@ export default function Footer() {
 import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { formatWalletAddress, getWalletBalance, isWalletConnected } from '@/services/wallet-service';
+import { formatWalletAddress, getWalletBalance, isWalletConnected, saveWalletPublicKey } from '@/services/wallet-service';
 import { debugWallet, debugWalletCapabilities } from '@/utils/wallet-debug';
 import '@/styles/wallet-button.css';
 
@@ -3026,6 +3041,9 @@ export default function WalletButton() {
   useEffect(() => {
     if (connected && publicKey) {
       loadBalance();
+      
+      // Save the public key to localStorage for use in IPFS naming
+      saveWalletPublicKey(publicKey.toString());
     }
   }, [connected, publicKey, loadBalance]);
 
@@ -3180,13 +3198,64 @@ export function ClientWalletProvider({ children }: ClientWalletProviderProps) {
  */
 
 import { FormDataType } from "@/types/token";
+import { v4 as uuidv4 } from "uuid"; // Need to add this dependency
 
-// Helper function to generate a unique file name based on token details + timestamp
-function generateUniqueFileName(name: string, symbol: string): string {
+// Store the current UUID for the token creation session
+let currentSessionUuid: string | null = null;
+
+// Helper function to get the current wallet's public key
+function getCurrentWalletPublicKey(): string {
+  // Check if we're in a browser environment and window is defined
+  if (typeof window !== 'undefined') {
+    // Try to get the public key from local storage if it's been saved there
+    const savedPublicKey = localStorage.getItem('walletPublicKey');
+    if (savedPublicKey) {
+      return savedPublicKey;
+    }
+  }
+  // Fallback if we can't get the actual public key
+  return "unknown_wallet";
+}
+
+// Helper function to get the current session UUID or create a new one
+function getSessionUuid(): string {
+  if (!currentSessionUuid) {
+    currentSessionUuid = uuidv4();
+    console.log(`Created new session UUID: ${currentSessionUuid}`);
+  }
+  return currentSessionUuid;
+}
+
+// Helper function to reset the session UUID (call this at the start of a new token creation)
+export function resetSessionUuid(): void {
+  currentSessionUuid = null;
+  console.log("Reset session UUID for new token creation");
+}
+
+// Helper function to generate a unique file name based on wallet, UUID, and type
+function generateUniqueFileName(type: 'image' | 'metadata' | 'final_metadata', tokenKey?: string): string {
+  const walletPublicKey = getCurrentWalletPublicKey();
+  
+  // For the initial uploads, use the same UUID for both image and metadata
+  if (type === 'image' || type === 'metadata') {
+    // Use the current session UUID
+    const uuid = getSessionUuid();
+    
+    if (type === 'image') {
+      return `${walletPublicKey}_${uuid}_image`;
+    } else {
+      return `${walletPublicKey}_${uuid}_metadata`;
+    }
+  }
+  
+  // For the final metadata after minting, use the token key
+  if (type === 'final_metadata' && tokenKey) {
+    return `${walletPublicKey}_${tokenKey}`;
+  }
+  
+  // Fallback name with timestamp
   const timestamp = Date.now();
-  const sanitizedName = name.replace(/[^a-z0-9]/gi, '').toLowerCase();
-  const sanitizedSymbol = symbol.replace(/[^a-z0-9]/gi, '').toLowerCase();
-  return `${sanitizedSymbol}_${sanitizedName}_${timestamp}`;
+  return `${walletPublicKey}_${timestamp}_${type}`;
 }
 
 /**
@@ -3195,8 +3264,11 @@ function generateUniqueFileName(name: string, symbol: string): string {
  */
 export async function uploadImageToIPFS(file: File, tokenName: string, tokenSymbol: string): Promise<string> {
   try {
-    // Generate a unique filename based on token symbol and name
-    const uniqueFileName = generateUniqueFileName(tokenName, tokenSymbol);
+    // Reset the session UUID at the start of a new token creation
+    resetSessionUuid();
+    
+    // Generate a unique filename using our new naming convention
+    const uniqueFileName = generateUniqueFileName('image');
     const fileExtension = file.name.split('.').pop() || 'png';
     const newFileName = `${uniqueFileName}.${fileExtension}`;
     
@@ -3253,6 +3325,13 @@ export interface MetadataPayload {
     decimals: number;
   };
   createdOn?: string;
+  // New metadata fields for authority status
+  authorities?: {
+    mintRevoked: boolean;
+    freezeRevoked: boolean;
+    updateRevoked: boolean;
+  };
+  sessionUuid?: string | null | undefined;
 }
 
 /**
@@ -3261,8 +3340,9 @@ export interface MetadataPayload {
  */
 export async function uploadMetadataToIPFS(payload: MetadataPayload): Promise<string> {
   try {
-    // Generate a unique filename for the metadata
-    const uniqueFileName = generateUniqueFileName(payload.name, payload.symbol);
+    // Generate a unique filename based on our new naming convention
+    // This will use the same UUID as the image since we're using the session UUID
+    const uniqueFileName = generateUniqueFileName('metadata');
     
     // Construct the complete metadata object similar to your non-Next.js version
     const metadata: any = {
@@ -3296,10 +3376,16 @@ export async function uploadMetadataToIPFS(payload: MetadataPayload): Promise<st
       ...(payload.discord && { discord: payload.discord }),
       
       // Origin
-      createdOn: "SolMinter"
+      createdOn: "SolMinter",
+      
+      // Add authority status if provided
+      ...(payload.authorities && { authorities: payload.authorities }),
+      
+      // Add the session UUID for debugging
+      sessionUuid: getSessionUuid()
     };
 
-    console.log(`Uploading metadata for: ${payload.name} (${payload.symbol})`);
+    console.log(`Uploading metadata for: ${payload.name} (${payload.symbol}) as ${uniqueFileName}`);
     
     const res = await fetch('/api/upload-metadata', {
       method: 'POST',
@@ -3336,7 +3422,7 @@ export async function updateMetadataWithMintAddress(
   formData: FormDataType
 ): Promise<string> {
   try {
-    // Create updated metadata payload with mint address
+    // Create updated metadata payload with mint address and use the token key in the filename
     const payload: MetadataPayload = {
       name: formData.name,
       symbol: formData.symbol,
@@ -3349,7 +3435,15 @@ export async function updateMetadataWithMintAddress(
         totalSupply: formData.supply,
         circulatingSupply: formData.supply,
         decimals: formData.decimals
-      }
+      },
+      // Add authority status information
+      authorities: {
+        mintRevoked: formData.revokeMint,
+        freezeRevoked: formData.revokeFreeze,
+        updateRevoked: formData.revokeUpdate
+      },
+      // Include the original session UUID for tracking
+      sessionUuid: currentSessionUuid || 'unknown'
     };
     
     // Add social links if enabled
@@ -3360,8 +3454,34 @@ export async function updateMetadataWithMintAddress(
       payload.discord = formData.discord || undefined;
     }
     
-    // Upload the updated metadata
-    return await uploadMetadataToIPFS(payload);
+    // Generate the final metadata filename using the token mint address
+    const uniqueFileName = generateUniqueFileName('final_metadata', mintAddress);
+    
+    // Upload the updated metadata with the new filename
+    const res = await fetch('/api/upload-metadata', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        metadata: payload,
+        fileName: `${uniqueFileName}.json`
+      }),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(`Updated metadata upload failed: ${errorData.error || res.statusText}`);
+    }
+
+    const { cid, gateway } = await res.json();
+    const metadataUrl = `https://${gateway}/ipfs/${cid}`;
+    
+    console.log(`Updated metadata uploaded successfully as ${uniqueFileName}: ${metadataUrl}`);
+    
+    // Reset the session UUID after the token is fully created
+    resetSessionUuid();
+    
+    return metadataUrl;
+    
   } catch (error) {
     console.error("Error updating metadata with mint address:", error);
     throw error;
@@ -3378,7 +3498,7 @@ import { Connection } from "@solana/web3.js";
 import { FormDataType, TokenResult } from "@/types/token";
 import { SOLANA_NETWORK_FEE } from "@/config";
 import { uploadImageToIPFS, uploadMetadataToIPFS } from "./ipfs-service";
-import { getSolanaConnection } from "./wallet-service";
+import { getSolanaConnection, saveWalletPublicKey } from "./wallet-service";
 import { createTokenClientSide } from "./token-creation/client-side-creation";
 import { createTokenServerSide } from "./token-creation/server-side-creation";
 
@@ -3397,6 +3517,9 @@ export async function createTokenWithMetadata(
     throw new Error("Wallet not connected. Please connect your wallet first.");
   }
   const connection: Connection = getSolanaConnection();
+
+  // Ensure public key is saved for IPFS naming
+  saveWalletPublicKey(publicKey.toString());
 
   // Validate inputs
   if (!formData.logo) {
@@ -3436,11 +3559,11 @@ export async function createTokenWithMetadata(
     creatorInfo: formData.creatorInfo,
   });
 
-  // STEP 0: IPFS image with unique name
+  // STEP 0: IPFS image with unique name (now using {public_key}_{random_uuid}_image pattern)
   onProgress?.(0);
   const imageUrl = await uploadImageToIPFS(formData.logo, formData.name, formData.symbol);
 
-  // STEP 1: IPFS metadata JSON
+  // STEP 1: IPFS metadata JSON (now using {public_key}_{random_uuid}_metadata pattern)
   onProgress?.(1);
   const metadataUrl = await uploadMetadataToIPFS({
     name: formData.name,
@@ -3456,6 +3579,12 @@ export async function createTokenWithMetadata(
       decimals: formData.decimals,
     },
     createdOn: "SolMinter",
+    // Add authorities status for initial metadata as well
+    authorities: {
+      mintRevoked: formData.revokeMint,
+      freezeRevoked: formData.revokeFreeze,
+      updateRevoked: formData.revokeUpdate
+    },
     ...(formData.socialLinks && {
       website: formData.website,
       twitter: formData.twitter,
@@ -3619,6 +3748,7 @@ export async function createTokenServerSide(
     onProgress?.(6);
 
     // Update metadata with mint address
+    // Now using {public_key}_{token_key} naming pattern
     const updatedMetadataUrl = await updateMetadataWithMintAddress(
       metadataUrl,
       mintAddress,
@@ -4067,7 +4197,7 @@ export async function createTokenClientSide(
     const mintAddress = mintKeypair.publicKey.toString();
     onProgress?.(6);
     
-    // Update metadata with mint address
+    // Update metadata with mint address - now using {public_key}_{token_key} format
     let finalMetadataUrl = metadataUrl;
     try {
       finalMetadataUrl = await updateMetadataWithMintAddress(
@@ -4329,20 +4459,36 @@ export const getSolanaConnection = (): Connection => {
   return new Connection(clusterApiUrl(network), 'confirmed');
 };
 
+// Save the current wallet's public key to localStorage for reference
+export const saveWalletPublicKey = (publicKey: string): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('walletPublicKey', publicKey);
+    console.log(`Wallet public key saved: ${publicKey}`);
+  }
+};
+
+// Get the saved wallet public key
+export const getSavedWalletPublicKey = (): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('walletPublicKey');
+  }
+  return null;
+};
+
 // Check if wallet is properly connected
 export const isWalletConnected = (wallet: any): boolean => {
-    // Debug log to help diagnose issues
-    console.log("Wallet connection check:", {
-      walletExists: !!wallet,
-      publicKeyExists: wallet ? !!wallet.publicKey : false,
-      adapterExists: wallet ? !!wallet.adapter : false,
-      adapterConnected: wallet?.adapter ? !!wallet.adapter.connected : false
-    });
-    
-    // For some wallets, adapter.connected might not be reliable
-    // Consider a wallet connected if it has a wallet object and a public key
-    return !!wallet && !!wallet.publicKey;
-  };
+  // Debug log to help diagnose issues
+  console.log("Wallet connection check:", {
+    walletExists: !!wallet,
+    publicKeyExists: wallet ? !!wallet.publicKey : false,
+    adapterExists: wallet ? !!wallet.adapter : false,
+    adapterConnected: wallet?.adapter ? !!wallet.adapter.connected : false
+  });
+  
+  // For some wallets, adapter.connected might not be reliable
+  // Consider a wallet connected if it has a wallet object and a public key
+  return !!wallet && !!wallet.publicKey;
+};
 
 // Get the wallet's SOL balance
 export const getWalletBalance = async (publicKey: PublicKey): Promise<number> => {

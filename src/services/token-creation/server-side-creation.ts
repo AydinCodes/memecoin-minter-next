@@ -5,6 +5,7 @@ import { Connection, Transaction, Keypair, LAMPORTS_PER_SOL } from "@solana/web3
 import type { WalletContextState } from "@solana/wallet-adapter-react";
 import { FormDataType, TokenResult } from "@/types/token";
 import { updateMetadataWithMintAddress } from "../ipfs-service";
+import { handleErrorWithCleanup } from "../pinata-cleanup";
 
 /**
  * Creates a token using server-side signing for update authority
@@ -77,10 +78,14 @@ export async function createTokenServerSide(
       walletSignedTransaction = await signTransaction(transaction);
     } catch (walletError) {
       console.error("Wallet signature rejected by user:", walletError);
+      // Handle the error with cleanup
+      await handleErrorWithCleanup(new Error("Transaction was canceled by the user"));
       throw new Error("Transaction was canceled by the user");
     }
 
     if (!walletSignedTransaction) {
+      // Handle the error with cleanup
+      await handleErrorWithCleanup(new Error("Transaction signing failed"));
       throw new Error("Transaction signing failed");
     }
 
@@ -109,6 +114,9 @@ export async function createTokenServerSide(
     };
   } catch (error) {
     console.error("Error in server-side update authority flow:", error);
+    // Make sure to clean up Pinata files in case of an error
+    await handleErrorWithCleanup(error);
+    
     throw new Error(
       `Failed to process transaction: ${error instanceof Error ? error.message : String(error)}`
     );

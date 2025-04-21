@@ -6,3 +6,5 @@ fix tick button on token creation successfull
 Check all console logs when minting coins.
 
 if the token is not paid for, remove the data from pinata.
+
+test with uploading the same file

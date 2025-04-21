@@ -6,6 +6,7 @@
 
 import { FormDataType } from "@/types/token";
 import { v4 as uuidv4 } from "uuid"; // Need to add this dependency
+import { setCurrentSessionUuid } from "./pinata-cleanup";
 
 // Store the current UUID for the token creation session
 let currentSessionUuid: string | null = null;
@@ -29,6 +30,9 @@ function getSessionUuid(): string {
   if (!currentSessionUuid) {
     currentSessionUuid = uuidv4();
     console.log(`Created new session UUID: ${currentSessionUuid}`);
+    
+    // Sync with cleanup service
+    setCurrentSessionUuid(currentSessionUuid);
   }
   return currentSessionUuid;
 }
@@ -37,6 +41,9 @@ function getSessionUuid(): string {
 export function resetSessionUuid(): void {
   currentSessionUuid = null;
   console.log("Reset session UUID for new token creation");
+  
+  // Sync with cleanup service
+  setCurrentSessionUuid(null);
 }
 
 // Helper function to generate a unique file name based on wallet, UUID, and type
@@ -188,7 +195,7 @@ export async function uploadMetadataToIPFS(payload: MetadataPayload): Promise<st
       // Add authority status if provided
       ...(payload.authorities && { authorities: payload.authorities }),
       
-      // Add the session UUID for debugging
+      // Add the session UUID for debugging and file cleanup
       sessionUuid: getSessionUuid()
     };
 
@@ -293,4 +300,12 @@ export async function updateMetadataWithMintAddress(
     console.error("Error updating metadata with mint address:", error);
     throw error;
   }
+}
+
+/**
+ * Gets the current session UUID
+ * Useful for cleanup operations
+ */
+export function getCurrentSessionUuid(): string | null {
+  return currentSessionUuid;
 }
