@@ -253,91 +253,21 @@ export default function MyTokensPage() {
 
 // ===== src/app/guides/page.tsx =====
 
+import GuideHeader from "@/components/guides/guide-header";
+import GuidesList from "@/components/guides/guides-list";
+import ResourcesList from "@/components/guides/resources-list";
+
 export default function Guides() {
-    return (
-      <div className="min-h-screen bg-[#0a0a0a]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <h1 className="text-4xl font-bold text-center mb-10">
-            <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
-              Guides & Resources
-            </span>
-          </h1>
-          
-          <div className="space-y-12">
-            <div className="bg-[#171717] rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-semibold text-white mb-4">How to Create a Solana Token</h2>
-              <div className="prose prose-invert max-w-none">
-                <ol className="list-decimal pl-5 space-y-4">
-                  <li>
-                    <strong>Connect Your Wallet</strong>
-                    <p className="text-gray-400">
-                      Click the "Connect Wallet" button in the top right corner and connect your Phantom, Solflare, or other compatible Solana wallet.
-                    </p>
-                  </li>
-                  <li>
-                    <strong>Fill in Token Details</strong>
-                    <p className="text-gray-400">
-                      Enter your token's name, symbol, supply, and other details. Upload a logo image (1000x1000px recommended).
-                    </p>
-                  </li>
-                  <li>
-                    <strong>Configure Token Options</strong>
-                    <p className="text-gray-400">
-                      Choose whether to include social links and creator information. Select which authorities to revoke (recommended for investor trust).
-                    </p>
-                  </li>
-                  <li>
-                    <strong>Launch Your Token</strong>
-                    <p className="text-gray-400">
-                      Click "Launch Token" and approve the transaction in your wallet. Your token will be created on the Solana blockchain.
-                    </p>
-                  </li>
-                  <li>
-                    <strong>Create Liquidity</strong>
-                    <p className="text-gray-400">
-                      After creating your token, consider setting up a liquidity pool on Raydium or another Solana DEX to make your token tradable.
-                    </p>
-                  </li>
-                </ol>
-              </div>
-            </div>
-            
-            <div className="bg-[#171717] rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-semibold text-white mb-4">Token Authorities Explained</h2>
-              <div className="prose prose-invert max-w-none">
-                <p className="text-gray-400">
-                  Solana tokens have three types of authorities that control different aspects of the token:
-                </p>
-                <ul className="list-disc pl-5 space-y-3 mt-4">
-                  <li>
-                    <strong>Mint Authority</strong>
-                    <p className="text-gray-400">
-                      Controls the ability to create (mint) new tokens. Revoking this authority creates a fixed supply token that cannot be inflated.
-                    </p>
-                  </li>
-                  <li>
-                    <strong>Freeze Authority</strong>
-                    <p className="text-gray-400">
-                      Controls the ability to freeze token accounts, preventing transfers. Revoking this ensures no one can freeze holders' tokens.
-                    </p>
-                  </li>
-                  <li>
-                    <strong>Update Authority</strong>
-                    <p className="text-gray-400">
-                      Controls the ability to modify token metadata (name, symbol, image, etc.). Revoking makes the token's metadata immutable.
-                    </p>
-                  </li>
-                </ul>
-                <p className="text-gray-400 mt-4">
-                  For maximum credibility with your community, we recommend revoking all authorities.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+  return (
+    <div className="min-h-screen bg-[#0a0a0a]">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <GuideHeader />
+        <GuidesList />
+        <ResourcesList />
       </div>
-    );
-  }
+    </div>
+  );
+}
 
 // ===== src/app/create-token/page.tsx =====
 
@@ -4412,34 +4342,69 @@ export default function HowItWorksSection() {
 
 // ===== src/components/home/features-section.tsx =====
 
-'use client';
-import { motion } from 'framer-motion';
+"use client";
+import { motion } from "framer-motion";
 
 const features = [
   {
-    title: 'Easy Token Creation',
-    description: 'Mint your token in just a few clicks—no coding required.',
+    title: "Easy Token Creation",
+    description: "Mint your token in just a few clicks—no coding required.",
     icon: (
-      <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 ..." />
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-10 h-10 text-purple-500"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
       </svg>
     ),
   },
   {
-    title: 'Secure & Trusted',
-    description: 'Built on Solana for blazing speed and top-tier security standards.',
+    title: "Secure & Trusted",
+    description:
+      "Built on Solana blockchain with industry-standard security protocols.",
     icon: (
-      <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4 ..." />
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-10 h-10 text-blue-500"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+        />
       </svg>
     ),
   },
   {
-    title: 'Lightning Fast',
-    description: 'Launch in seconds with minimal network fees.',
+    title: "Ultra-Fast Deployment",
+    description:
+      "Launch your token in seconds with Solana's high-performance network.",
     icon: (
-      <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-10 h-10 text-green-500"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M13 10V3L4 14h7v7l9-11h-7z"
+        />
       </svg>
     ),
   },
@@ -4449,17 +4414,23 @@ export default function FeaturesSection() {
   return (
     <section className="py-20 bg-[#0a0a0a]">
       <div className="max-w-7xl mx-auto px-4 text-center">
-        <h2 className="text-3xl font-bold text-white mb-12">Why Choose SolMinter?</h2>
+        <h2 className="text-3xl font-bold text-white mb-12">
+          Why Choose SolMinter?
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {features.map((f, i) => (
             <motion.div
               key={f.title}
               whileHover={{ scale: 1.05 }}
               transition={{ duration: 0.3 }}
-              className="bg-[#171717] p-6 rounded-2xl shadow-lg"
+              className="bg-[#171717] p-8 rounded-2xl shadow-lg flex flex-col items-center"
             >
-              <div className="mb-4 flex justify-center">{f.icon}</div>
-              <h3 className="text-xl font-semibold text-white mb-2">{f.title}</h3>
+              <div className="mb-6 flex justify-center bg-opacity-20 bg-gradient-to-br from-purple-500/10 to-blue-500/10 p-4 rounded-full">
+                {f.icon}
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-3">
+                {f.title}
+              </h3>
               <p className="text-gray-400">{f.description}</p>
             </motion.div>
           ))}
@@ -4468,6 +4439,7 @@ export default function FeaturesSection() {
     </section>
   );
 }
+
 
 // ===== src/components/home/cta-section.tsx =====
 
@@ -4637,6 +4609,365 @@ export default function Footer() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== src/components/guides/guides-list.tsx =====
+
+'use client';
+
+import { motion } from 'framer-motion';
+import GuideCard from './guide-card';
+// Guide data
+const guides = [
+  {
+    id: 'token-creation',
+    title: 'How to Create a Solana Token',
+    description: 'A step-by-step guide to create your own token on the Solana blockchain with SolMinter.',
+    icon: (
+      <svg className="w-10 h-10 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    steps: [
+      {
+        title: 'Connect Your Wallet',
+        description: 'Click the "Connect Wallet" button in the top right corner and connect your Phantom, Solflare, or other compatible Solana wallet.',
+      },
+      {
+        title: 'Fill in Token Details',
+        description: 'Enter your token\'s name, symbol, supply, and other details. Upload a logo image (1000x1000px recommended) to give your token a unique identity.',
+      },
+      {
+        title: 'Configure Token Options',
+        description: 'Choose whether to include social links and creator information. Select which authorities to revoke (recommended for investor trust).',
+      },
+      {
+        title: 'Launch Your Token',
+        description: 'Review your token details, then click "Launch Token" and approve the transaction in your wallet. Your token will be created on the Solana blockchain.',
+      },
+      {
+        title: 'Create Liquidity',
+        description: 'After creating your token, set up a liquidity pool on Raydium or another Solana DEX to make your token tradable on the open market.',
+      },
+    ],
+  },
+  {
+    id: 'token-authorities',
+    title: 'Token Authorities Explained',
+    description: 'Learn about the different types of authorities in Solana tokens and how they affect your token\'s security and credibility.',
+    icon: (
+      <svg className="w-10 h-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    ),
+    content: [
+      {
+        title: 'Mint Authority',
+        description: 'Controls the ability to create (mint) new tokens. Revoking this authority creates a fixed supply token that cannot be inflated, building trust with your community.',
+      },
+      {
+        title: 'Freeze Authority',
+        description: 'Controls the ability to freeze token accounts, preventing transfers. Revoking this ensures no one can freeze holders\' tokens, increasing security for token holders.',
+      },
+      {
+        title: 'Update Authority',
+        description: 'Controls the ability to modify token metadata (name, symbol, image, etc.). Revoking makes the token\'s metadata immutable, preventing future changes.',
+      },
+    ],
+    recommendation: 'For maximum credibility with your community, we recommend revoking all authorities.',
+  },
+  {
+    id: 'liquidity-pools',
+    title: 'Setting Up Liquidity Pools',
+    description: 'Learn how to create liquidity pools for your newly minted token on Raydium DEX.',
+    icon: (
+      <svg className="w-10 h-10 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M20 12a8 8 0 01-8 8v0a8 8 0 01-8-8v0a8 8 0 018-8v0a8 8 0 018 8v0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h8m-4-4v8" />
+      </svg>
+    ),
+    steps: [
+      {
+        title: 'Prepare Your Token',
+        description: 'Make sure your token is created and you have the necessary token amount and SOL for creating the liquidity pool.',
+      },
+      {
+        title: 'Visit Raydium Liquidity',
+        description: 'Go to Raydium\'s liquidity pool creation page. You can find a direct link in your "My Tokens" section after token creation.',
+      },
+      {
+        title: 'Select Token Pair',
+        description: 'Choose your token and a pairing token (usually SOL or USDC) to create the liquidity pair.',
+      },
+      {
+        title: 'Set Initial Price',
+        description: 'Determine the initial price of your token by depositing the appropriate ratio of your token and the paired asset.',
+      },
+      {
+        title: 'Create Pool',
+        description: 'Review the details, confirm the transaction in your wallet, and your token will be available for trading.',
+      },
+    ],
+  },
+];
+
+export default function GuidesList() {
+  return (
+    <div className="space-y-12 mb-16">
+      <h2 className="text-2xl font-bold text-white mb-8">Step-by-Step Guides</h2>
+      
+      <div className="space-y-12">
+        {guides.map((guide, index) => (
+          <motion.div
+            key={guide.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: index * 0.1 }}
+          >
+            <GuideCard guide={guide} />
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ===== src/components/guides/guide-card.tsx =====
+
+'use client';
+
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface Step {
+  title: string;
+  description: string;
+}
+
+interface Content {
+  title: string;
+  description: string;
+}
+
+interface Guide {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  steps?: Step[];
+  content?: Content[];
+  recommendation?: string;
+}
+
+interface GuideCardProps {
+  guide: Guide;
+}
+
+export default function GuideCard({ guide }: GuideCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="bg-[#171717] rounded-xl p-6 shadow-lg border border-gray-800 hover:border-purple-500/30 transition-all">
+      <div 
+        className="flex items-start cursor-pointer" 
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex-shrink-0 bg-opacity-20 bg-gradient-to-br from-purple-500/10 to-blue-500/10 p-3 rounded-lg mr-4">
+          {guide.icon}
+        </div>
+        
+        <div className="flex-grow">
+          <h3 className="text-2xl font-semibold text-white mb-2">{guide.title}</h3>
+          <p className="text-gray-400">{guide.description}</p>
+        </div>
+        
+        <div className="flex-shrink-0 ml-4">
+          <svg 
+            className={`w-6 h-6 text-purple-500 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </div>
+      
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            <div className="mt-6 pt-6 border-t border-gray-800">
+              {guide.steps && (
+                <ol className="list-decimal pl-5 space-y-4">
+                  {guide.steps.map((step, index) => (
+                    <li key={index}>
+                      <div className="text-white font-semibold mb-1">{step.title}</div>
+                      <p className="text-gray-400">{step.description}</p>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              
+              {guide.content && (
+                <ul className="space-y-4">
+                  {guide.content.map((item, index) => (
+                    <li key={index} className="bg-[#222] p-4 rounded-lg">
+                      <div className="text-white font-semibold mb-1">{item.title}</div>
+                      <p className="text-gray-400">{item.description}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              
+              {guide.recommendation && (
+                <div className="mt-4 p-4 bg-purple-900/20 border border-purple-500/30 rounded-lg">
+                  <p className="text-purple-300">{guide.recommendation}</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ===== src/components/guides/guide-header.tsx =====
+
+'use client';
+
+import { motion } from 'framer-motion';
+
+export default function GuideHeader() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="text-center mb-16"
+    >
+      <h1 className="text-4xl md:text-5xl font-bold text-center mb-6">
+        <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
+          Guides & Resources
+        </span>
+      </h1>
+      <p className="text-gray-400 text-lg max-w-3xl mx-auto">
+        Learn how to create, launch, and manage your Solana tokens with our comprehensive guides and resources. 
+        Follow the step-by-step instructions to bring your token project to life.
+      </p>
+    </motion.div>
+  );
+}
+
+// ===== src/components/guides/resources-list.tsx =====
+
+'use client';
+
+import { motion } from 'framer-motion';
+import Link from 'next/link';
+
+const resources = [
+  {
+    id: 'solana-docs',
+    title: 'Solana Documentation',
+    description: 'Official documentation for the Solana blockchain.',
+    icon: (
+      <svg className="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+    url: 'https://docs.solana.com/',
+  },
+  {
+    id: 'raydium-docs',
+    title: 'Raydium DEX Guide',
+    description: 'Learn how to use Raydium DEX to create liquidity pools.',
+    icon: (
+      <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+      </svg>
+    ),
+    url: 'https://raydium.gitbook.io/raydium/',
+  },
+  {
+    id: 'token-marketing',
+    title: 'Token Marketing Strategies',
+    description: 'Learn effective marketing strategies for your new token.',
+    icon: (
+      <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+      </svg>
+    ),
+    url: 'https://solana.com/developers',
+  },
+  {
+    id: 'community-building',
+    title: 'Building a Token Community',
+    description: 'Guide to building and growing your token community.',
+    icon: (
+      <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+    ),
+    url: 'https://solana.com/ecosystem',
+  },
+];
+
+export default function ResourcesList() {
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-white mb-8">External Resources</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {resources.map((resource, index) => (
+          <motion.div
+            key={resource.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: index * 0.1 }}
+            className="h-full"
+          >
+            <Link 
+              href={resource.url} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="block bg-[#171717] rounded-xl p-4 shadow-lg border border-gray-800 hover:border-purple-500/30 transition-all h-full"
+            >
+              <div className="flex items-start h-full">
+                <div className="flex-shrink-0 bg-opacity-20 bg-gradient-to-br from-purple-500/10 to-blue-500/10 p-3 rounded-lg mr-4">
+                  {resource.icon}
+                </div>
+                
+                <div className="flex-grow">
+                  <h3 className="text-lg font-semibold text-white mb-1">{resource.title}</h3>
+                  <p className="text-gray-400 text-sm">{resource.description}</p>
+                </div>
+                
+                <div className="ml-3 flex-shrink-0">
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+        ))}
+      </div>
+      
+      <div className="mt-10 p-4 bg-[#171717] rounded-xl border border-gray-800">
+        <p className="text-gray-400 text-center">
+          Need more help? Join our <a href="https://discord.gg/solana" target="_blank" rel="noopener noreferrer" className="text-purple-500 hover:text-purple-400 underline">Discord community</a> for support and updates.
+        </p>
       </div>
     </div>
   );
