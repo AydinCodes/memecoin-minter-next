@@ -41,7 +41,7 @@ export default function MyTokensPage() {
 
   // If wallet is not connected, show connect wallet prompt with exactly the same styling as create-token page
   if (!connected) {
-    return <WalletRequired message="Connect your wallet to see your minted tokens" />;
+    return <div className='min-h-screen'><WalletRequired message="Connect your wallet to see your minted tokens" /></div>;
   }
 
   // Show loading state
