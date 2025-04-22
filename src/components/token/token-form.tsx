@@ -243,10 +243,6 @@ export default function TokenForm() {
           {formatFee(totalFee)}
         </span>
       </div>
-      <div className="text-xs text-gray-500 flex justify-between">
-        <span>(Includes Solana network fee: {formatFee(SOLANA_NETWORK_FEE)})</span>
-        <span>Net fee: {formatFee(netFee)}</span>
-      </div>
 
       <button
         type="submit"

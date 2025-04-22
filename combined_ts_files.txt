@@ -152,13 +152,14 @@ export interface MintedTokenInfo {
 
 // ===== src/app/my-tokens/page.tsx =====
 
+// src/app/my-tokens/page.tsx
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import WalletRequired from "@/components/wallet/wallet-required";
 import TokenList from "@/components/token/token-list";
-import TokenAnalytics from "@/components/token/token-analytics";
 import Loading from "@/components/ui/loading";
 import NoTokensFound from "@/components/token/no-tokens-found";
 import TokenErrorState from "@/components/token/token-error-state";
@@ -193,7 +194,6 @@ export default function MyTokensPage() {
     fetchUserTokens();
   }, [fetchUserTokens]);
 
-  // If wallet is not connected, show connect wallet prompt with exactly the same styling as create-token page
   if (!connected) {
     return (
       <div className="min-h-screen">
@@ -202,54 +202,37 @@ export default function MyTokensPage() {
     );
   }
 
-  // Show loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <h1 className="text-4xl font-bold text-center mb-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+          <h1 className="text-4xl font-bold mb-6">
             <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
               Discovering Your Tokens
             </span>
           </h1>
-          <div className="flex justify-center mb-10">
-            <Loading
-              message="Please wait while we fetch your tokens..."
-              steps={[
-                "Connecting to wallet",
-                "Searching blockchain",
-                "Retrieving token data",
-              ]}
-              currentStepIndex={2}
-            />
-          </div>
-
-          {/* Show skeleton UI while loading */}
-          <div className="mt-12">
-            <TokenSkeletonList />
-          </div>
+          {/* Just show the skeleton loaders—no cancel or retry here */}
+          <TokenSkeletonList />
         </div>
       </div>
     );
   }
 
-  // Show error message if there was an error
   if (error) {
     return (
       <div className="min-h-screen bg-[#0a0a0a]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          {/* Only the error component handles retry */}
           <TokenErrorState message={error} onRetry={fetchUserTokens} />
         </div>
       </div>
     );
   }
 
-  // If no tokens are found, show no tokens message
   if (tokens.length === 0) {
     return <NoTokensFound />;
   }
 
-  // Show token list
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -261,34 +244,6 @@ export default function MyTokensPage() {
         <p className="text-center text-gray-400 mb-6">
           View and manage all tokens you've created with SolMinter
         </p>
-
-        <div className="flex justify-center mb-10">
-          <button
-            onClick={fetchUserTokens}
-            className="flex items-center bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 text-white px-4 py-2 rounded-full hover:shadow-lg transition-all hover:cursor-pointer"
-            disabled={loading}
-          >
-            <svg
-              className={`w-5 h-5 mr-2 ${loading ? "animate-spin" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              ></path>
-            </svg>
-            Refresh Tokens
-          </button>
-        </div>
-
-        {/* Add Token Analytics component */}
-        {/* <TokenAnalytics tokens={tokens} /> */}
-
         <TokenList tokens={tokens} />
       </div>
     </div>
@@ -1349,68 +1304,21 @@ export async function GET(request: NextRequest) {
 
 // ===== src/app/page.tsx =====
 
-import Link from 'next/link';
+import CTASection from "@/components/home/cta-section";
+import FeaturesSection from "@/components/home/features-section";
+import HeroSection from "@/components/home/hero-section";
+import HowItWorksSection from "@/components/home/how-it-works-section";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
-            <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
-              SolMinter
-            </span>
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-400 mb-8 max-w-3xl mx-auto">
-            Create, launch, and manage Solana tokens with ease. 
-            Your one-stop solution for Solana meme coin creation.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12">
-            <Link href="/create-token" className="bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium py-3 px-8 rounded-full hover:shadow-lg transition-all">
-              Create Token
-            </Link>
-            <Link href="/guides" className="bg-transparent border border-purple-500 text-purple-500 font-medium py-3 px-8 rounded-full hover:bg-purple-500 hover:text-white hover:shadow-lg transition-all">
-              Learn More
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="feature-card bg-[#171717] p-6 rounded-xl shadow-lg">
-              <div className="icon-circle w-16 h-16 bg-purple-500 bg-opacity-20 rounded-full flex items-center justify-center mb-4 mx-auto">
-                <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold text-white mb-2">Easy Token Creation</h2>
-              <p className="text-gray-400">Create your Solana token with just a few clicks. No coding required.</p>
-            </div>
-            
-            <div className="feature-card bg-[#171717] p-6 rounded-xl shadow-lg">
-              <div className="icon-circle w-16 h-16 bg-blue-500 bg-opacity-20 rounded-full flex items-center justify-center mb-4 mx-auto">
-                <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold text-white mb-2">Secure & Trusted</h2>
-              <p className="text-gray-400">Built on Solana for fast transactions and high security standards.</p>
-            </div>
-            
-            <div className="feature-card bg-[#171717] p-6 rounded-xl shadow-lg">
-              <div className="icon-circle w-16 h-16 bg-green-500 bg-opacity-20 rounded-full flex items-center justify-center mb-4 mx-auto">
-                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold text-white mb-2">Lightning Fast</h2>
-              <p className="text-gray-400">Launch your token in seconds with minimal fees on the Solana blockchain.</p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="bg-[#0a0a0a] overflow-hidden">
+      <HeroSection />
+      <FeaturesSection />
+      <HowItWorksSection />
+      <CTASection />
     </div>
   );
-};  
+}
 
 // ===== src/app/providers.tsx =====
 
@@ -4381,6 +4289,218 @@ export default function CheckmarkAnimation() {
         </svg>
       </div>
     </div>
+  );
+}
+
+// ===== src/components/home/hero-section.tsx =====
+
+'use client';
+import { useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import Link from 'next/link';
+
+export default function HeroSection() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    // Simple particle background effect
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let particles: { x: number; y: number; vx: number; vy: number; }[] = [];
+    const createParticles = () => {
+      particles = Array.from({ length: 100 }).map(() => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+      }));
+    };
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      createParticles();
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const animate = () => {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      requestAnimationFrame(animate);
+    };
+    animate();
+    return () => window.removeEventListener('resize', resize);
+  }, []);
+
+  return (
+    <section className="relative h-screen flex items-center justify-center overflow-hidden">
+      <canvas ref={canvasRef} className="absolute inset-0" />
+      <motion.div
+        initial={{ y: 50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.5, duration: 1 }}
+        className="relative text-center px-4"
+      >
+        <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
+          Launch Your Solana Token Today
+        </h1>
+        <p className="mt-4 text-gray-400 text-lg md:text-xl max-w-2xl mx-auto">
+          Create, launch, and manage Solana tokens effortlessly with SolMinter.
+        </p>
+        <div className="mt-8 flex justify-center gap-4">
+          <Link
+            href="/create-token"
+            className="bg-gradient-to-r from-purple-600 to-blue-500 py-3 px-8 rounded-full text-white hover:shadow-lg transition"
+          >
+            Create Token
+          </Link>
+          <Link
+            href="/guides"
+            className="border border-purple-500 py-3 px-8 rounded-full text-purple-500 hover:bg-purple-500 hover:text-white transition"
+          >
+            Learn More
+          </Link>
+        </div>
+      </motion.div>
+    </section>
+  );
+}
+
+// ===== src/components/home/how-it-works-section.tsx =====
+
+'use client';
+import { motion } from 'framer-motion';
+
+const steps = [
+  { number: 1, title: 'Upload Logo', description: 'Add your token logo and details.' },
+  { number: 2, title: 'Configure Options', description: 'Set authorities, socials, and creator info.' },
+  { number: 3, title: 'Review & Launch', description: 'Confirm & approve transaction in your wallet.' },
+];
+
+export default function HowItWorksSection() {
+  return (
+    <section className="py-20">
+      <div className="max-w-5xl mx-auto px-4 text-center">
+        <h2 className="text-3xl font-bold text-white mb-12">How It Works</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {steps.map((s) => (
+            <motion.div
+              key={s.number}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="bg-[#171717] p-6 rounded-2xl shadow-lg"
+            >
+              <div className="text-purple-500 text-2xl font-bold mb-4">{s.number}</div>
+              <h3 className="text-xl font-semibold text-white mb-2">{s.title}</h3>
+              <p className="text-gray-400">{s.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ===== src/components/home/features-section.tsx =====
+
+'use client';
+import { motion } from 'framer-motion';
+
+const features = [
+  {
+    title: 'Easy Token Creation',
+    description: 'Mint your token in just a few clicks—no coding required.',
+    icon: (
+      <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 ..." />
+      </svg>
+    ),
+  },
+  {
+    title: 'Secure & Trusted',
+    description: 'Built on Solana for blazing speed and top-tier security standards.',
+    icon: (
+      <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4 ..." />
+      </svg>
+    ),
+  },
+  {
+    title: 'Lightning Fast',
+    description: 'Launch in seconds with minimal network fees.',
+    icon: (
+      <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
+  },
+];
+
+export default function FeaturesSection() {
+  return (
+    <section className="py-20 bg-[#0a0a0a]">
+      <div className="max-w-7xl mx-auto px-4 text-center">
+        <h2 className="text-3xl font-bold text-white mb-12">Why Choose SolMinter?</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {features.map((f, i) => (
+            <motion.div
+              key={f.title}
+              whileHover={{ scale: 1.05 }}
+              transition={{ duration: 0.3 }}
+              className="bg-[#171717] p-6 rounded-2xl shadow-lg"
+            >
+              <div className="mb-4 flex justify-center">{f.icon}</div>
+              <h3 className="text-xl font-semibold text-white mb-2">{f.title}</h3>
+              <p className="text-gray-400">{f.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ===== src/components/home/cta-section.tsx =====
+
+'use client';
+import { motion } from 'framer-motion';
+import Link from 'next/link';
+
+export default function CTASection() {
+  return (
+    <section className="py-20 bg-gradient-to-r from-purple-900 to-blue-900">
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        whileInView={{ scale: 1, opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+        className="max-w-3xl mx-auto text-center px-4"
+      >
+        <h2 className="text-4xl font-bold text-white mb-6">Ready to Launch Your Token?</h2>
+        <p className="text-gray-300 mb-8">
+          Join hundreds of creators using SolMinter to bring their projects to life.
+        </p>
+        <Link
+          href="/create-token"
+          className="bg-white text-black font-semibold py-3 px-8 rounded-full hover:shadow-xl transition"
+        >
+          Get Started Now
+        </Link>
+      </motion.div>
+    </section>
   );
 }
 

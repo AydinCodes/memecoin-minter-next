@@ -3,6 +3,8 @@
 import Link from 'next/link';
 
 export default function Footer() {
+  const year = new Date().getFullYear();
+
   return (
     <div className="footer-container bg-[#111] border-t border-gray-800 py-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -15,7 +17,7 @@ export default function Footer() {
           
           <div className="bottom-bar flex flex-col md:flex-row items-center">
             <div className="copyright-bar text-gray-500 text-sm mb-2 md:mb-0">
-              <span>© SolMinter 2025</span>
+              <span>© SolMinter {year}</span>
             </div>
             
             <div className="policies-bar flex ml-0 md:ml-6">

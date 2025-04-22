@@ -1,14 +1,5 @@
-
-do a see tokens page based on what wallet you are on. - have the wallet id in the name of the file to search it and get all coins related to that wallet
-
-fix tick button on token creation successfull
-
 Check all console logs when minting coins.
-
-if the token is not paid for, remove the data from pinata.
-
-test with uploading the same file
 
 make sure image file sizes are not too large.
 
-make footer year dynamic so it updates.
+retry transactions if phantom is closed.
