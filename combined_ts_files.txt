@@ -2863,6 +2863,9 @@ export default function TokenDetailView({ token, onClose }: TokenDetailViewProps
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { extractCidFromUrl } from '@/utils/ipfs-utils';
+import CheckmarkAnimation from '../ui/checkmark-animation';
+import CopyButton from '../ui/copy-button';
+import '../../styles/checkmark.css';
 
 interface TokenCreationSuccessProps {
   result: {
@@ -2920,13 +2923,10 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
   
   return (
     <div className="max-w-3xl mx-auto py-12 px-4">
-      <div className="bg-[#171717] rounded-xl p-8 shadow-lg border border-green-500 border-opacity-30">
+      <div className="bg-[#171717] rounded-xl p-8 shadow-lg border border-purple-500/30 border-opacity-30">
         <div className="text-center mb-6">
-          <div className="w-20 h-20 bg-green-500 bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-          </div>
+          {/* Replace static success icon with animated checkmark */}
+          <CheckmarkAnimation />
           
           <h1 className="text-3xl font-bold text-white mb-2">Token Created Successfully!</h1>
           <p className="text-gray-400 text-lg">Your Solana token has been created and is ready to use.</p>
@@ -2952,8 +2952,11 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
                 </div>
               )}
               
-              <div className="mb-4">
-                <div className="text-gray-500 text-sm">Token Address</div>
+              <div className="mb-4 relative">
+                <div className="text-gray-500 text-sm flex items-center justify-between">
+                  <span>Token Address</span>
+                  <CopyButton textToCopy={result.mintAddress} />
+                </div>
                 <div className="font-mono text-white text-sm bg-[#333] p-2 rounded mt-1 overflow-x-auto">
                   {result.mintAddress}
                 </div>
@@ -2982,8 +2985,11 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
             </div>
           )}
           
-          <div className="mt-4">
-            <div className="text-gray-500 text-sm">Metadata URL</div>
+          <div className="mt-4 relative">
+            <div className="text-gray-500 text-sm flex items-center justify-between">
+              <span>Metadata URL</span>
+              <CopyButton textToCopy={result.metadataUrl} />
+            </div>
             <div className="font-mono text-white text-sm bg-[#333] p-2 rounded mt-1 overflow-x-auto">
               {result.metadataUrl}
             </div>
@@ -3079,6 +3085,20 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
           <h2 className="text-xl font-semibold text-white">Next Steps</h2>
           
           <div className="step bg-[#222] p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-white mb-2">View Your Tokens</h3>
+            <p className="text-gray-400 mb-2">Go to your tokens page to see all the tokens you've created.</p>
+            <Link 
+              href="/my-tokens"
+              className="text-purple-500 hover:text-purple-400 inline-flex items-center"
+            >
+              Go to My Tokens
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+              </svg>
+            </Link>
+          </div>
+          
+          <div className="step bg-[#222] p-4 rounded-lg">
             <h3 className="text-lg font-medium text-white mb-2">Create Liquidity</h3>
             <p className="text-gray-400 mb-2">Create a liquidity pool on a DEX like Raydium to make your token tradable.</p>
             <a 
@@ -3113,10 +3133,10 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
         
         <div className="buttons flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-4">
           <Link 
-            href="/"
+            href="/my-tokens"
             className="btn bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium py-3 px-8 rounded-full hover:shadow-lg transition-all text-center"
           >
-            Back to Home
+            View My Tokens
           </Link>
           
           <Link 
@@ -3124,6 +3144,13 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
             className="btn bg-transparent border border-purple-500 text-purple-500 font-medium py-3 px-8 rounded-full hover:bg-purple-500 hover:text-white hover:shadow-lg transition-all text-center"
           >
             Create Another Token
+          </Link>
+          
+          <Link 
+            href="/"
+            className="btn bg-transparent border border-gray-700 text-gray-400 font-medium py-3 px-8 rounded-full hover:bg-gray-700 hover:text-white hover:shadow-lg transition-all text-center"
+          >
+            Back to Home
           </Link>
         </div>
       </div>
@@ -4143,13 +4170,84 @@ export default function NoTokensFound() {
   );
 }
 
+// ===== src/components/ui/copy-button.tsx =====
+
+'use client';
+
+import { useState } from 'react';
+
+interface CopyButtonProps {
+  textToCopy: string;
+  className?: string;
+}
+
+export default function CopyButton({ textToCopy, className = '' }: CopyButtonProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      setCopied(true);
+      
+      // Reset the copied state after 2 seconds
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+      
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
+
+  return (
+    <div className="relative inline-flex items-center">
+      <button 
+        onClick={handleCopy} 
+        className={`copy-button flex items-center justify-center p-2 ${className}`}
+        title="Copy to clipboard"
+        style={{ width: '30px', height: '30px' }} // Fixed dimensions for better hitbox
+      >
+        <svg 
+          className="w-5 h-5" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24" 
+          xmlns="http://www.w3.org/2000/svg"
+          style={{ pointerEvents: 'none' }} // Prevent SVG from intercepting clicks
+        >
+          {copied ? (
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth="2" 
+              d="M5 13l4 4L19 7"
+              style={{ pointerEvents: 'none' }}
+            />
+          ) : (
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth="2" 
+              d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
+        </svg>
+      </button>
+      <div className={`copy-success ${copied ? 'show' : ''}`}>
+        Copied!
+      </div>
+    </div>
+  );
+}
+
 // ===== src/components/ui/loading.tsx =====
 
 "use client";
 
 import React, { useState } from "react";
 import { cleanupSessionFiles } from "@/services/pinata-cleanup";
-import "@/styles/loading.css"; // Import the new CSS file
+import "@/styles/loading.css";
 
 interface LoadingProps {
   message?: string;
@@ -4220,6 +4318,71 @@ export default function Loading({
   );
 }
 
+// ===== src/components/ui/checkmark-animation.tsx =====
+
+'use client';
+
+import { useEffect, useRef } from 'react';
+import '../../styles/checkmark.css';
+
+export default function CheckmarkAnimation() {
+  const animationRef = useRef<HTMLDivElement>(null);
+  
+  // Ensure the animation restarts when component mounts
+  useEffect(() => {
+    if (animationRef.current) {
+      const checkmark = animationRef.current.querySelector('.checkmark') as HTMLElement;
+      
+      if (checkmark) {
+        // Reset animations
+        checkmark.style.animation = 'none';
+        
+        // Force reflow
+        void checkmark.offsetWidth;
+        
+        // Restart animations
+        checkmark.style.animation = '';
+        
+        // SVG elements need a different approach for animation reset
+        const svgElements = animationRef.current.querySelectorAll('circle, path');
+        svgElements.forEach(el => {
+          // Remove and re-add the element to force animation restart
+          const parent = el.parentNode;
+          if (parent) {
+            const clone = el.cloneNode(true);
+            parent.removeChild(el);
+            setTimeout(() => parent.appendChild(clone), 0);
+          }
+        });
+      }
+    }
+  }, []);
+
+  return (
+    <div className="checkmark-container">
+      <div className="success-checkmark" ref={animationRef}>
+        <svg 
+          className="checkmark" 
+          xmlns="http://www.w3.org/2000/svg" 
+          viewBox="0 0 52 52"
+        >
+          <circle 
+            className="checkmark__circle" 
+            cx="26" 
+            cy="26" 
+            r="25" 
+            fill="none"
+          />
+          <path 
+            className="checkmark__check" 
+            fill="none" 
+            d="M14.1 27.2l7.1 7.2 16.7-16.8"
+          />
+        </svg>
+      </div>
+    </div>
+  );
+}
 
 // ===== src/components/layout/navbar.tsx =====
 
