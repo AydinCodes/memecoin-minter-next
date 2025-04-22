@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 const features = [
   {
     title: "Easy Token Creation",
-    description: "Mint your token in just a few clicks—no coding required.",
+    description: "Create Solana tokens in just minutes without any coding knowledge. Our simple form guides you through the entire process.",
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -23,9 +23,8 @@ const features = [
     ),
   },
   {
-    title: "Secure & Trusted",
-    description:
-      "Built on Solana blockchain with industry-standard security protocols.",
+    title: "Revocable Authorities",
+    description: "Increase investor trust by revoking mint, freeze, and update authorities. Full control over your token's security features.",
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -44,13 +43,32 @@ const features = [
     ),
   },
   {
-    title: "Ultra-Fast Deployment",
-    description:
-      "Launch your token in seconds with Solana's high-performance network.",
+    title: "Social Integration",
+    description: "Add your social media links and custom creator information directly to your token's metadata for better community building.",
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
         className="w-10 h-10 text-green-500"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+        />
+      </svg>
+    ),
+  },
+  {
+    title: "Liquidity Management",
+    description: "Direct integrations with Raydium DEX for creating liquidity pools and managing your token's marketplace presence.",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-10 h-10 text-yellow-500"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -68,26 +86,52 @@ const features = [
 
 export default function FeaturesSection() {
   return (
-    <section className="py-20 bg-[#0a0a0a]">
-      <div className="max-w-7xl mx-auto px-4 text-center">
-        <h2 className="text-3xl font-bold text-white mb-12">
-          Why Choose SolMinter?
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {features.map((f, i) => (
+    <section className="py-24 bg-[#0a0a0a] relative overflow-hidden">
+      {/* Background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -left-64 top-20 w-96 h-96 bg-purple-900/10 rounded-full blur-3xl"></div>
+        <div className="absolute right-0 bottom-0 w-80 h-80 bg-blue-900/10 rounded-full blur-3xl"></div>
+      </div>
+      
+      <div className="max-w-7xl mx-auto px-4 text-center relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7 }}
+          className="mb-16"
+        >
+          <h2 className="text-4xl font-bold text-white mb-4">
+            Why Choose <span className="text-purple-500">SolMinter</span>?
+          </h2>
+          <p className="text-gray-400 max-w-2xl mx-auto">
+            Our platform provides everything you need to launch your Solana token project with confidence and security.
+          </p>
+        </motion.div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {features.map((feature, index) => (
             <motion.div
-              key={f.title}
-              whileHover={{ scale: 1.05 }}
-              transition={{ duration: 0.3 }}
-              className="bg-[#171717] p-8 rounded-2xl shadow-lg flex flex-col items-center"
+              key={feature.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ 
+                duration: 0.5,
+                delay: index * 0.1
+              }}
+              whileHover={{ y: -8, transition: { duration: 0.2 } }}
+              className="bg-[#171717] p-8 rounded-2xl shadow-lg border border-gray-800 hover:border-purple-500/30 transition-all h-full flex flex-col"
             >
-              <div className="mb-6 flex justify-center bg-opacity-20 bg-gradient-to-br from-purple-500/10 to-blue-500/10 p-4 rounded-full">
-                {f.icon}
+              <div className="mb-6 flex justify-center bg-opacity-20 bg-gradient-to-br from-purple-500/10 to-blue-500/10 p-4 rounded-full w-20 h-20 mx-auto">
+                {feature.icon}
               </div>
               <h3 className="text-xl font-semibold text-white mb-3">
-                {f.title}
+                {feature.title}
               </h3>
-              <p className="text-gray-400">{f.description}</p>
+              <p className="text-gray-400 flex-grow">
+                {feature.description}
+              </p>
             </motion.div>
           ))}
         </div>
