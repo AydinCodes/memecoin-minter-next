@@ -5,3 +5,7 @@ make sure image file sizes are not too large.
 retry transactions if phantom is closed.
 
 make sure discord community link is updated.
+
+investigate the fail (30 secnods too long)
+
+pressing create token in nav bar doesn't close the token success screen.

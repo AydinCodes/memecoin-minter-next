@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
+import { useRouter, usePathname } from "next/navigation"
 import {
   createTokenWithMetadata,
 } from "@/services/token-service"
@@ -27,36 +28,50 @@ const STEPS = [
   "Completing token creation...",
 ]
 
+const DEFAULT_FORM_DATA: FormDataType = {
+  name: "",
+  symbol: "",
+  decimals: 9,
+  supply: 1_000_000_000,
+  description: "",
+  logo: null,
+  revokeMint: true,
+  revokeFreeze: true,
+  revokeUpdate: true,
+  socialLinks: false,
+  creatorInfo: false,
+  creatorName: "SolMinter", // Default creator name
+  website: "",
+  twitter: "",
+  telegram: "",
+  discord: "",
+};
+
 export default function TokenForm() {
   const walletAdapter = useWallet()
   const { connection } = useConnection()
+  const router = useRouter()
+  const pathname = usePathname()
 
-  const [formData, setFormData] = useState<FormDataType>({
-    name: "",
-    symbol: "",
-    decimals: 9,
-    supply: 1_000_000_000,
-    description: "",
-    logo: null,
-    revokeMint: true,
-    revokeFreeze: true,
-    revokeUpdate: true,
-    socialLinks: false,
-    creatorInfo: false,
-    creatorName: "SolMinter", // Default creator name
-    website: "",
-    twitter: "",
-    telegram: "",
-    discord: "",
-  })
-
+  const [formData, setFormData] = useState<FormDataType>(DEFAULT_FORM_DATA)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [progressStep, setProgressStep] = useState(0)
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null)
-  const [totalFee, setTotalFee] = useState<number>(0.4) // Initial fee calculation with all defaults (0.1 base + 0.3 for all authorities)
+  const [totalFee, setTotalFee] = useState<number>(0.4) // Initial fee calculation with all defaults
   const [formSubmitAttempted, setFormSubmitAttempted] = useState(false) // Track form submission attempts
   const [cancelled, setCancelled] = useState(false) // Track if token creation was cancelled
+
+  // Reset form when navigating to this page
+  useEffect(() => {
+    if (pathname === '/create-token') {
+      setFormData(DEFAULT_FORM_DATA)
+      setTokenResult(null)
+      setError(null)
+      setCancelled(false)
+      setFormSubmitAttempted(false)
+    }
+  }, [pathname])
 
   // Calculate fee whenever relevant form options change
   useEffect(() => {
