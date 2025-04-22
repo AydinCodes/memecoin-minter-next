@@ -1,43 +1,70 @@
+/* Import component-specific styles */
+@import '../styles/checkmark.css';
 
-/* Base styles */
-html, body {
-  background-color: #0a0a0a; 
-  color: white;
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 10, 10, 10;
+  --background-end-rgb: 10, 10, 10;
 }
 
-/* Better button styles */
-button {
-  cursor: pointer;
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-start-rgb));
 }
 
-.wallet-display {
-  cursor: pointer !important;
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-/* Error alert styles */
-.error-alert {
+::-webkit-scrollbar-track {
+  background: #171717;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
+/* Wallet button overrides to match site theme */
+.wallet-adapter-button-trigger {
+  background: linear-gradient(to right, #8b5cf6, #3b82f6) !important;
+  border-radius: 9999px !important;
+  transition: all 0.3s !important;
+}
+
+.wallet-adapter-button-trigger:hover {
+  opacity: 0.9 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.wallet-adapter-modal-wrapper {
+  background: #171717 !important;
+  border: 1px solid rgba(139, 92, 246, 0.2) !important;
+}
+
+.wallet-adapter-modal-button-close {
+  background: #333 !important;
+}
+
+.wallet-adapter-modal-title {
   color: white !important;
-  text-shadow: 0 0 5px rgba(0,0,0,0.5);
 }
 
-/* Submit button animation */
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(0.98);
-  }
-  100% {
-    transform: scale(1);
-  }
+.wallet-adapter-modal-content {
+  color: #ccc !important;
 }
 
-.animate-pulse {
-  animation: pulse 0.5s ease-in-out;
+.wallet-adapter-modal-list .wallet-adapter-button {
+  background: #222 !important;
+  color: white !important;
 }
 
-/* Active styles for buttons */
-.submit-btn:active {
-  transform: scale(0.95);
+.wallet-adapter-modal-list .wallet-adapter-button:hover {
+  background: #333 !important;
 }

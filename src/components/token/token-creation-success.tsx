@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { extractCidFromUrl } from '@/utils/ipfs-utils';
+import CheckmarkAnimation from '../ui/checkmark-animation';
+import CopyButton from '../ui/copy-button';
+import '../../styles/checkmark.css';
 
 interface TokenCreationSuccessProps {
   result: {
@@ -60,13 +63,10 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
   
   return (
     <div className="max-w-3xl mx-auto py-12 px-4">
-      <div className="bg-[#171717] rounded-xl p-8 shadow-lg border border-green-500 border-opacity-30">
+      <div className="bg-[#171717] rounded-xl p-8 shadow-lg border border-purple-500/30 border-opacity-30">
         <div className="text-center mb-6">
-          <div className="w-20 h-20 bg-green-500 bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-          </div>
+          {/* Replace static success icon with animated checkmark */}
+          <CheckmarkAnimation />
           
           <h1 className="text-3xl font-bold text-white mb-2">Token Created Successfully!</h1>
           <p className="text-gray-400 text-lg">Your Solana token has been created and is ready to use.</p>
@@ -92,8 +92,11 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
                 </div>
               )}
               
-              <div className="mb-4">
-                <div className="text-gray-500 text-sm">Token Address</div>
+              <div className="mb-4 relative">
+                <div className="text-gray-500 text-sm flex items-center justify-between">
+                  <span>Token Address</span>
+                  <CopyButton textToCopy={result.mintAddress} />
+                </div>
                 <div className="font-mono text-white text-sm bg-[#333] p-2 rounded mt-1 overflow-x-auto">
                   {result.mintAddress}
                 </div>
@@ -122,8 +125,11 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
             </div>
           )}
           
-          <div className="mt-4">
-            <div className="text-gray-500 text-sm">Metadata URL</div>
+          <div className="mt-4 relative">
+            <div className="text-gray-500 text-sm flex items-center justify-between">
+              <span>Metadata URL</span>
+              <CopyButton textToCopy={result.metadataUrl} />
+            </div>
             <div className="font-mono text-white text-sm bg-[#333] p-2 rounded mt-1 overflow-x-auto">
               {result.metadataUrl}
             </div>
@@ -219,6 +225,20 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
           <h2 className="text-xl font-semibold text-white">Next Steps</h2>
           
           <div className="step bg-[#222] p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-white mb-2">View Your Tokens</h3>
+            <p className="text-gray-400 mb-2">Go to your tokens page to see all the tokens you've created.</p>
+            <Link 
+              href="/my-tokens"
+              className="text-purple-500 hover:text-purple-400 inline-flex items-center"
+            >
+              Go to My Tokens
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+              </svg>
+            </Link>
+          </div>
+          
+          <div className="step bg-[#222] p-4 rounded-lg">
             <h3 className="text-lg font-medium text-white mb-2">Create Liquidity</h3>
             <p className="text-gray-400 mb-2">Create a liquidity pool on a DEX like Raydium to make your token tradable.</p>
             <a 
@@ -253,10 +273,10 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
         
         <div className="buttons flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-4">
           <Link 
-            href="/"
+            href="/my-tokens"
             className="btn bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium py-3 px-8 rounded-full hover:shadow-lg transition-all text-center"
           >
-            Back to Home
+            View My Tokens
           </Link>
           
           <Link 
@@ -264,6 +284,13 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
             className="btn bg-transparent border border-purple-500 text-purple-500 font-medium py-3 px-8 rounded-full hover:bg-purple-500 hover:text-white hover:shadow-lg transition-all text-center"
           >
             Create Another Token
+          </Link>
+          
+          <Link 
+            href="/"
+            className="btn bg-transparent border border-gray-700 text-gray-400 font-medium py-3 px-8 rounded-full hover:bg-gray-700 hover:text-white hover:shadow-lg transition-all text-center"
+          >
+            Back to Home
           </Link>
         </div>
       </div>

@@ -152,19 +152,19 @@ export interface MintedTokenInfo {
 
 // ===== src/app/my-tokens/page.tsx =====
 
-'use client';
+"use client";
 
-import { useEffect, useState, useCallback } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import WalletRequired from '@/components/wallet/wallet-required';
-import TokenList from '@/components/token/token-list';
-import TokenAnalytics from '@/components/token/token-analytics';
-import Loading from '@/components/ui/loading';
-import NoTokensFound from '@/components/token/no-tokens-found';
-import TokenErrorState from '@/components/token/token-error-state';
-import { TokenSkeletonList } from '@/components/token/token-skeleton';
-import { getUserMintedTokens } from '@/services/token-discovery-service';
-import { MintedTokenInfo } from '@/types/token';
+import { useEffect, useState, useCallback } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import WalletRequired from "@/components/wallet/wallet-required";
+import TokenList from "@/components/token/token-list";
+import TokenAnalytics from "@/components/token/token-analytics";
+import Loading from "@/components/ui/loading";
+import NoTokensFound from "@/components/token/no-tokens-found";
+import TokenErrorState from "@/components/token/token-error-state";
+import { TokenSkeletonList } from "@/components/token/token-skeleton";
+import { getUserMintedTokens } from "@/services/token-discovery-service";
+import { MintedTokenInfo } from "@/types/token";
 
 export default function MyTokensPage() {
   const { connected, publicKey } = useWallet();
@@ -174,16 +174,16 @@ export default function MyTokensPage() {
 
   const fetchUserTokens = useCallback(async () => {
     if (!connected || !publicKey) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       const userTokens = await getUserMintedTokens(publicKey.toString());
       setTokens(userTokens);
     } catch (err) {
-      console.error('Error fetching user tokens:', err);
-      setError('Failed to fetch your minted tokens. Please try again later.');
+      console.error("Error fetching user tokens:", err);
+      setError("Failed to fetch your minted tokens. Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -195,7 +195,11 @@ export default function MyTokensPage() {
 
   // If wallet is not connected, show connect wallet prompt with exactly the same styling as create-token page
   if (!connected) {
-    return <WalletRequired message="Connect your wallet to see your minted tokens" />;
+    return (
+      <div className="min-h-screen">
+        <WalletRequired message="Connect your wallet to see your minted tokens" />
+      </div>
+    );
   }
 
   // Show loading state
@@ -209,9 +213,17 @@ export default function MyTokensPage() {
             </span>
           </h1>
           <div className="flex justify-center mb-10">
-            <Loading message="Please wait while we fetch your tokens..." steps={["Connecting to wallet", "Searching blockchain", "Retrieving token data"]} currentStepIndex={2} />
+            <Loading
+              message="Please wait while we fetch your tokens..."
+              steps={[
+                "Connecting to wallet",
+                "Searching blockchain",
+                "Retrieving token data",
+              ]}
+              currentStepIndex={2}
+            />
           </div>
-          
+
           {/* Show skeleton UI while loading */}
           <div className="mt-12">
             <TokenSkeletonList />
@@ -226,10 +238,7 @@ export default function MyTokensPage() {
     return (
       <div className="min-h-screen bg-[#0a0a0a]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <TokenErrorState 
-            message={error} 
-            onRetry={fetchUserTokens} 
-          />
+          <TokenErrorState message={error} onRetry={fetchUserTokens} />
         </div>
       </div>
     );
@@ -252,28 +261,40 @@ export default function MyTokensPage() {
         <p className="text-center text-gray-400 mb-6">
           View and manage all tokens you've created with SolMinter
         </p>
-        
+
         <div className="flex justify-center mb-10">
-          <button 
+          <button
             onClick={fetchUserTokens}
-            className="flex items-center bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-2 rounded-full hover:shadow-lg transition-all"
+            className="flex items-center bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 text-white px-4 py-2 rounded-full hover:shadow-lg transition-all hover:cursor-pointer"
             disabled={loading}
           >
-            <svg className={`w-5 h-5 mr-2 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            <svg
+              className={`w-5 h-5 mr-2 ${loading ? "animate-spin" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              ></path>
             </svg>
             Refresh Tokens
           </button>
         </div>
-        
+
         {/* Add Token Analytics component */}
-        <TokenAnalytics tokens={tokens} />
-        
+        {/* <TokenAnalytics tokens={tokens} /> */}
+
         <TokenList tokens={tokens} />
       </div>
     </div>
   );
 }
+
 
 // ===== src/app/guides/page.tsx =====
 
@@ -2239,15 +2260,15 @@ import WalletRequired from "../wallet/wallet-required"
 import { FormDataType, TokenResult } from "@/types/token"
 import { SOLANA_NETWORK_FEE } from "@/config"
 
-// Enhanced steps with more detail on IPFS operations
+// Enhanced steps with more concise and user-friendly messages
 const STEPS = [
-  "Uploading token image to IPFS…",
-  "Creating token metadata…",
-  "Processing transaction…",
-  "Creating mint & token account…",
-  "Adding on‐chain metadata…",
-  "Configuring token authorities…",
-  "Updating metadata with mint address…",
+  "Uploading token image...",
+  "Creating token metadata...",
+  "Preparing transaction...",
+  "Processing on blockchain...",
+  "Finalizing token details...",
+  "Almost done...",
+  "Completing token creation...",
 ]
 
 export default function TokenForm() {
@@ -2279,6 +2300,7 @@ export default function TokenForm() {
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null)
   const [totalFee, setTotalFee] = useState<number>(0.4) // Initial fee calculation with all defaults (0.1 base + 0.3 for all authorities)
   const [formSubmitAttempted, setFormSubmitAttempted] = useState(false) // Track form submission attempts
+  const [cancelled, setCancelled] = useState(false) // Track if token creation was cancelled
 
   // Calculate fee whenever relevant form options change
   useEffect(() => {
@@ -2350,6 +2372,13 @@ export default function TokenForm() {
     return null;
   };
 
+  // Handle cancellation from the loading screen
+  const handleCancel = useCallback(() => {
+    setCancelled(true);
+    setIsSubmitting(false);
+    setError("Token creation was cancelled.");
+  }, []);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
@@ -2357,8 +2386,9 @@ export default function TokenForm() {
       // Mark that a submission attempt was made
       setFormSubmitAttempted(true)
       
-      // Clear previous errors
+      // Clear previous errors and reset cancellation state
       setError(null)
+      setCancelled(false)
       
       // Validate form
       const validationError = validateForm();
@@ -2375,17 +2405,22 @@ export default function TokenForm() {
           walletAdapter,
           formData,
           totalFee, // Pass the calculated total fee
-          (step) => setProgressStep(step)
+          (step) => {
+            // Skip progress updates if cancelled
+            if (!cancelled) setProgressStep(step);
+          }
         )
         setTokenResult(result)
       } catch (err: any) {
         console.error("Token creation error:", err)
         setError(err.message || "Unknown error occurred during token creation")
       } finally {
-        setIsSubmitting(false)
+        if (!cancelled) {
+          setIsSubmitting(false)
+        }
       }
     },
-    [walletAdapter, formData, totalFee]
+    [walletAdapter, formData, totalFee, cancelled]
   )
 
   if (tokenResult) {
@@ -2395,9 +2430,10 @@ export default function TokenForm() {
   if (isSubmitting) {
     return (
       <Loading
-        message="Creating your token..."
+        message="Creating Your Token"
         steps={STEPS}
         currentStepIndex={progressStep}
+        onCancel={handleCancel}
       />
     )
   }
@@ -4109,69 +4145,79 @@ export default function NoTokensFound() {
 
 // ===== src/components/ui/loading.tsx =====
 
-// src/components/ui/loading.tsx
+"use client";
 
-'use client'
-
-import React from 'react'
+import React, { useState } from "react";
+import { cleanupSessionFiles } from "@/services/pinata-cleanup";
+import "@/styles/loading.css"; // Import the new CSS file
 
 interface LoadingProps {
-  message?: string
-  steps?: string[]
-  /** If provided, controls which step is active; disables auto‐advance */
-  currentStepIndex?: number
+  message?: string;
+  steps?: string[];
+  /** If provided, controls which step is active; disables auto-advance */
+  currentStepIndex?: number;
+  /** Optional cancel handler */
+  onCancel?: () => void;
 }
 
 export default function Loading({
-  message = 'Loading...',
+  message = "Loading...",
   steps = [],
   currentStepIndex,
+  onCancel,
 }: LoadingProps) {
-  const stepIndex = currentStepIndex != null ? currentStepIndex : 0
+  const stepIndex = currentStepIndex != null ? currentStepIndex : 0;
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  // Handle cancel button click
+  const handleCancel = async () => {
+    if (isCancelling) return;
+    setIsCancelling(true);
+
+    // Clean up Pinata files
+    await cleanupSessionFiles();
+
+    // Call the parent's onCancel handler if provided
+    if (onCancel) {
+      onCancel();
+    }
+  };
+
+  // Determine if we should show wallet notification based on step
+  const showWalletNotification = () => {
+    // For client-side flow (revoke update off), wallet appears during step 5 ("Almost done...")
+    // For server-side flow (revoke update on), wallet appears during step 3 ("Processing on blockchain...")
+    return stepIndex === 3 || stepIndex === 5;
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center p-8">
-      <div className="relative w-16 h-16 mb-6">
-        <div className="absolute inset-0 rounded-full border-4 border-purple-500 border-opacity-30"></div>
-        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-purple-500 animate-spin"></div>
+    <div className="flex flex-col items-center justify-center p-8 max-w-md mx-auto">
+      <div className="relative mb-8">
+        {/* New wave loader */}
+        <div className="wave-loader"></div>
       </div>
 
-      <div className="text-white text-lg mb-6">{message}</div>
+      <div className="w-full mb-8">
+        <div className="mt-2 text-gray-400 text-sm text-center">
+          {steps[stepIndex]}
+          {showWalletNotification() && (
+            <div className="text-xs text-yellow-400 mt-1 wallet-notification">
+              Please approve the transaction in your wallet
+            </div>
+          )}
+        </div>
+      </div>
 
-      <ul className="w-full max-w-md space-y-3">
-        {steps.map((step, idx) => {
-          const isDone = idx < stepIndex
-          const isActive = idx === stepIndex
-
-          return (
-            <li
-              key={idx}
-              className={`flex items-center text-sm ${
-                isDone
-                  ? 'text-white'
-                  : isActive
-                  ? 'text-white'
-                  : 'text-gray-500'
-              }`}
-            >
-              {isDone ? (
-                <span className="w-6 h-6 mr-3 flex items-center justify-center bg-green-500 rounded-full text-white">
-                  ✓
-                </span>
-              ) : isActive ? (
-                <span className="w-6 h-6 mr-3 flex items-center justify-center border-2 border-purple-500 rounded-full">
-                  <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>
-                </span>
-              ) : (
-                <span className="w-6 h-6 mr-3 flex items-center justify-center border-2 border-gray-600 rounded-full"></span>
-              )}
-              <span>{step}</span>
-            </li>
-          )
-        })}
-      </ul>
+      {/* Cancel button */}
+      <button
+        onClick={handleCancel}
+        disabled={isCancelling}
+        className="px-6 py-2 rounded-full bg-transparent border border-gray-600 text-gray-300 hover:border-red-500 hover:text-red-400 transition-colors"
+      >
+        {isCancelling ? "Cancelling..." : "Cancel"}
+      </button>
     </div>
-  )
+  );
 }
 
 
@@ -4933,6 +4979,7 @@ export function setCurrentSessionUuid(uuid: string | null): void {
 /**
  * Deletes all Pinata files associated with the current session UUID
  * Called when a token creation transaction fails or is canceled
+ * This function is exported for use by the Cancel button in the Loading component
  */
 export async function cleanupSessionFiles(): Promise<boolean> {
   if (!currentSessionUuid) {

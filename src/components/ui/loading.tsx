@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { cleanupSessionFiles } from "@/services/pinata-cleanup";
-import "@/styles/loading.css"; // Import the new CSS file
+import "@/styles/loading.css";
 
 interface LoadingProps {
   message?: string;
