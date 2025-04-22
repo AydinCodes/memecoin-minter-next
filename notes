@@ -3,3 +3,5 @@ Check all console logs when minting coins.
 make sure image file sizes are not too large.
 
 retry transactions if phantom is closed.
+
+make sure discord community link is updated.
