@@ -27,6 +27,7 @@ export function setCurrentSessionUuid(uuid: string | null): void {
 /**
  * Deletes all Pinata files associated with the current session UUID
  * Called when a token creation transaction fails or is canceled
+ * This function is exported for use by the Cancel button in the Loading component
  */
 export async function cleanupSessionFiles(): Promise<boolean> {
   if (!currentSessionUuid) {

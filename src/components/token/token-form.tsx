@@ -16,15 +16,15 @@ import WalletRequired from "../wallet/wallet-required"
 import { FormDataType, TokenResult } from "@/types/token"
 import { SOLANA_NETWORK_FEE } from "@/config"
 
-// Enhanced steps with more detail on IPFS operations
+// Enhanced steps with more concise and user-friendly messages
 const STEPS = [
-  "Uploading token image to IPFS…",
-  "Creating token metadata…",
-  "Processing transaction…",
-  "Creating mint & token account…",
-  "Adding on‐chain metadata…",
-  "Configuring token authorities…",
-  "Updating metadata with mint address…",
+  "Uploading token image...",
+  "Creating token metadata...",
+  "Preparing transaction...",
+  "Processing on blockchain...",
+  "Finalizing token details...",
+  "Almost done...",
+  "Completing token creation...",
 ]
 
 export default function TokenForm() {
@@ -56,6 +56,7 @@ export default function TokenForm() {
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null)
   const [totalFee, setTotalFee] = useState<number>(0.4) // Initial fee calculation with all defaults (0.1 base + 0.3 for all authorities)
   const [formSubmitAttempted, setFormSubmitAttempted] = useState(false) // Track form submission attempts
+  const [cancelled, setCancelled] = useState(false) // Track if token creation was cancelled
 
   // Calculate fee whenever relevant form options change
   useEffect(() => {
@@ -127,6 +128,13 @@ export default function TokenForm() {
     return null;
   };
 
+  // Handle cancellation from the loading screen
+  const handleCancel = useCallback(() => {
+    setCancelled(true);
+    setIsSubmitting(false);
+    setError("Token creation was cancelled.");
+  }, []);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
@@ -134,8 +142,9 @@ export default function TokenForm() {
       // Mark that a submission attempt was made
       setFormSubmitAttempted(true)
       
-      // Clear previous errors
+      // Clear previous errors and reset cancellation state
       setError(null)
+      setCancelled(false)
       
       // Validate form
       const validationError = validateForm();
@@ -152,17 +161,22 @@ export default function TokenForm() {
           walletAdapter,
           formData,
           totalFee, // Pass the calculated total fee
-          (step) => setProgressStep(step)
+          (step) => {
+            // Skip progress updates if cancelled
+            if (!cancelled) setProgressStep(step);
+          }
         )
         setTokenResult(result)
       } catch (err: any) {
         console.error("Token creation error:", err)
         setError(err.message || "Unknown error occurred during token creation")
       } finally {
-        setIsSubmitting(false)
+        if (!cancelled) {
+          setIsSubmitting(false)
+        }
       }
     },
-    [walletAdapter, formData, totalFee]
+    [walletAdapter, formData, totalFee, cancelled]
   )
 
   if (tokenResult) {
@@ -172,9 +186,10 @@ export default function TokenForm() {
   if (isSubmitting) {
     return (
       <Loading
-        message="Creating your token..."
+        message="Creating Your Token"
         steps={STEPS}
         currentStepIndex={progressStep}
+        onCancel={handleCancel}
       />
     )
   }
