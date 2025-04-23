@@ -201,7 +201,7 @@ export async function uploadMetadataToIPFS(
       ...(payload.discord && { discord: payload.discord }),
 
       // Origin
-      createdOn: "SolMinter",
+      createdOn: "SolHype",
 
       // Add authority status if provided
       ...(payload.authorities && { authorities: payload.authorities }),
@@ -213,7 +213,7 @@ export async function uploadMetadataToIPFS(
     const pinataMetadata = {
       name: `${uniqueFileName}.json`,
       keyvalues: {
-        app: "SolMinter",
+        app: "SolHype",
         type: "token_metadata",
         symbol: payload.symbol,
         timestamp: Date.now().toString(),
@@ -271,7 +271,7 @@ export async function updateMetadataWithMintAddress(
       description: formData.description,
       image: imageUrl, // Use the actual image URL instead of the metadata URL
       mint: mintAddress,
-      creator: formData.creatorInfo ? formData.creatorName : "SolMinter",
+      creator: formData.creatorInfo ? formData.creatorName : "SolHype",
       tokenInfo: {
         chain: "Solana",
         totalSupply: formData.supply,
@@ -305,7 +305,7 @@ export async function updateMetadataWithMintAddress(
     const pinataMetadata = {
       name: `${uniqueFileName}.json`,
       keyvalues: {
-        app: "SolMinter",
+        app: "SolHype",
         type: "token_metadata",
         symbol: formData.symbol,
         mintAddress: mintAddress,

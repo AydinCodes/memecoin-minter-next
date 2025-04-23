@@ -12,12 +12,12 @@ export default function GuideHeader() {
     >
       <h1 className="text-4xl md:text-5xl font-bold text-center mb-6">
         <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
-          Guides & Resources
+          Meme Coin Guides & Resources
         </span>
       </h1>
       <p className="text-gray-400 text-lg max-w-3xl mx-auto">
-        Learn how to create, launch, and manage your Solana tokens with our comprehensive guides and resources. 
-        Follow the step-by-step instructions to bring your token project to life.
+        Learn how to create, launch, and manage your Solana meme coins with our comprehensive guides and resources. 
+        Follow the step-by-step instructions to bring your meme coin project to life with SolHype.
       </p>
     </motion.div>
   );

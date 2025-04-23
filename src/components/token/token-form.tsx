@@ -43,7 +43,7 @@ const DEFAULT_FORM_DATA: FormDataType = {
   revokeUpdate: true,
   socialLinks: false,
   creatorInfo: false,
-  creatorName: "SolMinter", // Default creator name
+  creatorName: "SolHype", // Default creator name
   website: "",
   twitter: "",
   telegram: "",

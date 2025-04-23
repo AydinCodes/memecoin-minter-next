@@ -11,3 +11,7 @@ investigate the fail (30 secnods too long)
 scroll up to upload image if it's missing
 
 make sure it doesn't work on mobile
+
+make sure devnet fails on final app unless the env is devnet
+
+sol.hype on x

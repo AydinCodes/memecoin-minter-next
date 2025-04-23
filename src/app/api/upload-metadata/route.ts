@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       const pinataMetadata = customPinataMetadata || {
         name: actualFileName,
         keyvalues: {
-          app: "SolMinter",
+          app: "SolHype",
           type: "token_metadata",
           symbol: metadata.symbol,
           timestamp: Date.now().toString()

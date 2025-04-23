@@ -13,7 +13,7 @@ export default function Footer() {
         <div className="flex flex-col md:flex-row justify-between items-center">
           <Link href="/" className="logo-container mb-6 md:mb-0">
             <div className="logo-img">
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">SolMinter</span>
+              <span className="text-xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">SolHype</span>
             </div>
           </Link>
           
@@ -42,7 +42,7 @@ export default function Footer() {
             </div>
             
             <div className="legal-container flex items-center">
-              <span className="text-gray-500 text-sm mr-4">© SolMinter {year}</span>
+              <span className="text-gray-500 text-sm mr-4">© SolHype {year}</span>
               <div className="flex items-center">
                 <Link href="/terms" className="text-gray-400 hover:text-white text-sm transition-colors">
                   Terms

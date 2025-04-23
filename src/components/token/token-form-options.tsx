@@ -64,7 +64,7 @@ export default function TokenFormOptions({
           <div className="toggle-cost text-purple-500">+0.1 SOL</div>
         </div>
         <div className="toggle-section-description text-xs text-gray-500">
-          Change the information of the creator in the metadata. By default, it is SolMinter.
+          Change the information of the creator in the metadata. By default, it is SolHype.
         </div>
       </div>
 

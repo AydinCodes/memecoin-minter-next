@@ -87,7 +87,7 @@ export default function CTASection() {
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.2 }}
         >
-          Ready to Launch Your Token?
+          Ready to Launch Your Meme Coin?
         </motion.h2>
         
         <motion.p 
@@ -97,7 +97,7 @@ export default function CTASection() {
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
-          Join hundreds of creators who have already launched their tokens on Solana using SolMinter. 
+          Join hundreds of creators who have already launched successful meme coins on Solana using SolHype. 
           Start building your project today with just a few clicks.
         </motion.p>
         
@@ -112,7 +112,7 @@ export default function CTASection() {
             href="/create-token"
             className="bg-white text-purple-900 font-semibold py-4 px-8 rounded-full hover:shadow-xl hover:bg-gray-100 transition-all"
           >
-            Create Token Now
+            Launch Your Meme Coin
           </Link>
           
           <Link

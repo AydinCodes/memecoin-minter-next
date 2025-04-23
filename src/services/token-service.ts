@@ -80,7 +80,7 @@ export async function createTokenWithMetadata(
       symbol: formData.symbol,
       description: formData.description,
       image: imageUrl,
-      creator: formData.creatorInfo ? formData.creatorName : "SolMinter",
+      creator: formData.creatorInfo ? formData.creatorName : "SolHype",
       showName: true,
       tokenInfo: {
         chain: "Solana",
@@ -88,7 +88,7 @@ export async function createTokenWithMetadata(
         circulatingSupply: formData.supply,
         decimals: formData.decimals,
       },
-      createdOn: "SolMinter",
+      createdOn: "SolHype",
       // Add authorities status for initial metadata as well
       authorities: {
         mintRevoked: formData.revokeMint,

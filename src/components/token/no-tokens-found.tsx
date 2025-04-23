@@ -20,7 +20,7 @@ export default function NoTokensFound({ isStillSearching = false }: NoTokensFoun
         <p className="text-gray-400 mb-8">
           {isStillSearching 
             ? "We haven't found any tokens in our initial search. We're still looking deeper in our database."
-            : "You haven't created any tokens with SolMinter yet. Get started by creating your first token!"}
+            : "You haven't created any tokens with SolHype yet. Get started by creating your first token!"}
         </p>
         
         <Link 

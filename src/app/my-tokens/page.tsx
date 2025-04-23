@@ -176,7 +176,7 @@ export default function MyTokensPage() {
           </span>
         </h1>
         <p className="text-center text-gray-400 mb-6">
-          View and manage all tokens you've created with SolMinter
+          View and manage all tokens you've created with SolHype
         </p>
         
         {backgroundLoading && (

@@ -335,7 +335,7 @@ export default function TokenDetailView({ token, onClose }: TokenDetailViewProps
         {/* Footer - Fixed at bottom */}
         <div className="border-t border-gray-800 p-6 flex justify-between items-center">
           <div className="text-sm text-gray-500">
-            Created with SolMinter
+            Created with SolHype
           </div>
           
           <button 

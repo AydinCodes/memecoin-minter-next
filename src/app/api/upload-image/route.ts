@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       const metadata = JSON.stringify({
         name: fileName || file.name,
         keyvalues: {
-          app: "SolMinter",
+          app: "SolHype",
           type: "token_image",
           timestamp: Date.now().toString()
         }

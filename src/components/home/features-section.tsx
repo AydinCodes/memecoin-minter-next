@@ -23,6 +23,26 @@ const features = [
     ),
   },
   {
+    title: "Meme Coin Ready",
+    description: "Everything you need to launch the next viral Solana meme coin. Custom branding, social links, and authority controls specifically designed for meme coin projects.",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-10 h-10 text-pink-500"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+    ),
+  },
+  {
     title: "Revocable Authorities",
     description: "Increase investor trust by revoking mint, freeze, and update authorities. Full control over your token's security features.",
     icon: (
@@ -82,6 +102,26 @@ const features = [
       </svg>
     ),
   },
+  {
+    title: "Community Growth Tools",
+    description: "Leverage built-in features to kickstart your meme coin community. Easily link to social platforms and provide comprehensive token information to attract investors.",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-10 h-10 text-orange-500"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+        />
+      </svg>
+    ),
+  },
 ];
 
 export default function FeaturesSection() {
@@ -102,14 +142,14 @@ export default function FeaturesSection() {
           className="mb-16"
         >
           <h2 className="text-4xl font-bold text-white mb-4">
-            Why Choose <span className="text-purple-500">SolMinter</span>?
+            Why Choose <span className="text-purple-500">SolHype</span>?
           </h2>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            Our platform provides everything you need to launch your Solana token project with confidence and security.
+            Our platform provides everything you need to launch your Solana meme coin or token project with confidence and security.
           </p>
         </motion.div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
             <motion.div
               key={feature.title}

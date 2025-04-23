@@ -16,8 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SolMinter - Create Solana Tokens Easily",
-  description: "Create, launch, and manage Solana tokens with ease. Your one-stop solution for Solana meme coin creation.",
+  title: "SolHype - Create Viral Solana Meme Coins & Tokens Easily",
+  description:
+    "Create, launch, and manage Solana meme coins in seconds. The simplest no-code platform for Solana token creation. Launch viral meme coins today.",
 };
 
 export default function RootLayout({
@@ -28,8 +29,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link 
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" 
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded"
           rel="stylesheet"
         />
       </head>

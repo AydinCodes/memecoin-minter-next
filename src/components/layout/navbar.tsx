@@ -54,7 +54,7 @@ export default function Navbar() {
             <Link href="/" className="logo-container flex items-center">
               <div className="logo-img">
                 <span className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
-                  SolMinter
+                  SolHype
                 </span>
               </div>
             </Link>

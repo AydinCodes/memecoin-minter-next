@@ -35,7 +35,7 @@ export default function TokenFormCreator({
       </div>
       
       <div className="text-xs text-gray-500 mt-2">
-        Customize the creator information instead of using the default SolMinter.
+        Customize the creator information instead of using the default SolHype.
       </div>
     </div>
   );

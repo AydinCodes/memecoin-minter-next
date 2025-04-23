@@ -9,8 +9,8 @@ interface FaqItem {
 
 const faqItems: FaqItem[] = [
   {
-    question: "What is the LunaLaunch?",
-    answer: "SolMinter is a user-friendly platform that allows anyone to create and launch Solana tokens without any coding knowledge. Our intuitive interface guides you through the entire process, from customizing token parameters to revoking authorities for enhanced security."
+    question: "What is SolHype?",
+    answer: "SolHype is a user-friendly platform that allows anyone to create and launch Solana tokens and meme coins without any coding knowledge. Our intuitive interface guides you through the entire process, from customizing token parameters to revoking authorities for enhanced security."
   },
   {
     question: "How can I create a token on the Solana blockchain?",
@@ -18,7 +18,11 @@ const faqItems: FaqItem[] = [
   },
   {
     question: "How can I manage token authorities on Solana?",
-    answer: "Solana tokens have three authorities: Mint (controls token supply), Freeze (can freeze token transfers), and Update (modifies token metadata). SolMinter lets you revoke any of these authorities to enhance investor trust. Once revoked, these authorities cannot be restored, making your token more secure and trustworthy."
+    answer: "Solana tokens have three authorities: Mint (controls token supply), Freeze (can freeze token transfers), and Update (modifies token metadata). SolHype lets you revoke any of these authorities to enhance investor trust. Once revoked, these authorities cannot be restored, making your token more secure and trustworthy."
+  },
+  {
+    question: "How do I create a successful meme coin on Solana?",
+    answer: "Creating a successful meme coin starts with a unique concept and strong branding. With SolHype, you can easily launch your meme coin by connecting your wallet, uploading your unique logo, setting your token parameters, and revoking authorities to build investor trust. After launch, focus on building community through social channels and creating liquidity pools to enable trading."
   },
   {
     question: "What support resources are available if I encounter issues during my token launch?",
@@ -26,7 +30,7 @@ const faqItems: FaqItem[] = [
   },
   {
     question: "Do I need any programming skills to launch a token on your platform?",
-    answer: "No programming skills required! SolMinter is designed to be accessible for everyone, including non-technical users. Our intuitive interface handles all the complex blockchain interactions behind the scenes, allowing you to focus on your token's branding and features."
+    answer: "No programming skills required! SolHype is designed to be accessible for everyone, including non-technical users. Our intuitive interface handles all the complex blockchain interactions behind the scenes, allowing you to focus on your token's branding and features."
   },
   {
     question: "How can I confirm that my token launch was successful?",
@@ -61,7 +65,7 @@ export default function FaqSection() {
             Frequently Asked Questions
           </h2>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            Find quick answers to all common questions about creating tokens on SolMinter
+            Find quick answers to all common questions about creating meme coins and tokens on SolHype
           </p>
         </motion.div>
         

@@ -21,14 +21,14 @@ export default function PrivacyPolicy() {
             <div>
               <h2 className="text-xl font-semibold text-white mb-2">1. Introduction</h2>
               <p>
-                SolMinter ("we," "our," or "us") respects your privacy and is committed to protecting your personal data. This privacy policy explains how we collect, use, and protect information when you use our website and services.
+                SolHype ("we," "our," or "us") respects your privacy and is committed to protecting your personal data. This privacy policy explains how we collect, use, and protect information when you use our website and services.
               </p>
             </div>
             
             <div>
               <h2 className="text-xl font-semibold text-white mb-2">2. Information We Collect</h2>
               <p>
-                When you use SolMinter, we may collect the following information:
+                When you use SolHype, we may collect the following information:
               </p>
               <ul className="list-disc pl-5 mt-2 space-y-1">
                 <li>Wallet address and public blockchain data</li>
@@ -113,7 +113,7 @@ export default function PrivacyPolicy() {
             <div>
               <h2 className="text-xl font-semibold text-white mb-2">11. Contact Us</h2>
               <p>
-                If you have any questions about this Privacy Policy, please contact us at support@solminter.com.
+                If you have any questions about this Privacy Policy, please contact us on Discord.
               </p>
             </div>
           </div>

@@ -1,6 +1,6 @@
-# SolMinter - Solana Token Creator
+# SolHype - Solana Token Creator
 
-SolMinter is a full-featured web application that allows users to create and deploy Solana tokens with ease. The platform provides a user-friendly interface for token creation, with options for customizing token parameters, metadata, and authority settings.
+SolHype is a full-featured web application that allows users to create and deploy Solana tokens with ease. The platform provides a user-friendly interface for token creation, with options for customizing token parameters, metadata, and authority settings.
 
 ## Features
 
@@ -23,8 +23,8 @@ SolMinter is a full-featured web application that allows users to create and dep
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/solminter.git
-   cd solminter
+   git clone https://github.com/yourusername/solhype.git
+   cd solhype
    ```
 
 2. Install dependencies:
@@ -70,7 +70,7 @@ All fees are sent to the designated fee wallet configured in the environment var
 
 ## Deployment
 
-To deploy SolMinter to production:
+To deploy SolHype to production:
 
 1. Build the application:
    ```
@@ -87,7 +87,7 @@ For cloud deployments, we recommend using Vercel or similar platforms with Next.
 ## Project Structure
 
 ```
-solminter/
+solhype/
 ├── src/
 │   ├── app/               # Next.js app router
 │   │   ├── api/           # API routes for IPFS uploads

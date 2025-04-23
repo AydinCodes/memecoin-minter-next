@@ -6,7 +6,7 @@ const steps = [
   { 
     number: 1, 
     title: 'Connect Your Wallet', 
-    description: 'Connect your Solana wallet to get started with the token creation process.',
+    description: 'Connect your Solana wallet to get started with the meme coin creation process.',
     icon: (
       <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -15,8 +15,8 @@ const steps = [
   },
   { 
     number: 2, 
-    title: 'Customize Your Token', 
-    description: 'Set name, symbol, supply, and upload a logo. Configure token authorities and social links.',
+    title: 'Customize Your Meme Coin', 
+    description: 'Set name, symbol, supply, and upload a logo. Configure token authorities and social links for your meme coin.',
     icon: (
       <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -26,7 +26,7 @@ const steps = [
   { 
     number: 3, 
     title: 'Launch & Manage', 
-    description: 'Confirm transaction in your wallet and access tools to create liquidity and promote your token.',
+    description: 'Confirm transaction in your wallet and access tools to create liquidity and promote your viral meme coin.',
     icon: (
       <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -54,7 +54,7 @@ export default function HowItWorksSection() {
         >
           <h2 className="text-4xl font-bold text-white mb-4">How It Works</h2>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            Creating your own Solana token is simple and straightforward with our easy-to-use platform
+            Creating your own viral Solana meme coin is simple and straightforward with our easy-to-use platform
           </p>
         </motion.div>
         
