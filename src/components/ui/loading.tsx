@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { cleanupSessionFiles } from "@/services/pinata-cleanup";
 import "@/styles/loading.css";
 
@@ -21,6 +21,18 @@ export default function Loading({
 }: LoadingProps) {
   const stepIndex = currentStepIndex != null ? currentStepIndex : 0;
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // Force scroll to top when the component mounts and whenever the step changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0; // For Safari
+  }, []);
+  
+  // Separate effect for step changes to avoid flashing
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0; // For Safari
+  }, [currentStepIndex]);
 
   // Handle cancel button click
   const handleCancel = async () => {
@@ -44,7 +56,7 @@ export default function Loading({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 max-w-md mx-auto">
+    <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 max-w-md mx-auto">
       <div className="relative mb-8">
         {/* New wave loader */}
         <div className="wave-loader"></div>

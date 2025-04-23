@@ -55,7 +55,7 @@ export default function TokenDetailView({ token, onClose }: TokenDetailViewProps
           <h3 className="text-2xl font-bold text-white truncate pr-4">{token.name} ({token.symbol})</h3>
           <button 
             onClick={onClose}
-            className="text-gray-400 hover:text-white flex-shrink-0"
+            className="text-gray-400 hover:text-white flex-shrink-0 hover:cursor-pointer"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -69,7 +69,7 @@ export default function TokenDetailView({ token, onClose }: TokenDetailViewProps
             onClick={() => setActiveTab('details')}
             className={`flex-1 py-3 px-4 text-center ${activeTab === 'details' 
               ? 'text-purple-500 border-b-2 border-purple-500'
-              : 'text-gray-400 hover:text-gray-200'}`}
+              : 'text-gray-400 hover:text-gray-200 hover:cursor-pointer'}`}
           >
             Token Details
           </button>
@@ -78,7 +78,7 @@ export default function TokenDetailView({ token, onClose }: TokenDetailViewProps
               onClick={() => setActiveTab('social')}
               className={`flex-1 py-3 px-4 text-center ${activeTab === 'social' 
                 ? 'text-purple-500 border-b-2 border-purple-500'
-                : 'text-gray-400 hover:text-gray-200'}`}
+                : 'text-gray-400 hover:text-gray-200 hover:cursor-pointer'}`}
             >
               Social Links
             </button>
@@ -87,7 +87,7 @@ export default function TokenDetailView({ token, onClose }: TokenDetailViewProps
             onClick={() => setActiveTab('explorer')}
             className={`flex-1 py-3 px-4 text-center ${activeTab === 'explorer' 
               ? 'text-purple-500 border-b-2 border-purple-500'
-              : 'text-gray-400 hover:text-gray-200'}`}
+              : 'text-gray-400 hover:text-gray-200 hover:cursor-pointer'}`}
           >
             Explorer
           </button>
@@ -340,7 +340,7 @@ export default function TokenDetailView({ token, onClose }: TokenDetailViewProps
           
           <button 
             onClick={onClose}
-            className="bg-purple-600 hover:bg-purple-700 text-white py-2 px-6 rounded-full transition-colors"
+            className="bg-purple-600 hover:bg-purple-700 text-white py-2 px-6 rounded-full transition-colors hover:cursor-pointer"
           >
             Close
           </button>

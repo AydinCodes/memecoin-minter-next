@@ -19,11 +19,14 @@ interface TokenCreationSuccessProps {
 export default function TokenCreationSuccess({ result }: TokenCreationSuccessProps) {
   const router = useRouter();
 
+  // Ensure we're at the top of the page when this component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // Function to handle creating another token
   const handleCreateAnother = () => {
-    // Force a hard navigation to the create token page
-    router.push('/create-token');
-    // Force a page refresh to reset the form state
+    // Force a hard navigation to reset the page
     window.location.href = '/create-token';
   };
 

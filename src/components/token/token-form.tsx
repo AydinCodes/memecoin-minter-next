@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import { useRouter, usePathname } from "next/navigation"
 import {
@@ -52,6 +52,7 @@ export default function TokenForm() {
   const { connection } = useConnection()
   const router = useRouter()
   const pathname = usePathname()
+  const formRef = useRef<HTMLDivElement>(null)
 
   const [formData, setFormData] = useState<FormDataType>(DEFAULT_FORM_DATA)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -62,6 +63,28 @@ export default function TokenForm() {
   const [formSubmitAttempted, setFormSubmitAttempted] = useState(false) // Track form submission attempts
   const [cancelled, setCancelled] = useState(false) // Track if token creation was cancelled
 
+  // Register all useEffects before any conditional rendering
+
+  // Check if we're on the success page and add window event listener for navigation
+  useEffect(() => {
+    // Handle clicks on "Create Token" when on success page
+    if (tokenResult) {
+      const handleCreateTokenClick = (e: MouseEvent) => {
+        // Check if the clicked element or its parent is the "Create Token" link
+        const target = e.target as HTMLElement;
+        const link = target.closest('a[href="/create-token"]');
+        
+        if (link) {
+          e.preventDefault();
+          window.location.href = '/create-token';
+        }
+      };
+      
+      window.addEventListener('click', handleCreateTokenClick);
+      return () => window.removeEventListener('click', handleCreateTokenClick);
+    }
+  }, [tokenResult]);
+
   // Reset form when navigating to this page
   useEffect(() => {
     if (pathname === '/create-token') {
@@ -70,6 +93,25 @@ export default function TokenForm() {
       setError(null)
       setCancelled(false)
       setFormSubmitAttempted(false)
+      setIsSubmitting(false)
+    }
+  }, [pathname])
+
+  // Force reset form state completely when coming directly to the create-token page
+  useEffect(() => {
+    // Check if we're accessing the page directly (through URL or refresh)
+    const isDirectNavigation = window.performance
+      ?.getEntriesByType('navigation')
+      .some((nav: any) => ['reload', 'navigate'].includes(nav.type));
+
+    if (isDirectNavigation && pathname === '/create-token') {
+      // Reset all state
+      setFormData(DEFAULT_FORM_DATA)
+      setTokenResult(null)
+      setError(null)
+      setCancelled(false)
+      setFormSubmitAttempted(false)
+      setIsSubmitting(false)
     }
   }, [pathname])
 
@@ -97,6 +139,14 @@ export default function TokenForm() {
     formData.socialLinks,
     formData.creatorInfo,
   ])
+
+  // Scroll to top effect for success and loading states
+  useEffect(() => {
+    if (isSubmitting || tokenResult) {
+      window.scrollTo(0, 0);
+      document.body.scrollTop = 0; // For Safari
+    }
+  }, [isSubmitting, tokenResult]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -148,6 +198,11 @@ export default function TokenForm() {
     setCancelled(true);
     setIsSubmitting(false);
     setError("Token creation was cancelled.");
+    
+    // Scroll back to the form
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   }, []);
 
   const handleSubmit = useCallback(
@@ -171,6 +226,10 @@ export default function TokenForm() {
       try {
         setIsSubmitting(true)
         setProgressStep(0)
+        
+        // Force scroll to top when starting the loading process
+        window.scrollTo(0, 0);
+        document.body.scrollTop = 0; // For Safari
 
         const result = await createTokenWithMetadata(
           walletAdapter,
@@ -178,13 +237,24 @@ export default function TokenForm() {
           totalFee, // Pass the calculated total fee
           (step) => {
             // Skip progress updates if cancelled
-            if (!cancelled) setProgressStep(step);
+            if (!cancelled) {
+              setProgressStep(step);
+              // Keep ensuring we're at the top for each step
+              window.scrollTo(0, 0);
+            }
           }
         )
         setTokenResult(result)
+        // Ensure we're at the top for the success screen too
+        window.scrollTo(0, 0);
       } catch (err: any) {
         console.error("Token creation error:", err)
         setError(err.message || "Unknown error occurred during token creation")
+        
+        // Scroll back to the form on error
+        setTimeout(() => {
+          formRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
       } finally {
         if (!cancelled) {
           setIsSubmitting(false)
@@ -194,6 +264,7 @@ export default function TokenForm() {
     [walletAdapter, formData, totalFee, cancelled]
   )
 
+  // Render based on current state
   if (tokenResult) {
     return <TokenCreationSuccess result={tokenResult} />
   }
@@ -218,53 +289,55 @@ export default function TokenForm() {
   const netFee = Math.max(totalFee - SOLANA_NETWORK_FEE, 0);
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl my-12"
-    >
-      {error && (
-        <div className="text-red-400 bg-red-800/30 p-3 rounded mb-4">{error}</div>
-      )}
+    <div ref={formRef}>
+      <form
+        onSubmit={handleSubmit}
+        className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl my-12"
+      >
+        {error && (
+          <div className="text-red-400 bg-red-800/30 p-3 rounded mb-4">{error}</div>
+        )}
 
-      <TokenFormBasic
-        formData={formData}
-        handleInputChange={handleInputChange}
-        handleFileChange={handleFileChange}
-        formSubmitted={formSubmitAttempted}
-      />
-
-      <TokenFormOptions
-        formData={formData}
-        setFormData={setFormData}
-        handleInputChange={handleInputChange}
-      />
-
-      {formData.creatorInfo && (
-        <TokenFormCreator
+        <TokenFormBasic
           formData={formData}
           handleInputChange={handleInputChange}
+          handleFileChange={handleFileChange}
+          formSubmitted={formSubmitAttempted}
         />
-      )}
 
-      <TokenFormAuthorities
-        formData={formData}
-        setFormData={setFormData}
-      />
+        <TokenFormOptions
+          formData={formData}
+          setFormData={setFormData}
+          handleInputChange={handleInputChange}
+        />
 
-      {/* Display dynamic feature‐fee total */}
-      <div className="flex justify-between items-center text-gray-300">
-        <span>Total fee:</span>
-        <span className="text-purple-500 font-semibold">
-          {formatFee(totalFee)}
-        </span>
-      </div>
+        {formData.creatorInfo && (
+          <TokenFormCreator
+            formData={formData}
+            handleInputChange={handleInputChange}
+          />
+        )}
 
-      <button
-        type="submit"
-        className="w-full py-3 rounded-full text-white font-medium transition cursor-pointer bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90"
-      >
-        Launch Token
-      </button>
-    </form>
+        <TokenFormAuthorities
+          formData={formData}
+          setFormData={setFormData}
+        />
+
+        {/* Display dynamic feature‐fee total */}
+        <div className="flex justify-between items-center text-gray-300">
+          <span>Total fee:</span>
+          <span className="text-purple-500 font-semibold">
+            {formatFee(totalFee)}
+          </span>
+        </div>
+
+        <button
+          type="submit"
+          className="w-full py-3 rounded-full text-white font-medium transition cursor-pointer bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90"
+        >
+          Launch Token
+        </button>
+      </form>
+    </div>
   )
 }
