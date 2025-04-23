@@ -39,8 +39,8 @@ function getSessionUuid(): string {
 
 // Helper function to reset the session UUID (call this at the start of a new token creation)
 export function resetSessionUuid(): void {
-  currentSessionUuid = null;
   console.log("Reset session UUID for new token creation");
+  currentSessionUuid = null;
 
   // Sync with cleanup service
   setCurrentSessionUuid(null);

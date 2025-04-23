@@ -1,3 +1,5 @@
+// src/components/ui/loading.tsx
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -39,6 +41,8 @@ export default function Loading({
     if (isCancelling) return;
     setIsCancelling(true);
 
+    console.log("Cancellation initiated by user. Cleaning up resources...");
+    
     // Clean up Pinata files
     await cleanupSessionFiles();
 

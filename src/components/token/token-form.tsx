@@ -1,3 +1,5 @@
+// src/components/token/token-form.tsx
+
 "use client"
 
 import { useState, useCallback, useEffect, useRef } from "react"
@@ -16,6 +18,7 @@ import TokenFormCreator from "./token-form-creator"
 import WalletRequired from "../wallet/wallet-required"
 import { FormDataType, TokenResult } from "@/types/token"
 import { SOLANA_NETWORK_FEE } from "@/config"
+import { resetSessionUuid } from "@/services/ipfs-service"
 
 // Enhanced steps with more concise and user-friendly messages
 const STEPS = [
@@ -88,6 +91,8 @@ export default function TokenForm() {
   // Reset form when navigating to this page
   useEffect(() => {
     if (pathname === '/create-token') {
+      // Reset the session UUID to ensure clean state
+      resetSessionUuid();
       setFormData(DEFAULT_FORM_DATA)
       setTokenResult(null)
       setError(null)
@@ -106,6 +111,7 @@ export default function TokenForm() {
 
     if (isDirectNavigation && pathname === '/create-token') {
       // Reset all state
+      resetSessionUuid();
       setFormData(DEFAULT_FORM_DATA)
       setTokenResult(null)
       setError(null)
@@ -195,9 +201,11 @@ export default function TokenForm() {
 
   // Handle cancellation from the loading screen
   const handleCancel = useCallback(() => {
+    console.log("Cancel button clicked by user");
     setCancelled(true);
     setIsSubmitting(false);
     setError("Token creation was cancelled.");
+    resetSessionUuid(); // Make sure to reset session UUID
     
     // Scroll back to the form
     setTimeout(() => {
@@ -209,12 +217,14 @@ export default function TokenForm() {
     async (e: React.FormEvent) => {
       e.preventDefault()
       
+      // Reset from any previous canceled state
+      setCancelled(false);
+      
       // Mark that a submission attempt was made
       setFormSubmitAttempted(true)
       
       // Clear previous errors and reset cancellation state
       setError(null)
-      setCancelled(false)
       
       // Validate form
       const validationError = validateForm();
@@ -224,6 +234,9 @@ export default function TokenForm() {
       }
 
       try {
+        // Ensure we have a clean session before starting
+        resetSessionUuid();
+        
         setIsSubmitting(true)
         setProgressStep(0)
         

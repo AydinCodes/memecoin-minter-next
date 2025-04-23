@@ -57,7 +57,7 @@ export async function cleanupSessionFiles(): Promise<boolean> {
     console.log('Pinata cleanup result:', result);
     
     // Clear the session UUID after successful cleanup
-    currentSessionUuid = null;
+    setCurrentSessionUuid(null);
     
     return true;
   } catch (error) {

@@ -2327,7 +2327,7 @@ export default function TokenFormOptions({
 
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import { useRouter, usePathname } from "next/navigation"
 import {
@@ -2379,6 +2379,7 @@ export default function TokenForm() {
   const { connection } = useConnection()
   const router = useRouter()
   const pathname = usePathname()
+  const formRef = useRef<HTMLDivElement>(null)
 
   const [formData, setFormData] = useState<FormDataType>(DEFAULT_FORM_DATA)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -2389,6 +2390,28 @@ export default function TokenForm() {
   const [formSubmitAttempted, setFormSubmitAttempted] = useState(false) // Track form submission attempts
   const [cancelled, setCancelled] = useState(false) // Track if token creation was cancelled
 
+  // Register all useEffects before any conditional rendering
+
+  // Check if we're on the success page and add window event listener for navigation
+  useEffect(() => {
+    // Handle clicks on "Create Token" when on success page
+    if (tokenResult) {
+      const handleCreateTokenClick = (e: MouseEvent) => {
+        // Check if the clicked element or its parent is the "Create Token" link
+        const target = e.target as HTMLElement;
+        const link = target.closest('a[href="/create-token"]');
+        
+        if (link) {
+          e.preventDefault();
+          window.location.href = '/create-token';
+        }
+      };
+      
+      window.addEventListener('click', handleCreateTokenClick);
+      return () => window.removeEventListener('click', handleCreateTokenClick);
+    }
+  }, [tokenResult]);
+
   // Reset form when navigating to this page
   useEffect(() => {
     if (pathname === '/create-token') {
@@ -2397,6 +2420,25 @@ export default function TokenForm() {
       setError(null)
       setCancelled(false)
       setFormSubmitAttempted(false)
+      setIsSubmitting(false)
+    }
+  }, [pathname])
+
+  // Force reset form state completely when coming directly to the create-token page
+  useEffect(() => {
+    // Check if we're accessing the page directly (through URL or refresh)
+    const isDirectNavigation = window.performance
+      ?.getEntriesByType('navigation')
+      .some((nav: any) => ['reload', 'navigate'].includes(nav.type));
+
+    if (isDirectNavigation && pathname === '/create-token') {
+      // Reset all state
+      setFormData(DEFAULT_FORM_DATA)
+      setTokenResult(null)
+      setError(null)
+      setCancelled(false)
+      setFormSubmitAttempted(false)
+      setIsSubmitting(false)
     }
   }, [pathname])
 
@@ -2424,6 +2466,14 @@ export default function TokenForm() {
     formData.socialLinks,
     formData.creatorInfo,
   ])
+
+  // Scroll to top effect for success and loading states
+  useEffect(() => {
+    if (isSubmitting || tokenResult) {
+      window.scrollTo(0, 0);
+      document.body.scrollTop = 0; // For Safari
+    }
+  }, [isSubmitting, tokenResult]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -2475,6 +2525,11 @@ export default function TokenForm() {
     setCancelled(true);
     setIsSubmitting(false);
     setError("Token creation was cancelled.");
+    
+    // Scroll back to the form
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   }, []);
 
   const handleSubmit = useCallback(
@@ -2498,6 +2553,10 @@ export default function TokenForm() {
       try {
         setIsSubmitting(true)
         setProgressStep(0)
+        
+        // Force scroll to top when starting the loading process
+        window.scrollTo(0, 0);
+        document.body.scrollTop = 0; // For Safari
 
         const result = await createTokenWithMetadata(
           walletAdapter,
@@ -2505,13 +2564,24 @@ export default function TokenForm() {
           totalFee, // Pass the calculated total fee
           (step) => {
             // Skip progress updates if cancelled
-            if (!cancelled) setProgressStep(step);
+            if (!cancelled) {
+              setProgressStep(step);
+              // Keep ensuring we're at the top for each step
+              window.scrollTo(0, 0);
+            }
           }
         )
         setTokenResult(result)
+        // Ensure we're at the top for the success screen too
+        window.scrollTo(0, 0);
       } catch (err: any) {
         console.error("Token creation error:", err)
         setError(err.message || "Unknown error occurred during token creation")
+        
+        // Scroll back to the form on error
+        setTimeout(() => {
+          formRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
       } finally {
         if (!cancelled) {
           setIsSubmitting(false)
@@ -2521,6 +2591,7 @@ export default function TokenForm() {
     [walletAdapter, formData, totalFee, cancelled]
   )
 
+  // Render based on current state
   if (tokenResult) {
     return <TokenCreationSuccess result={tokenResult} />
   }
@@ -2545,54 +2616,56 @@ export default function TokenForm() {
   const netFee = Math.max(totalFee - SOLANA_NETWORK_FEE, 0);
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl my-12"
-    >
-      {error && (
-        <div className="text-red-400 bg-red-800/30 p-3 rounded mb-4">{error}</div>
-      )}
+    <div ref={formRef}>
+      <form
+        onSubmit={handleSubmit}
+        className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl my-12"
+      >
+        {error && (
+          <div className="text-red-400 bg-red-800/30 p-3 rounded mb-4">{error}</div>
+        )}
 
-      <TokenFormBasic
-        formData={formData}
-        handleInputChange={handleInputChange}
-        handleFileChange={handleFileChange}
-        formSubmitted={formSubmitAttempted}
-      />
-
-      <TokenFormOptions
-        formData={formData}
-        setFormData={setFormData}
-        handleInputChange={handleInputChange}
-      />
-
-      {formData.creatorInfo && (
-        <TokenFormCreator
+        <TokenFormBasic
           formData={formData}
           handleInputChange={handleInputChange}
+          handleFileChange={handleFileChange}
+          formSubmitted={formSubmitAttempted}
         />
-      )}
 
-      <TokenFormAuthorities
-        formData={formData}
-        setFormData={setFormData}
-      />
+        <TokenFormOptions
+          formData={formData}
+          setFormData={setFormData}
+          handleInputChange={handleInputChange}
+        />
 
-      {/* Display dynamic feature‐fee total */}
-      <div className="flex justify-between items-center text-gray-300">
-        <span>Total fee:</span>
-        <span className="text-purple-500 font-semibold">
-          {formatFee(totalFee)}
-        </span>
-      </div>
+        {formData.creatorInfo && (
+          <TokenFormCreator
+            formData={formData}
+            handleInputChange={handleInputChange}
+          />
+        )}
 
-      <button
-        type="submit"
-        className="w-full py-3 rounded-full text-white font-medium transition cursor-pointer bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90"
-      >
-        Launch Token
-      </button>
-    </form>
+        <TokenFormAuthorities
+          formData={formData}
+          setFormData={setFormData}
+        />
+
+        {/* Display dynamic feature‐fee total */}
+        <div className="flex justify-between items-center text-gray-300">
+          <span>Total fee:</span>
+          <span className="text-purple-500 font-semibold">
+            {formatFee(totalFee)}
+          </span>
+        </div>
+
+        <button
+          type="submit"
+          className="w-full py-3 rounded-full text-white font-medium transition cursor-pointer bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90"
+        >
+          Launch Token
+        </button>
+      </form>
+    </div>
   )
 }
 
@@ -2655,7 +2728,7 @@ export default function TokenDetailView({ token, onClose }: TokenDetailViewProps
           <h3 className="text-2xl font-bold text-white truncate pr-4">{token.name} ({token.symbol})</h3>
           <button 
             onClick={onClose}
-            className="text-gray-400 hover:text-white flex-shrink-0"
+            className="text-gray-400 hover:text-white flex-shrink-0 hover:cursor-pointer"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -2669,7 +2742,7 @@ export default function TokenDetailView({ token, onClose }: TokenDetailViewProps
             onClick={() => setActiveTab('details')}
             className={`flex-1 py-3 px-4 text-center ${activeTab === 'details' 
               ? 'text-purple-500 border-b-2 border-purple-500'
-              : 'text-gray-400 hover:text-gray-200'}`}
+              : 'text-gray-400 hover:text-gray-200 hover:cursor-pointer'}`}
           >
             Token Details
           </button>
@@ -2678,7 +2751,7 @@ export default function TokenDetailView({ token, onClose }: TokenDetailViewProps
               onClick={() => setActiveTab('social')}
               className={`flex-1 py-3 px-4 text-center ${activeTab === 'social' 
                 ? 'text-purple-500 border-b-2 border-purple-500'
-                : 'text-gray-400 hover:text-gray-200'}`}
+                : 'text-gray-400 hover:text-gray-200 hover:cursor-pointer'}`}
             >
               Social Links
             </button>
@@ -2687,7 +2760,7 @@ export default function TokenDetailView({ token, onClose }: TokenDetailViewProps
             onClick={() => setActiveTab('explorer')}
             className={`flex-1 py-3 px-4 text-center ${activeTab === 'explorer' 
               ? 'text-purple-500 border-b-2 border-purple-500'
-              : 'text-gray-400 hover:text-gray-200'}`}
+              : 'text-gray-400 hover:text-gray-200 hover:cursor-pointer'}`}
           >
             Explorer
           </button>
@@ -2940,7 +3013,7 @@ export default function TokenDetailView({ token, onClose }: TokenDetailViewProps
           
           <button 
             onClick={onClose}
-            className="bg-purple-600 hover:bg-purple-700 text-white py-2 px-6 rounded-full transition-colors"
+            className="bg-purple-600 hover:bg-purple-700 text-white py-2 px-6 rounded-full transition-colors hover:cursor-pointer"
           >
             Close
           </button>
@@ -2973,11 +3046,14 @@ interface TokenCreationSuccessProps {
 export default function TokenCreationSuccess({ result }: TokenCreationSuccessProps) {
   const router = useRouter();
 
+  // Ensure we're at the top of the page when this component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // Function to handle creating another token
   const handleCreateAnother = () => {
-    // Force a hard navigation to the create token page
-    router.push('/create-token');
-    // Force a page refresh to reset the form state
+    // Force a hard navigation to reset the page
     window.location.href = '/create-token';
   };
 
@@ -4158,7 +4234,7 @@ export default function CopyButton({ textToCopy, className = '' }: CopyButtonPro
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { cleanupSessionFiles } from "@/services/pinata-cleanup";
 import "@/styles/loading.css";
 
@@ -4179,6 +4255,18 @@ export default function Loading({
 }: LoadingProps) {
   const stepIndex = currentStepIndex != null ? currentStepIndex : 0;
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // Force scroll to top when the component mounts and whenever the step changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0; // For Safari
+  }, []);
+  
+  // Separate effect for step changes to avoid flashing
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0; // For Safari
+  }, [currentStepIndex]);
 
   // Handle cancel button click
   const handleCancel = async () => {
@@ -4202,7 +4290,7 @@ export default function Loading({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 max-w-md mx-auto">
+    <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 max-w-md mx-auto">
       <div className="relative mb-8">
         {/* New wave loader */}
         <div className="wave-loader"></div>
@@ -4885,15 +4973,15 @@ export default function CTASection() {
 
 // ===== src/components/layout/navbar.tsx =====
 
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import WalletButton from '../wallet/wallet-button';
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import WalletButton from "../wallet/wallet-button";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
-  
+
   // Track scroll position to add shadow and background when scrolled
   useEffect(() => {
     const handleScroll = () => {
@@ -4903,24 +4991,30 @@ export default function Navbar() {
       }
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
     return () => {
-      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener("scroll", handleScroll);
     };
   }, [scrolled]);
 
+  // Function to handle direct navigation to create-token
+  const handleCreateTokenClick = (e: React.MouseEvent) => {
+    // Force a full page navigation to reset state
+    window.location.href = "/create-token";
+  };
+
   return (
-    <div 
+    <div
       className={`fixed top-4 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'top-2' : 'top-4'
+        scrolled ? "top-2" : "top-4"
       }`}
     >
       <div className="max-w-6xl mx-auto px-4">
-        <div 
+        <div
           className={`nav-container rounded-full py-3 px-6 transition-all duration-300 ${
-            scrolled 
-              ? 'bg-black/50 backdrop-blur-md shadow-lg shadow-black/20' 
-              : 'bg-transparent'
+            scrolled
+              ? "bg-black/50 backdrop-blur-md shadow-lg shadow-black/20"
+              : "bg-transparent"
           }`}
         >
           <div className="flex justify-between items-center">
@@ -4939,12 +5033,13 @@ export default function Navbar() {
               >
                 Home
               </Link>
-              <Link
+              <a
                 href="/create-token"
                 className="nav-link text-gray-300 hover:text-white transition-colors"
+                onClick={handleCreateTokenClick}
               >
                 Create Token
-              </Link>
+              </a>
               <Link
                 href="/my-tokens"
                 className="nav-link text-gray-300 hover:text-white transition-colors"
@@ -4984,6 +5079,7 @@ export default function Navbar() {
     </div>
   );
 }
+
 
 // ===== src/components/layout/footer.tsx =====
 
