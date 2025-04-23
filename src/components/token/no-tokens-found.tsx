@@ -2,7 +2,11 @@
 
 import Link from 'next/link';
 
-export default function NoTokensFound() {
+interface NoTokensFoundProps {
+  isStillSearching?: boolean;
+}
+
+export default function NoTokensFound({ isStillSearching = false }: NoTokensFoundProps) {
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
       <div className="max-w-3xl w-full mx-auto p-10 bg-[#171717] rounded-xl text-center">
@@ -14,7 +18,9 @@ export default function NoTokensFound() {
         
         <h2 className="text-2xl font-bold text-white mb-4">No Tokens Found</h2>
         <p className="text-gray-400 mb-8">
-          You haven't created any tokens with SolMinter yet. Get started by creating your first token!
+          {isStillSearching 
+            ? "We haven't found any tokens in our initial search. We're still looking deeper in our database."
+            : "You haven't created any tokens with SolMinter yet. Get started by creating your first token!"}
         </p>
         
         <Link 

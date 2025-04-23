@@ -1,11 +1,16 @@
+// src/components/layout/navbar.tsx
+
 "use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import WalletButton from "../wallet/wallet-button";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
+  const isCreateTokenPage = pathname === "/create-token";
 
   // Track scroll position to add shadow and background when scrolled
   useEffect(() => {
@@ -24,8 +29,11 @@ export default function Navbar() {
 
   // Function to handle direct navigation to create-token
   const handleCreateTokenClick = (e: React.MouseEvent) => {
-    // Force a full page navigation to reset state
-    window.location.href = "/create-token";
+    // Only force refresh if we're already on the create-token page
+    if (isCreateTokenPage) {
+      e.preventDefault();
+      window.location.href = "/create-token";
+    }
   };
 
   return (
@@ -58,13 +66,13 @@ export default function Navbar() {
               >
                 Home
               </Link>
-              <a
+              <Link
                 href="/create-token"
                 className="nav-link text-gray-300 hover:text-white transition-colors"
                 onClick={handleCreateTokenClick}
               >
                 Create Token
-              </a>
+              </Link>
               <Link
                 href="/my-tokens"
                 className="nav-link text-gray-300 hover:text-white transition-colors"
