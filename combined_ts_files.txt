@@ -644,8 +644,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SolHype - Create Solana Tokens Easily",
-  description: "Create, launch, and manage Solana tokens with ease. Your one-stop solution for Solana meme coin creation.",
+  title: "SolHype - Create Viral Solana Meme Coins & Tokens Easily",
+  description:
+    "Create, launch, and manage Solana meme coins in seconds. The simplest no-code platform for Solana token creation. Launch viral meme coins today.",
 };
 
 export default function RootLayout({
@@ -656,8 +657,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link 
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" 
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded"
           rel="stylesheet"
         />
       </head>
@@ -676,6 +677,7 @@ export default function RootLayout({
     </html>
   );
 }
+
 
 // ===== src/app/api/upload-metadata/route.ts =====
 
@@ -4544,8 +4546,8 @@ interface FaqItem {
 
 const faqItems: FaqItem[] = [
   {
-    question: "What is the SolHype?",
-    answer: "SolHype is a user-friendly platform that allows anyone to create and launch Solana tokens without any coding knowledge. Our intuitive interface guides you through the entire process, from customizing token parameters to revoking authorities for enhanced security."
+    question: "What is SolHype?",
+    answer: "SolHype is a user-friendly platform that allows anyone to create and launch Solana tokens and meme coins without any coding knowledge. Our intuitive interface guides you through the entire process, from customizing token parameters to revoking authorities for enhanced security."
   },
   {
     question: "How can I create a token on the Solana blockchain?",
@@ -4554,6 +4556,10 @@ const faqItems: FaqItem[] = [
   {
     question: "How can I manage token authorities on Solana?",
     answer: "Solana tokens have three authorities: Mint (controls token supply), Freeze (can freeze token transfers), and Update (modifies token metadata). SolHype lets you revoke any of these authorities to enhance investor trust. Once revoked, these authorities cannot be restored, making your token more secure and trustworthy."
+  },
+  {
+    question: "How do I create a successful meme coin on Solana?",
+    answer: "Creating a successful meme coin starts with a unique concept and strong branding. With SolHype, you can easily launch your meme coin by connecting your wallet, uploading your unique logo, setting your token parameters, and revoking authorities to build investor trust. After launch, focus on building community through social channels and creating liquidity pools to enable trading."
   },
   {
     question: "What support resources are available if I encounter issues during my token launch?",
@@ -4596,7 +4602,7 @@ export default function FaqSection() {
             Frequently Asked Questions
           </h2>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            Find quick answers to all common questions about creating tokens on SolHype
+            Find quick answers to all common questions about creating meme coins and tokens on SolHype
           </p>
         </motion.div>
         
@@ -4643,10 +4649,10 @@ export default function FaqSection() {
 
 // ===== src/components/home/hero-section.tsx =====
 
-'use client';
-import { useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
+"use client";
+import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import Link from "next/link";
 
 export default function HeroSection() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -4655,9 +4661,16 @@ export default function HeroSection() {
     // Enhanced particle background effect
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let particles: { x: number; y: number; vx: number; vy: number; size: number; color: string }[] = [];
-    
+    const ctx = canvas.getContext("2d");
+    let particles: {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      size: number;
+      color: string;
+    }[] = [];
+
     const createParticles = () => {
       particles = Array.from({ length: 120 }).map(() => ({
         x: Math.random() * canvas.width,
@@ -4665,75 +4678,79 @@ export default function HeroSection() {
         vx: (Math.random() - 0.5) * 0.5,
         vy: (Math.random() - 0.5) * 0.5,
         size: Math.random() * 3 + 1,
-        color: `rgba(${Math.floor(Math.random() * 100 + 100)}, ${Math.floor(Math.random() * 50 + 50)}, ${Math.floor(Math.random() * 200 + 55)}, ${Math.random() * 0.2 + 0.1})`
+        color: `rgba(${Math.floor(Math.random() * 100 + 100)}, ${Math.floor(
+          Math.random() * 50 + 50
+        )}, ${Math.floor(Math.random() * 200 + 55)}, ${
+          Math.random() * 0.2 + 0.1
+        })`,
       }));
     };
-    
+
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       createParticles();
     };
-    
+
     resize();
-    window.addEventListener('resize', resize);
+    window.addEventListener("resize", resize);
 
     const animate = () => {
       if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      particles.forEach(p => {
+
+      particles.forEach((p) => {
         p.x += p.vx;
         p.y += p.vy;
-        
+
         // Boundary check with smoother transition
         if (p.x < 0) p.x = canvas.width;
         if (p.x > canvas.width) p.x = 0;
         if (p.y < 0) p.y = canvas.height;
         if (p.y > canvas.height) p.y = 0;
-        
+
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.fill();
       });
-      
+
       requestAnimationFrame(animate);
     };
-    
+
     animate();
-    return () => window.removeEventListener('resize', resize);
+    return () => window.removeEventListener("resize", resize);
   }, []);
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
       <canvas ref={canvasRef} className="absolute inset-0" />
-      
+
       <motion.div
         initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.7, ease: "easeOut" }}
         className="relative text-center px-4 pt-10 md:pt-0 z-10"
       >
-        <motion.h1 
+        <motion.h1
           className="text-5xl md:text-6xl lg:text-7xl font-bold bg-gradient-to-r from-purple-500 via-purple-400 to-blue-500 bg-clip-text text-transparent"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.8 }}
         >
-          Create Solana Tokens In Seconds
+          Create Solana Meme Coins In Seconds
         </motion.h1>
-        
+
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5, duration: 0.8 }}
           className="mt-6 text-gray-300 text-lg md:text-xl max-w-2xl mx-auto"
         >
-          The easiest way to mint, launch, and manage tokens on the Solana blockchain.
-          No coding required.
+          The easiest way to mint, launch, and manage meme coins on the Solana
+          blockchain. No coding required.
         </motion.p>
-        
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -4744,7 +4761,7 @@ export default function HeroSection() {
             href="/create-token"
             className="bg-gradient-to-r from-purple-600 to-blue-500 py-4 px-8 rounded-full text-white font-medium hover:shadow-lg hover:shadow-purple-500/20 transition-all"
           >
-            Create Your Token
+            Create Your Meme Coin
           </Link>
           <Link
             href="/guides"
@@ -4753,19 +4770,20 @@ export default function HeroSection() {
             Learn How It Works
           </Link>
         </motion.div>
-        
+
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 0.8 }}
           className="mt-8 text-gray-500 text-sm"
         >
-          Trusted by hundreds of token creators on Solana
+          Trusted by hundreds of meme coin creators on Solana
         </motion.div>
       </motion.div>
     </section>
   );
 }
+
 
 // ===== src/components/home/how-it-works-section.tsx =====
 
@@ -4777,7 +4795,7 @@ const steps = [
   { 
     number: 1, 
     title: 'Connect Your Wallet', 
-    description: 'Connect your Solana wallet to get started with the token creation process.',
+    description: 'Connect your Solana wallet to get started with the meme coin creation process.',
     icon: (
       <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -4786,8 +4804,8 @@ const steps = [
   },
   { 
     number: 2, 
-    title: 'Customize Your Token', 
-    description: 'Set name, symbol, supply, and upload a logo. Configure token authorities and social links.',
+    title: 'Customize Your Meme Coin', 
+    description: 'Set name, symbol, supply, and upload a logo. Configure token authorities and social links for your meme coin.',
     icon: (
       <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -4797,7 +4815,7 @@ const steps = [
   { 
     number: 3, 
     title: 'Launch & Manage', 
-    description: 'Confirm transaction in your wallet and access tools to create liquidity and promote your token.',
+    description: 'Confirm transaction in your wallet and access tools to create liquidity and promote your viral meme coin.',
     icon: (
       <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -4825,7 +4843,7 @@ export default function HowItWorksSection() {
         >
           <h2 className="text-4xl font-bold text-white mb-4">How It Works</h2>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            Creating your own Solana token is simple and straightforward with our easy-to-use platform
+            Creating your own viral Solana meme coin is simple and straightforward with our easy-to-use platform
           </p>
         </motion.div>
         
@@ -4895,6 +4913,26 @@ const features = [
     ),
   },
   {
+    title: "Meme Coin Ready",
+    description: "Everything you need to launch the next viral Solana meme coin. Custom branding, social links, and authority controls specifically designed for meme coin projects.",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-10 h-10 text-pink-500"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+    ),
+  },
+  {
     title: "Revocable Authorities",
     description: "Increase investor trust by revoking mint, freeze, and update authorities. Full control over your token's security features.",
     icon: (
@@ -4954,6 +4992,26 @@ const features = [
       </svg>
     ),
   },
+  {
+    title: "Community Growth Tools",
+    description: "Leverage built-in features to kickstart your meme coin community. Easily link to social platforms and provide comprehensive token information to attract investors.",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-10 h-10 text-orange-500"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+        />
+      </svg>
+    ),
+  },
 ];
 
 export default function FeaturesSection() {
@@ -4977,11 +5035,11 @@ export default function FeaturesSection() {
             Why Choose <span className="text-purple-500">SolHype</span>?
           </h2>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            Our platform provides everything you need to launch your Solana token project with confidence and security.
+            Our platform provides everything you need to launch your Solana meme coin or token project with confidence and security.
           </p>
         </motion.div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
             <motion.div
               key={feature.title}
@@ -5177,7 +5235,7 @@ export default function CTASection() {
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.2 }}
         >
-          Ready to Launch Your Token?
+          Ready to Launch Your Meme Coin?
         </motion.h2>
         
         <motion.p 
@@ -5187,7 +5245,7 @@ export default function CTASection() {
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
-          Join hundreds of creators who have already launched their tokens on Solana using SolHype. 
+          Join hundreds of creators who have already launched successful meme coins on Solana using SolHype. 
           Start building your project today with just a few clicks.
         </motion.p>
         
@@ -5202,7 +5260,7 @@ export default function CTASection() {
             href="/create-token"
             className="bg-white text-purple-900 font-semibold py-4 px-8 rounded-full hover:shadow-xl hover:bg-gray-100 transition-all"
           >
-            Create Token Now
+            Launch Your Meme Coin
           </Link>
           
           <Link
@@ -5418,9 +5476,9 @@ import GuideCard from './guide-card';
 // Guide data
 const guides = [
   {
-    id: 'token-creation',
-    title: 'How to Create a Solana Token',
-    description: 'A step-by-step guide to create your own token on the Solana blockchain with SolHype.',
+    id: 'meme-coin-creation',
+    title: 'How to Create a Solana Meme Coin',
+    description: 'A step-by-step guide to create your own viral meme coin on the Solana blockchain with SolHype.',
     icon: (
       <svg className="w-10 h-10 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -5432,27 +5490,27 @@ const guides = [
         description: 'Click the "Connect Wallet" button in the top right corner and connect your Phantom, Solflare, or other compatible Solana wallet.',
       },
       {
-        title: 'Fill in Token Details',
-        description: 'Enter your token\'s name, symbol, supply, and other details. Upload a logo image (1000x1000px recommended) to give your token a unique identity.',
+        title: 'Fill in Meme Coin Details',
+        description: 'Enter your meme coin\'s name, symbol, supply, and other details. Upload a logo image (1000x1000px recommended) to give your meme coin a unique identity.',
       },
       {
         title: 'Configure Token Options',
         description: 'Choose whether to include social links and creator information. Select which authorities to revoke (recommended for investor trust).',
       },
       {
-        title: 'Launch Your Token',
-        description: 'Review your token details, then click "Launch Token" and approve the transaction in your wallet. Your token will be created on the Solana blockchain.',
+        title: 'Launch Your Meme Coin',
+        description: 'Review your meme coin details, then click "Launch Token" and approve the transaction in your wallet. Your meme coin will be created on the Solana blockchain.',
       },
       {
         title: 'Create Liquidity',
-        description: 'After creating your token, set up a liquidity pool on Raydium or another Solana DEX to make your token tradable on the open market.',
+        description: 'After creating your meme coin, set up a liquidity pool on Raydium or another Solana DEX to make your token tradable on the open market.',
       },
     ],
   },
   {
     id: 'token-authorities',
     title: 'Token Authorities Explained',
-    description: 'Learn about the different types of authorities in Solana tokens and how they affect your token\'s security and credibility.',
+    description: 'Learn about the different types of authorities in Solana meme coins and how they affect your token\'s security and credibility.',
     icon: (
       <svg className="w-10 h-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -5461,23 +5519,55 @@ const guides = [
     content: [
       {
         title: 'Mint Authority',
-        description: 'Controls the ability to create (mint) new tokens. Revoking this authority creates a fixed supply token that cannot be inflated, building trust with your community.',
+        description: 'Controls the ability to create (mint) new tokens. Revoking this authority creates a fixed supply meme coin that cannot be inflated, building trust with your community.',
       },
       {
         title: 'Freeze Authority',
-        description: 'Controls the ability to freeze token accounts, preventing transfers. Revoking this ensures no one can freeze holders\' tokens, increasing security for token holders.',
+        description: 'Controls the ability to freeze token accounts, preventing transfers. Revoking this ensures no one can freeze holders\' tokens, increasing security for meme coin investors.',
       },
       {
         title: 'Update Authority',
-        description: 'Controls the ability to modify token metadata (name, symbol, image, etc.). Revoking makes the token\'s metadata immutable, preventing future changes.',
+        description: 'Controls the ability to modify token metadata (name, symbol, image, etc.). Revoking makes the meme coin\'s metadata immutable, preventing future changes.',
       },
     ],
-    recommendation: 'For maximum credibility with your community, we recommend revoking all authorities.',
+    recommendation: 'For maximum credibility with your meme coin community, we recommend revoking all authorities.',
+  },
+  {
+    id: 'meme-coin-marketing',
+    title: 'Marketing Your Meme Coin',
+    description: 'Essential strategies to promote your meme coin and build a thriving community.',
+    icon: (
+      <svg className="w-10 h-10 text-pink-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+      </svg>
+    ),
+    steps: [
+      {
+        title: 'Build Social Media Presence',
+        description: 'Create dedicated social media accounts for your meme coin on Twitter, Telegram, and Discord. Consistently post updates, memes, and community information.',
+      },
+      {
+        title: 'Create a Narrative',
+        description: 'Every successful meme coin has a compelling story. Develop a unique narrative around your token that resonates with potential investors.',
+      },
+      {
+        title: 'Leverage Community Power',
+        description: 'Encourage community participation through rewards, competitions, and airdrops. Engaged communities are the backbone of successful meme coins.',
+      },
+      {
+        title: 'Partner with Influencers',
+        description: 'Collaborate with crypto influencers to increase visibility and credibility. Choose partners whose audience aligns with your target community.',
+      },
+      {
+        title: 'Provide Transparent Updates',
+        description: 'Regularly share development progress, roadmap updates, and partnership announcements to maintain investor confidence.',
+      },
+    ],
   },
   {
     id: 'liquidity-pools',
     title: 'Setting Up Liquidity Pools',
-    description: 'Learn how to create liquidity pools for your newly minted token on Raydium DEX.',
+    description: 'Learn how to create liquidity pools for your newly minted meme coin on Raydium DEX.',
     icon: (
       <svg className="w-10 h-10 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M20 12a8 8 0 01-8 8v0a8 8 0 01-8-8v0a8 8 0 018-8v0a8 8 0 018 8v0z" />
@@ -5486,8 +5576,8 @@ const guides = [
     ),
     steps: [
       {
-        title: 'Prepare Your Token',
-        description: 'Make sure your token is created and you have the necessary token amount and SOL for creating the liquidity pool.',
+        title: 'Prepare Your Meme Coin',
+        description: 'Make sure your meme coin is created and you have the necessary token amount and SOL for creating the liquidity pool.',
       },
       {
         title: 'Visit Raydium Liquidity',
@@ -5495,15 +5585,15 @@ const guides = [
       },
       {
         title: 'Select Token Pair',
-        description: 'Choose your token and a pairing token (usually SOL or USDC) to create the liquidity pair.',
+        description: 'Choose your meme coin and a pairing token (usually SOL or USDC) to create the liquidity pair.',
       },
       {
         title: 'Set Initial Price',
-        description: 'Determine the initial price of your token by depositing the appropriate ratio of your token and the paired asset.',
+        description: 'Determine the initial price of your meme coin by depositing the appropriate ratio of your token and the paired asset.',
       },
       {
         title: 'Create Pool',
-        description: 'Review the details, confirm the transaction in your wallet, and your token will be available for trading.',
+        description: 'Review the details, confirm the transaction in your wallet, and your meme coin will be available for trading.',
       },
     ],
   },
@@ -5652,12 +5742,12 @@ export default function GuideHeader() {
     >
       <h1 className="text-4xl md:text-5xl font-bold text-center mb-6">
         <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
-          Guides & Resources
+          Meme Coin Guides & Resources
         </span>
       </h1>
       <p className="text-gray-400 text-lg max-w-3xl mx-auto">
-        Learn how to create, launch, and manage your Solana tokens with our comprehensive guides and resources. 
-        Follow the step-by-step instructions to bring your token project to life.
+        Learn how to create, launch, and manage your Solana meme coins with our comprehensive guides and resources. 
+        Follow the step-by-step instructions to bring your meme coin project to life with SolHype.
       </p>
     </motion.div>
   );
@@ -5683,9 +5773,20 @@ const resources = [
     url: 'https://docs.solana.com/',
   },
   {
+    id: 'meme-coin-trends',
+    title: 'Meme Coin Trends',
+    description: 'Stay updated on the latest meme coin trends in the Solana ecosystem.',
+    icon: (
+      <svg className="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+      </svg>
+    ),
+    url: 'https://www.coingecko.com/en/categories/meme-token',
+  },
+  {
     id: 'raydium-docs',
     title: 'Raydium DEX Guide',
-    description: 'Learn how to use Raydium DEX to create liquidity pools.',
+    description: 'Learn how to use Raydium DEX to create liquidity pools for your meme coin.',
     icon: (
       <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
@@ -5694,27 +5795,38 @@ const resources = [
     url: 'https://raydium.gitbook.io/raydium/',
   },
   {
-    id: 'token-marketing',
-    title: 'Token Marketing Strategies',
-    description: 'Learn effective marketing strategies for your new token.',
+    id: 'meme-coin-marketing',
+    title: 'Meme Coin Marketing Strategies',
+    description: 'Learn effective marketing strategies for your new meme coin.',
     icon: (
       <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
       </svg>
     ),
-    url: 'https://solana.com/developers',
+    url: 'https://coinbound.io/memecoin-marketing/',
   },
   {
     id: 'community-building',
-    title: 'Building a Token Community',
-    description: 'Guide to building and growing your token community.',
+    title: 'Building a Meme Coin Community',
+    description: 'Guide to building and growing your meme coin community.',
     icon: (
       <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
       </svg>
     ),
-    url: 'https://solana.com/ecosystem',
+    url: 'https://hackernoon.com/the-power-of-community-in-memecoin-success',
+  },
+  {
+    id: 'meme-coin-examples',
+    title: 'Successful Meme Coin Case Studies',
+    description: 'Learn from successful Solana meme coin projects.',
+    icon: (
+      <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+    url: 'https://blockapps.net/blog/case-study-from-concept-to-market-the-journey-of-a-successful-meme-coin/',
   },
 ];
 
@@ -5723,7 +5835,7 @@ export default function ResourcesList() {
     <div>
       <h2 className="text-2xl font-bold text-white mb-8">External Resources</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {resources.map((resource, index) => (
           <motion.div
             key={resource.id}
@@ -5761,7 +5873,7 @@ export default function ResourcesList() {
       
       <div className="mt-10 p-4 bg-[#171717] rounded-xl border border-gray-800">
         <p className="text-gray-400 text-center">
-          Need more help? Join our <a href="https://discord.gg/solana" target="_blank" rel="noopener noreferrer" className="text-purple-500 hover:text-purple-400 underline">Discord community</a> for support and updates.
+          Need more help with your meme coin? Join our <a href="https://discord.gg/solana" target="_blank" rel="noopener noreferrer" className="text-purple-500 hover:text-purple-400 underline">Discord community</a> for support and updates.
         </p>
       </div>
     </div>

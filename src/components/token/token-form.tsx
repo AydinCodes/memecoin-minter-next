@@ -20,16 +20,16 @@ import { FormDataType, TokenResult } from "@/types/token"
 import { SOLANA_NETWORK_FEE } from "@/config"
 import { resetSessionUuid } from "@/services/ipfs-service"
 
-// Enhanced steps with more concise and user-friendly messages
+// Humorous loading steps related to meme coins
 const STEPS = [
-  "Uploading token image...",
-  "Creating token metadata...",
-  "Preparing transaction...",
-  "Processing on blockchain...",
-  "Finalizing token details...",
-  "Almost done...",
-  "Completing token creation...",
-]
+  "Bribing crypto influencers...",
+  "Planning the perfect rug pull...",
+  "Pumping your bags to the moon...",
+  "Dumping on the degens at 3 AM...",
+  "Hiring shills for max FOMO...",
+  "Coding a 99% dev tax, oops...",
+  "Tweeting 'LFG' for clout..."
+];
 
 const DEFAULT_FORM_DATA: FormDataType = {
   name: "",
@@ -56,6 +56,7 @@ export default function TokenForm() {
   const router = useRouter()
   const pathname = usePathname()
   const formRef = useRef<HTMLDivElement>(null)
+  const logoInputRef = useRef<HTMLDivElement>(null)
 
   const [formData, setFormData] = useState<FormDataType>(DEFAULT_FORM_DATA)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -153,6 +154,13 @@ export default function TokenForm() {
       document.body.scrollTop = 0; // For Safari
     }
   }, [isSubmitting, tokenResult]);
+
+  // Effect to scroll to logo input when there's a logo error
+  useEffect(() => {
+    if (error && error.includes("logo") && logoInputRef.current) {
+      logoInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [error]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -285,7 +293,7 @@ export default function TokenForm() {
   if (isSubmitting) {
     return (
       <Loading
-        message="Creating Your Token"
+        message="Creating Your Meme Coin"
         steps={STEPS}
         currentStepIndex={progressStep}
         onCancel={handleCancel}
@@ -303,20 +311,36 @@ export default function TokenForm() {
 
   return (
     <div ref={formRef}>
+      {/* Instructions header */}
+      <div className="max-w-3xl mx-auto mb-6 p-6 bg-[#171717] rounded-xl mt-12 border-l-4 border-purple-500">
+        <h2 className="text-2xl font-bold mb-3 text-white">Create Your Meme Coin</h2>
+        <p className="text-gray-300 mb-4">
+          Launch your viral meme coin in minutes! Fill out the form below to create a new Solana token with your own branding and customizations.
+        </p>
+        <ul className="text-gray-400 space-y-2 ml-6 list-disc">
+          <li>Upload a catchy logo - this is what everyone will see!</li>
+          <li>Choose a memorable name and symbol for your token</li>
+          <li>Revoke authorities to build trust with your future community</li>
+          <li>Add social links to start building your following</li>
+        </ul>
+      </div>
+
       <form
         onSubmit={handleSubmit}
-        className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl my-12"
+        className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl mb-12"
       >
         {error && (
           <div className="text-red-400 bg-red-800/30 p-3 rounded mb-4">{error}</div>
         )}
 
-        <TokenFormBasic
-          formData={formData}
-          handleInputChange={handleInputChange}
-          handleFileChange={handleFileChange}
-          formSubmitted={formSubmitAttempted}
-        />
+        <div ref={logoInputRef}>
+          <TokenFormBasic
+            formData={formData}
+            handleInputChange={handleInputChange}
+            handleFileChange={handleFileChange}
+            formSubmitted={formSubmitAttempted}
+          />
+        </div>
 
         <TokenFormOptions
           formData={formData}
@@ -350,6 +374,11 @@ export default function TokenForm() {
         >
           Launch Token
         </button>
+        
+        {/* Added submission note */}
+        <div className="text-center text-gray-500 text-sm pt-2">
+          Click to launch your token and approve the transaction in your wallet
+        </div>
       </form>
     </div>
   )

@@ -96,21 +96,21 @@ export default function TokenCreationSuccess({ result }: TokenCreationSuccessPro
         <div className="buttons flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-4">
           <Link 
             href="/my-tokens"
-            className="btn bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium py-3 px-8 rounded-full hover:shadow-lg transition-all text-center"
+            className="hover:cursor-pointer btn bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium py-3 px-8 rounded-full hover:shadow-lg transition-all text-center"
           >
             View My Tokens
           </Link>
           
           <button
             onClick={handleCreateAnother}
-            className="btn bg-transparent border border-purple-500 text-purple-500 font-medium py-3 px-8 rounded-full hover:bg-purple-500 hover:text-white hover:shadow-lg transition-all text-center"
+            className="hover:cursor-pointer btn bg-transparent border border-purple-500 text-purple-500 font-medium py-3 px-8 rounded-full hover:bg-purple-500 hover:text-white hover:shadow-lg transition-all text-center"
           >
             Create Another Token
           </button>
           
           <Link 
             href="/"
-            className="btn bg-transparent border border-gray-700 text-gray-400 font-medium py-3 px-8 rounded-full hover:bg-gray-700 hover:text-white hover:shadow-lg transition-all text-center"
+            className="hover:cursor-pointer btn bg-transparent border border-gray-700 text-gray-400 font-medium py-3 px-8 rounded-full hover:bg-gray-700 hover:text-white hover:shadow-lg transition-all text-center"
           >
             Back to Home
           </Link>

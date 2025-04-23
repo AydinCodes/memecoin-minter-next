@@ -15,3 +15,5 @@ make sure it doesn't work on mobile
 make sure devnet fails on final app unless the env is devnet
 
 sol.hype on x
+
+adjust fees - make base fee 0 sol unless no options are selected, then make it 0.1 sol.

@@ -62,7 +62,7 @@ export default function Loading({
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 max-w-md mx-auto">
       <div className="relative mb-8">
-        {/* New wave loader */}
+        {/* Wave loader */}
         <div className="wave-loader"></div>
       </div>
 
