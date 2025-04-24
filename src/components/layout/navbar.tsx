@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import WalletButton from "../wallet/wallet-button";
+import AnimatedLogo from "../ui/animated-logo";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -52,11 +53,7 @@ export default function Navbar() {
         >
           <div className="flex justify-between items-center">
             <Link href="/" className="logo-container flex items-center">
-              <div className="logo-img">
-                <span className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
-                  SolHype
-                </span>
-              </div>
+              <AnimatedLogo />
             </Link>
 
             <nav className="main-nav hidden md:flex space-x-6">
