@@ -1,0 +1,124 @@
+/* Mobile Blocker Styles */
+:root {
+    --vh: 1vh; /* CSS variable for viewport height, will be set dynamically in JS */
+  }
+  
+  .mobile-blocker-overlay {
+    animation: gradientAnimation 10s ease infinite;
+    background-size: 200% 200%;
+    touch-action: none; /* Disable touch events */
+    -webkit-overflow-scrolling: none; /* Disable iOS momentum scrolling */
+    /* Make sure it's absolutely positioned to cover everything */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh; /* Fallback */
+    height: calc(var(--vh, 1vh) * 100); /* Use the CSS variable */
+    /* Use viewport height with fallbacks for iOS */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    min-height: -moz-available;
+    min-height: fill-available;
+  }
+  
+  /* Safari specific fix */
+  @supports (-webkit-touch-callout: none) {
+    .mobile-blocker-overlay {
+      height: -webkit-fill-available;
+    }
+    
+    html {
+      height: -webkit-fill-available;
+    }
+  }
+  
+  @keyframes gradientAnimation {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+  
+  .mobile-icon-pulse {
+    animation: pulsate 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulsate {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 0.8;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  
+  .mobile-blocker-particle {
+    will-change: transform;
+  }
+  
+  .device-card {
+    transition: all 0.3s ease;
+  }
+  
+  .device-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.3);
+  }
+  
+  .desktop-badge {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .desktop-badge::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    right: -20px;
+    background-color: #34D399;
+    width: 40px;
+    height: 40px;
+    transform: rotate(45deg);
+    z-index: -1;
+  }
+  
+  .mobile-badge {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .mobile-badge::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    right: -20px;
+    background-color: #F87171;
+    width: 40px;
+    height: 40px;
+    transform: rotate(45deg);
+    z-index: -1;
+  }
+  
+  /* Add some additional styles to disable scrolling when mobile blocker is active */
+  html.mobile-blocked,
+  body.mobile-blocked {
+    overflow: hidden !important;
+    height: 100% !important;
+    width: 100% !important;
+    position: fixed !important;
+    touch-action: none !important;
+  }

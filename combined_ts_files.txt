@@ -102,6 +102,7 @@ export interface FormDataType {
   twitter: string;
   telegram: string;
   discord: string;
+  largeImageSize: boolean; // Added for large image size toggle
 }
 
 export interface TokenResult {
@@ -2343,8 +2344,6 @@ export function isValidTokenName(name: string): boolean {
 
 // ===== src/components/token/token-form-options.tsx =====
 
-// src/components/token/token-form-options.tsx
-
 'use client';
 
 import React from 'react';
@@ -2408,7 +2407,6 @@ export default function TokenFormOptions({
               </div>
             </div>
             <div className="toggle-label text-gray-300 mr-3">Creator's Info (Optional)</div>
-            <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
           </div>
           <div className="toggle-cost flex items-center">
             <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
@@ -2440,7 +2438,6 @@ export default function TokenFormOptions({
               </div>
             </div>
             <div className="toggle-label text-gray-300 mr-3">Add Social Links & Tags</div>
-            <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
           </div>
           <div className="toggle-cost flex items-center">
             <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
@@ -2460,8 +2457,6 @@ export default function TokenFormOptions({
 }
 
 // ===== src/components/token/token-form.tsx =====
-
-// src/components/token/token-form.tsx
 
 "use client";
 
@@ -2484,6 +2479,7 @@ import WalletRequired from "../wallet/wallet-required";
 import { FormDataType, TokenResult } from "@/types/token";
 import { SOLANA_NETWORK_FEE } from "@/config";
 import { resetSessionUuid } from "@/services/ipfs-service";
+import { FEE_CONSTANTS } from "@/services/fee-service";
 
 // Humorous loading steps related to meme coins
 const STEPS = [
@@ -2513,6 +2509,13 @@ const DEFAULT_FORM_DATA: FormDataType = {
   twitter: "",
   telegram: "",
   discord: "",
+  largeImageSize: false, // New field for large image toggle
+};
+
+// Image size limits in bytes
+const IMAGE_SIZE_LIMITS = {
+  DEFAULT: 500 * 1024, // 500KB
+  LARGE: 10 * 1024 * 1024, // 10MB
 };
 
 export default function TokenForm() {
@@ -2531,6 +2534,7 @@ export default function TokenForm() {
   const [totalFee, setTotalFee] = useState<number>(0.4); // Initial fee calculation with all defaults
   const [formSubmitAttempted, setFormSubmitAttempted] = useState(false); // Track form submission attempts
   const [cancelled, setCancelled] = useState(false); // Track if token creation was cancelled
+  const [imageSizeError, setImageSizeError] = useState<string | null>(null);
 
   // Register all useEffects before any conditional rendering
 
@@ -2565,6 +2569,7 @@ export default function TokenForm() {
       setCancelled(false);
       setFormSubmitAttempted(false);
       setIsSubmitting(false);
+      setImageSizeError(null);
     }
   }, [pathname]);
 
@@ -2584,6 +2589,7 @@ export default function TokenForm() {
       setCancelled(false);
       setFormSubmitAttempted(false);
       setIsSubmitting(false);
+      setImageSizeError(null);
     }
   }, [pathname]);
 
@@ -2595,6 +2601,7 @@ export default function TokenForm() {
       revokeUpdate: formData.revokeUpdate,
       socialLinks: formData.socialLinks,
       creatorInfo: formData.creatorInfo,
+      largeImageSize: formData.largeImageSize,
     });
 
     setTotalFee(fee);
@@ -2604,6 +2611,7 @@ export default function TokenForm() {
     formData.revokeUpdate,
     formData.socialLinks,
     formData.creatorInfo,
+    formData.largeImageSize,
   ]);
 
   // Scroll to top effect for success and loading states
@@ -2616,23 +2624,22 @@ export default function TokenForm() {
 
   // Effect to scroll to logo input when there's a logo error
   useEffect(() => {
-    if (error && error.includes("logo") && logoInputRef.current) {
-      logoInputRef.current.scrollIntoView({
+    if ((error && error.includes("logo")) || imageSizeError) {
+      logoInputRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
     }
-  }, [error]);
+  }, [error, imageSizeError]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value, type } = e.target as HTMLInputElement;
-    const checked =
-      type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
+    const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
 
-   
-
+    // Normal form field handling without special cases
+    // The special logic for largeImageSize is now handled directly in the toggle button's onClick
     setFormData((prev) => ({
       ...prev,
       [name]:
@@ -2646,7 +2653,46 @@ export default function TokenForm() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFormData((prev) => ({ ...prev, logo: e.target.files![0] }));
+      const file = e.target.files[0];
+      const sizeLimit = formData.largeImageSize 
+        ? IMAGE_SIZE_LIMITS.LARGE 
+        : IMAGE_SIZE_LIMITS.DEFAULT;
+      
+      // Hard cap at 10MB regardless of settings
+      const hardCap = IMAGE_SIZE_LIMITS.LARGE;
+      
+      // Check if the file exceeds the hard cap
+      if (file.size > hardCap) {
+        setImageSizeError(`The image is too large. Maximum size is 10MB.`);
+        // Reset the file input
+        e.target.value = '';
+        return;
+      }
+      
+      // Check if the file size is within the current limit
+      if (file.size > sizeLimit) {
+        if (formData.largeImageSize) {
+          // Should never happen due to the hard cap check above
+          setImageSizeError(`The image is too large. Maximum size is 10MB.`);
+        } else {
+          // If in default mode and too big, but could use large image option
+          setImageSizeError(
+            `The image is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). ` +
+            `Enable large image size option below for an additional fee.`
+          );
+        }
+        // Reset the file input
+        e.target.value = '';
+        return;
+      }
+      
+      // Clear any previous size errors
+      setImageSizeError(null);
+      
+      // Set the logo in form data
+      setFormData((prev) => ({ ...prev, logo: file }));
+      
+      console.log(`File accepted: ${file.name}, size: ${(file.size / 1024).toFixed(2)}KB, largeImageSize: ${formData.largeImageSize}`);
     }
   };
 
@@ -2667,6 +2713,22 @@ export default function TokenForm() {
     if (!formData.description || formData.description.trim() === "") {
       return "Token description is required";
     }
+    
+    // Make sure image size limits are respected
+    if (formData.logo) {
+      const sizeLimit = formData.largeImageSize 
+        ? IMAGE_SIZE_LIMITS.LARGE 
+        : IMAGE_SIZE_LIMITS.DEFAULT;
+        
+      if (formData.logo.size > sizeLimit) {
+        if (formData.largeImageSize) {
+          return `The image is too large. Maximum size is 10MB.`;
+        } else {
+          return `The image is too large. Enable large image size option or choose a smaller image.`;
+        }
+      }
+    }
+    
     return null;
   };
 
@@ -2809,7 +2871,62 @@ export default function TokenForm() {
             handleInputChange={handleInputChange}
             handleFileChange={handleFileChange}
             formSubmitted={formSubmitAttempted}
+            imageSizeError={imageSizeError}
+            sizeLimit={formData.largeImageSize ? IMAGE_SIZE_LIMITS.LARGE : IMAGE_SIZE_LIMITS.DEFAULT}
           />
+          
+          {/* Large Image Size Toggle */}
+          <div className="toggle-section mb-4 mt-2">
+            <div className="toggle-section-header flex justify-between items-center mb-2">
+              <div className="toggle-header-left flex items-center">
+                <div className="toggle-wrapper mr-3">
+                  <input 
+                    id="largeImageSize" 
+                    type="checkbox" 
+                    name="largeImageSize"
+                    checked={formData.largeImageSize}
+                    onChange={handleInputChange}
+                    className="hidden"
+                  />
+                  <div 
+                    className={`toggle w-12 h-6 rounded-full p-1 cursor-pointer ${formData.largeImageSize ? 'bg-purple-600' : 'bg-gray-700'}`}
+                    onClick={() => {
+                      // Simply update the form data and clear the logo
+                      setFormData(prev => ({
+                        ...prev,
+                        largeImageSize: !prev.largeImageSize,
+                        logo: null // Clear the logo when toggling
+                      }));
+                      
+                      // Clear any logo-related errors
+                      setImageSizeError(null);
+                      if (error?.includes("logo")) {
+                        setError(null);
+                      }
+                      
+                      // Reset the file input to clear any previous file selection
+                      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+                      if (fileInput) {
+                        fileInput.value = '';
+                      }
+                    }}
+                  >
+                    <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.largeImageSize ? 'translate-x-6' : ''}`}></div>
+                  </div>
+                </div>
+                <div className="toggle-label text-gray-300 mr-3">Large Image Size (Optional)</div>
+              </div>
+              <div className="toggle-cost flex items-center">
+                <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
+                <span className="text-purple-500">{FEE_CONSTANTS.AUTHORITY_FEE.toFixed(2)} SOL</span>
+              </div>
+            </div>
+            <div className="toggle-section-description text-xs text-gray-500">
+              {formData.largeImageSize 
+                ? "Large image size enabled (up to 10MB). Please upload your image again."
+                : "Enable this option to use images up to 10MB (default limit is 500KB)."}
+            </div>
+          </div>
         </div>
 
         <TokenFormOptions
@@ -2828,7 +2945,6 @@ export default function TokenForm() {
         <TokenFormAuthorities formData={formData} setFormData={setFormData} />
 
         {/* Display dynamic feature‐fee total */}
-        {/* Display dynamic feature‐fee total */}
         <div className="bg-[#222] p-4 rounded-lg mb-4">
           <div className="flex justify-between items-center text-gray-300 mb-2">
             <span className="flex items-center">
@@ -2845,6 +2961,7 @@ export default function TokenForm() {
                   revokeUpdate: formData.revokeUpdate,
                   socialLinks: formData.socialLinks,
                   creatorInfo: formData.creatorInfo,
+                  largeImageSize: formData.largeImageSize,
                 }).toFixed(2)}{" "}
                 SOL
               </span>
@@ -2874,7 +2991,6 @@ export default function TokenForm() {
     </div>
   );
 }
-
 
 // ===== src/components/token/token-detail-view.tsx =====
 
@@ -3649,7 +3765,6 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Freeze</div>
-              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
               <input 
                 id="revokeFreeze" 
                 type="checkbox" 
@@ -3691,7 +3806,6 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Mint</div>
-              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
               <input 
                 id="revokeMint" 
                 type="checkbox" 
@@ -3733,7 +3847,6 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Update</div>
-              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
               <input 
                 id="revokeUpdate" 
                 type="checkbox" 
@@ -4234,17 +4347,22 @@ interface TokenFormBasicProps {
     supply: number;
     description: string;
     logo: File | null;
+    largeImageSize: boolean;
   };
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  formSubmitted?: boolean; // New prop to track if form was submitted
+  formSubmitted?: boolean; // Prop to track if form was submitted
+  imageSizeError?: string | null; // New prop for image size errors
+  sizeLimit?: number; // Size limit in bytes
 }
 
 export default function TokenFormBasic({
   formData,
   handleInputChange,
   handleFileChange,
-  formSubmitted = false // Default to false
+  formSubmitted = false,
+  imageSizeError = null,
+  sizeLimit = 500 * 1024 // Default 500KB
 }: TokenFormBasicProps) {
   // Create a ref for the file input
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -4252,9 +4370,22 @@ export default function TokenFormBasic({
   // Function to trigger file input click
   const triggerFileInput = () => {
     if (fileInputRef.current) {
+      // Reset the value before clicking to ensure the change event fires
+      // even if selecting the same file after toggling large image size
+      fileInputRef.current.value = '';
       fileInputRef.current.click();
     }
   };
+
+  // Format file size to human-readable format
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' bytes';
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    else return (bytes / 1048576).toFixed(1) + ' MB';
+  };
+
+  // Current size limit display
+  const sizeLimitDisplay = formatFileSize(sizeLimit);
 
   return (
     <div className="form-section mb-8">
@@ -4319,36 +4450,56 @@ export default function TokenFormBasic({
         <div className="logo-box">
           <span className="label-text block text-gray-300 mb-2">Logo *</span>
           <div 
-            className="img-input-wrapper border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-purple-500 transition-colors" 
+            className={`img-input-wrapper border-2 border-dashed ${imageSizeError ? 'border-red-500' : 'border-gray-700'} rounded-lg p-6 text-center cursor-pointer hover:border-purple-500 transition-colors`}
             onClick={triggerFileInput}
           >
             <span className="material-symbols-rounded text-3xl mb-2 text-gray-400 block">upload</span>
             <span className="text-1 block text-gray-300 mb-1">Drag and drop here to upload</span>
-            <div className="text-2 text-xs text-gray-500">.png, .jpg 1000x1000 px</div>
+            <div className="text-2 text-xs text-gray-500">.png, .jpg (Max: {sizeLimitDisplay})</div>
             <input 
               ref={fileInputRef}
               accept=".png, .jpg, .jpeg" 
               className="form-img hidden" 
               type="file"
               onChange={handleFileChange}
-              // Remove required from hidden input
             />
           </div>
-          <span className="field-constraint text-xs text-gray-500 mt-1 block">Add logo for your token</span>
-          {formSubmitted && !formData.logo && (
-            <span className="text-red-400 text-xs mt-1 block">
-              Logo image is required
-            </span>
-          )}
+          <div className="mt-1">
+            {imageSizeError ? (
+              <span className="text-red-400 text-xs block">{imageSizeError}</span>
+            ) : (
+              <span className="field-constraint text-xs text-gray-500 block">
+                Add logo for your token (Max size: {sizeLimitDisplay})
+              </span>
+            )}
+            
+            {formSubmitted && !formData.logo && !imageSizeError && (
+              <span className="text-red-400 text-xs block mt-1">
+                Logo image is required
+              </span>
+            )}
+          </div>
         </div>
         
         <div className="logo-preview flex items-center justify-center">
           {formData.logo ? (
-            <img 
-              src={URL.createObjectURL(formData.logo)} 
-              alt="Token Logo Preview" 
-              className="max-h-40 rounded-lg border border-gray-700"
-            />
+            <div className="flex flex-col items-center">
+              <img 
+                src={URL.createObjectURL(formData.logo)} 
+                alt="Token Logo Preview" 
+                className="max-h-40 rounded-lg border border-gray-700"
+              />
+              <div className="mt-2 flex flex-col items-center">
+                <span className="text-xs text-gray-400">
+                  Size: {formatFileSize(formData.logo.size)}
+                </span>
+                {formData.largeImageSize && formData.logo.size <= 500 * 1024 && (
+                  <span className="text-xs text-amber-400 mt-1">
+                    Note: This image would fit within the standard size limit. Large image upgrade not needed.
+                  </span>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="text-gray-500 text-sm">Logo preview will appear here</div>
           )}
@@ -6775,6 +6926,12 @@ import { createTokenClientSide } from "./token-creation/client-side-creation";
 import { createTokenServerSide } from "./token-creation/server-side-creation";
 import { handleErrorWithCleanup } from "./pinata-cleanup";
 
+// Image size limits in bytes
+const IMAGE_SIZE_LIMITS = {
+  DEFAULT: 500 * 1024, // 500KB
+  LARGE: 10 * 1024 * 1024, // 10MB
+};
+
 /**
  * Orchestrates token creation with a single transaction
  * Network fees are deducted from the fee recipient amount, so the user pays EXACTLY the displayed fee
@@ -6806,6 +6963,16 @@ export async function createTokenWithMetadata(
   }
   if (!formData.description || formData.description.trim() === "") {
     throw new Error("Token description is required");
+  }
+
+  // Validate image size
+  const maxImageSize = formData.largeImageSize ? IMAGE_SIZE_LIMITS.LARGE : IMAGE_SIZE_LIMITS.DEFAULT;
+  if (formData.logo && formData.logo.size > maxImageSize) {
+    if (formData.largeImageSize) {
+      throw new Error(`Image size exceeds maximum limit of 10MB`);
+    } else {
+      throw new Error(`Image size exceeds maximum limit of 500KB. Enable large image size option for larger images.`);
+    }
   }
 
   // Ensure minimum fee
@@ -6896,7 +7063,6 @@ export async function createTokenWithMetadata(
   }
 }
 
-
 // ===== src/services/token-discovery-service.ts =====
 
 // src/services/token-discovery-service.ts
@@ -6986,6 +7152,7 @@ export interface FeeOptions {
   revokeUpdate: boolean
   socialLinks: boolean
   creatorInfo: boolean
+  largeImageSize?: boolean
 }
 
 // Fee constants with original and discounted rates
@@ -6995,6 +7162,7 @@ export const FEE_CONSTANTS = {
   AUTHORITY_FEE: 0.1,    // Discounted fee per authority revoked (50% off)
   SOCIAL_LINKS_FEE: 0.1,  // Discounted fee for social links (50% off)
   CREATOR_INFO_FEE: 0.1,  // Discounted fee for creator info (50% off)
+  LARGE_IMAGE_FEE: 0.1,   // Fee for enabling large image size
   MINIMUM_FEE: 0.1       // Minimum fee for any token creation
 };
 
@@ -7008,6 +7176,7 @@ export function calculateFee(options: FeeOptions): number {
   if (options.revokeUpdate) fee += FEE_CONSTANTS.AUTHORITY_FEE;
   if (options.socialLinks) fee += FEE_CONSTANTS.SOCIAL_LINKS_FEE;
   if (options.creatorInfo) fee += FEE_CONSTANTS.CREATOR_INFO_FEE;
+  if (options.largeImageSize) fee += FEE_CONSTANTS.LARGE_IMAGE_FEE;
 
   // Ensure minimum fee
   fee = Math.max(fee, FEE_CONSTANTS.MINIMUM_FEE);
@@ -7031,6 +7200,7 @@ export function getOriginalPrice(options: FeeOptions): number {
   if (options.revokeUpdate) originalPrice += FEE_CONSTANTS.ORIGINAL_FEATURE_FEE;
   if (options.socialLinks) originalPrice += FEE_CONSTANTS.ORIGINAL_FEATURE_FEE;
   if (options.creatorInfo) originalPrice += FEE_CONSTANTS.ORIGINAL_FEATURE_FEE;
+  if (options.largeImageSize) originalPrice += FEE_CONSTANTS.ORIGINAL_FEATURE_FEE;
   
   // Ensure minimum original price
   originalPrice = Math.max(originalPrice, FEE_CONSTANTS.ORIGINAL_FEATURE_FEE);
@@ -7663,81 +7833,107 @@ export async function createTokenClientSide(
 
 // ===== src/services/token-creation/token-validation.ts =====
 
-// src/services/token-creation/token-validation.ts
-// Functions for validating token parameters
-
-import { FormDataType } from "@/types/token";
+// src/utils/token-validation.ts
 
 /**
- * Validates all token creation parameters before submission
- * @returns Error message or null if valid
+ * Validates a token name
  */
-export function validateTokenCreationParams(formData: FormDataType): string | null {
-  // Validate basic token info
-  if (!formData.logo) {
-    return "Please upload a logo image";
+export function isValidTokenName(name: string): boolean {
+  // Check if name is present
+  if (!name || name.trim() === '') {
+    return false;
   }
   
-  if (!formData.name || formData.name.trim() === "") {
-    return "Token name is required";
+  // Check length (Solana metadata has a reasonable limit)
+  if (name.length > 32) {
+    return false;
   }
   
-  if (formData.name.length > 32) {
-    return "Token name must be 32 characters or less";
+  // Check for invalid characters - allow more flexibility than the original
+  const validNameRegex = /^[a-zA-Z0-9\s_\-\.]+$/;
+  if (!validNameRegex.test(name)) {
+    return false;
   }
   
-  if (!formData.symbol || formData.symbol.trim() === "") {
-    return "Token symbol is required";
+  return true;
+}
+
+/**
+ * Validates a token symbol
+ */
+export function isValidTokenSymbol(symbol: string): boolean {
+  // Check if symbol is present
+  if (!symbol || symbol.trim() === '') {
+    return false;
   }
   
-  if (formData.symbol.length > 10) {
-    return "Token symbol must be 10 characters or less";
+  // Check length (usually 2-10 characters for token symbols)
+  if (symbol.length > 10) {
+    return false;
   }
   
-  if (!formData.description || formData.description.trim() === "") {
-    return "Token description is required";
+  // Allow more flexibility in symbol format
+  const validSymbolRegex = /^[A-Za-z0-9]+$/;
+  if (!validSymbolRegex.test(symbol)) {
+    return false;
   }
   
-  // Validate token parameters
-  if (formData.decimals < 0 || formData.decimals > 9) {
-    return "Decimals must be between 0 and 9";
+  return true;
+}
+
+/**
+ * Validates a token description
+ */
+export function isValidTokenDescription(description: string): boolean {
+  // Description should exist
+  if (!description || description.trim() === '') {
+    return false;
   }
   
-  if (formData.supply <= 0) {
-    return "Supply must be greater than 0";
+  // Reasonable length limit
+  if (description.length > 1000) {
+    return false;
   }
   
-  if (formData.supply > Number.MAX_SAFE_INTEGER) {
-    return "Supply is too large";
+  return true;
+}
+
+/**
+ * Validates a token supply amount
+ */
+export function isValidTokenSupply(supply: number): boolean {
+  // Supply must be positive
+  if (supply <= 0) {
+    return false;
   }
   
-  // Validate social links if they're enabled
-  if (formData.socialLinks) {
-    // Optional URL validation
-    if (formData.website && !isValidUrl(formData.website)) {
-      return "Website URL is invalid";
-    }
-    
-    if (formData.twitter && !isValidUrl(formData.twitter)) {
-      return "Twitter URL is invalid";
-    }
-    
-    if (formData.telegram && !isValidUrl(formData.telegram)) {
-      return "Telegram URL is invalid";
-    }
-    
-    if (formData.discord && !isValidUrl(formData.discord)) {
-      return "Discord URL is invalid";
-    }
+  // Check for reasonable limits - allow bigger supply than original
+  if (supply > Number.MAX_SAFE_INTEGER) {
+    return false;
   }
   
-  return null;
+  // Must be a whole number
+  if (!Number.isInteger(supply)) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Validates token decimals
+ */
+export function isValidTokenDecimals(decimals: number): boolean {
+  // Decimals must be in the valid range for Solana tokens
+  return Number.isInteger(decimals) && decimals >= 0 && decimals <= 9;
 }
 
 /**
  * Validates an image file for token logo
+ * @param file The image file
+ * @param maxSize Maximum file size in bytes
  */
-export function isValidTokenImage(file: File | null): boolean {
+export function isValidTokenImage(file: File | null, maxSize: number = 500 * 1024): boolean {
   if (!file) {
     return false;
   }
@@ -7748,8 +7944,7 @@ export function isValidTokenImage(file: File | null): boolean {
     return false;
   }
   
-  // Check file size (max 5MB)
-  const maxSize = 5 * 1024 * 1024; // 5MB
+  // Check file size based on provided max size
   if (file.size > maxSize) {
     return false;
   }
@@ -7758,15 +7953,54 @@ export function isValidTokenImage(file: File | null): boolean {
 }
 
 /**
- * Simple URL validation
+ * Formats a number with commas for display
  */
-function isValidUrl(urlString: string): boolean {
-  try {
-    const url = new URL(urlString);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch (e) {
-    return false;
+export function formatNumberWithCommas(number: number): string {
+  return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+/**
+ * Validates the entire token form data
+ * @returns string error message or null if valid
+ */
+export function validateTokenForm(formData: {
+  name: string;
+  symbol: string;
+  decimals: number;
+  supply: number;
+  description: string;
+  logo: File | null;
+  largeImageSize?: boolean;
+}): string | null {
+  if (!isValidTokenName(formData.name)) {
+    return "Token name is required and must be up to 32 alphanumeric characters";
   }
+  
+  if (!isValidTokenSymbol(formData.symbol)) {
+    return "Token symbol is required and must be 2-10 alphanumeric characters";
+  }
+  
+  if (!isValidTokenDescription(formData.description)) {
+    return "Description is required and must be less than 1000 characters";
+  }
+  
+  if (!isValidTokenDecimals(formData.decimals)) {
+    return "Decimals must be a whole number between 0 and 9";
+  }
+  
+  if (!isValidTokenSupply(formData.supply)) {
+    return "Supply must be a positive whole number";
+  }
+  
+  // Set the max size based on whether large image size is enabled
+  const maxSize = formData.largeImageSize ? 10 * 1024 * 1024 : 500 * 1024;
+  
+  if (!isValidTokenImage(formData.logo, maxSize)) {
+    const sizeInMB = maxSize / (1024 * 1024);
+    return `Logo image is required (PNG or JPG, max ${sizeInMB}MB)`;
+  }
+  
+  return null;
 }
 
 // ===== src/services/fee-calculator.ts =====
