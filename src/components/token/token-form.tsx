@@ -1,5 +1,3 @@
-// src/components/token/token-form.tsx
-
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
@@ -21,6 +19,7 @@ import WalletRequired from "../wallet/wallet-required";
 import { FormDataType, TokenResult } from "@/types/token";
 import { SOLANA_NETWORK_FEE } from "@/config";
 import { resetSessionUuid } from "@/services/ipfs-service";
+import { FEE_CONSTANTS } from "@/services/fee-service";
 
 // Humorous loading steps related to meme coins
 const STEPS = [
@@ -50,6 +49,13 @@ const DEFAULT_FORM_DATA: FormDataType = {
   twitter: "",
   telegram: "",
   discord: "",
+  largeImageSize: false, // New field for large image toggle
+};
+
+// Image size limits in bytes
+const IMAGE_SIZE_LIMITS = {
+  DEFAULT: 500 * 1024, // 500KB
+  LARGE: 10 * 1024 * 1024, // 10MB
 };
 
 export default function TokenForm() {
@@ -68,6 +74,7 @@ export default function TokenForm() {
   const [totalFee, setTotalFee] = useState<number>(0.4); // Initial fee calculation with all defaults
   const [formSubmitAttempted, setFormSubmitAttempted] = useState(false); // Track form submission attempts
   const [cancelled, setCancelled] = useState(false); // Track if token creation was cancelled
+  const [imageSizeError, setImageSizeError] = useState<string | null>(null);
 
   // Register all useEffects before any conditional rendering
 
@@ -102,6 +109,7 @@ export default function TokenForm() {
       setCancelled(false);
       setFormSubmitAttempted(false);
       setIsSubmitting(false);
+      setImageSizeError(null);
     }
   }, [pathname]);
 
@@ -121,6 +129,7 @@ export default function TokenForm() {
       setCancelled(false);
       setFormSubmitAttempted(false);
       setIsSubmitting(false);
+      setImageSizeError(null);
     }
   }, [pathname]);
 
@@ -132,6 +141,7 @@ export default function TokenForm() {
       revokeUpdate: formData.revokeUpdate,
       socialLinks: formData.socialLinks,
       creatorInfo: formData.creatorInfo,
+      largeImageSize: formData.largeImageSize,
     });
 
     setTotalFee(fee);
@@ -141,6 +151,7 @@ export default function TokenForm() {
     formData.revokeUpdate,
     formData.socialLinks,
     formData.creatorInfo,
+    formData.largeImageSize,
   ]);
 
   // Scroll to top effect for success and loading states
@@ -153,23 +164,22 @@ export default function TokenForm() {
 
   // Effect to scroll to logo input when there's a logo error
   useEffect(() => {
-    if (error && error.includes("logo") && logoInputRef.current) {
-      logoInputRef.current.scrollIntoView({
+    if ((error && error.includes("logo")) || imageSizeError) {
+      logoInputRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
     }
-  }, [error]);
+  }, [error, imageSizeError]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value, type } = e.target as HTMLInputElement;
-    const checked =
-      type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
+    const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
 
-   
-
+    // Normal form field handling without special cases
+    // The special logic for largeImageSize is now handled directly in the toggle button's onClick
     setFormData((prev) => ({
       ...prev,
       [name]:
@@ -183,7 +193,46 @@ export default function TokenForm() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFormData((prev) => ({ ...prev, logo: e.target.files![0] }));
+      const file = e.target.files[0];
+      const sizeLimit = formData.largeImageSize 
+        ? IMAGE_SIZE_LIMITS.LARGE 
+        : IMAGE_SIZE_LIMITS.DEFAULT;
+      
+      // Hard cap at 10MB regardless of settings
+      const hardCap = IMAGE_SIZE_LIMITS.LARGE;
+      
+      // Check if the file exceeds the hard cap
+      if (file.size > hardCap) {
+        setImageSizeError(`The image is too large. Maximum size is 10MB.`);
+        // Reset the file input
+        e.target.value = '';
+        return;
+      }
+      
+      // Check if the file size is within the current limit
+      if (file.size > sizeLimit) {
+        if (formData.largeImageSize) {
+          // Should never happen due to the hard cap check above
+          setImageSizeError(`The image is too large. Maximum size is 10MB.`);
+        } else {
+          // If in default mode and too big, but could use large image option
+          setImageSizeError(
+            `The image is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). ` +
+            `Enable large image size option below for an additional fee.`
+          );
+        }
+        // Reset the file input
+        e.target.value = '';
+        return;
+      }
+      
+      // Clear any previous size errors
+      setImageSizeError(null);
+      
+      // Set the logo in form data
+      setFormData((prev) => ({ ...prev, logo: file }));
+      
+      console.log(`File accepted: ${file.name}, size: ${(file.size / 1024).toFixed(2)}KB, largeImageSize: ${formData.largeImageSize}`);
     }
   };
 
@@ -204,6 +253,22 @@ export default function TokenForm() {
     if (!formData.description || formData.description.trim() === "") {
       return "Token description is required";
     }
+    
+    // Make sure image size limits are respected
+    if (formData.logo) {
+      const sizeLimit = formData.largeImageSize 
+        ? IMAGE_SIZE_LIMITS.LARGE 
+        : IMAGE_SIZE_LIMITS.DEFAULT;
+        
+      if (formData.logo.size > sizeLimit) {
+        if (formData.largeImageSize) {
+          return `The image is too large. Maximum size is 10MB.`;
+        } else {
+          return `The image is too large. Enable large image size option or choose a smaller image.`;
+        }
+      }
+    }
+    
     return null;
   };
 
@@ -346,7 +411,62 @@ export default function TokenForm() {
             handleInputChange={handleInputChange}
             handleFileChange={handleFileChange}
             formSubmitted={formSubmitAttempted}
+            imageSizeError={imageSizeError}
+            sizeLimit={formData.largeImageSize ? IMAGE_SIZE_LIMITS.LARGE : IMAGE_SIZE_LIMITS.DEFAULT}
           />
+          
+          {/* Large Image Size Toggle */}
+          <div className="toggle-section mb-4 mt-2">
+            <div className="toggle-section-header flex justify-between items-center mb-2">
+              <div className="toggle-header-left flex items-center">
+                <div className="toggle-wrapper mr-3">
+                  <input 
+                    id="largeImageSize" 
+                    type="checkbox" 
+                    name="largeImageSize"
+                    checked={formData.largeImageSize}
+                    onChange={handleInputChange}
+                    className="hidden"
+                  />
+                  <div 
+                    className={`toggle w-12 h-6 rounded-full p-1 cursor-pointer ${formData.largeImageSize ? 'bg-purple-600' : 'bg-gray-700'}`}
+                    onClick={() => {
+                      // Simply update the form data and clear the logo
+                      setFormData(prev => ({
+                        ...prev,
+                        largeImageSize: !prev.largeImageSize,
+                        logo: null // Clear the logo when toggling
+                      }));
+                      
+                      // Clear any logo-related errors
+                      setImageSizeError(null);
+                      if (error?.includes("logo")) {
+                        setError(null);
+                      }
+                      
+                      // Reset the file input to clear any previous file selection
+                      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+                      if (fileInput) {
+                        fileInput.value = '';
+                      }
+                    }}
+                  >
+                    <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.largeImageSize ? 'translate-x-6' : ''}`}></div>
+                  </div>
+                </div>
+                <div className="toggle-label text-gray-300 mr-3">Large Image Size (Optional)</div>
+              </div>
+              <div className="toggle-cost flex items-center">
+                <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
+                <span className="text-purple-500">{FEE_CONSTANTS.AUTHORITY_FEE.toFixed(2)} SOL</span>
+              </div>
+            </div>
+            <div className="toggle-section-description text-xs text-gray-500">
+              {formData.largeImageSize 
+                ? "Large image size enabled (up to 10MB). Please upload your image again."
+                : "Enable this option to use images up to 10MB (default limit is 500KB)."}
+            </div>
+          </div>
         </div>
 
         <TokenFormOptions
@@ -365,7 +485,6 @@ export default function TokenForm() {
         <TokenFormAuthorities formData={formData} setFormData={setFormData} />
 
         {/* Display dynamic feature‐fee total */}
-        {/* Display dynamic feature‐fee total */}
         <div className="bg-[#222] p-4 rounded-lg mb-4">
           <div className="flex justify-between items-center text-gray-300 mb-2">
             <span className="flex items-center">
@@ -382,6 +501,7 @@ export default function TokenForm() {
                   revokeUpdate: formData.revokeUpdate,
                   socialLinks: formData.socialLinks,
                   creatorInfo: formData.creatorInfo,
+                  largeImageSize: formData.largeImageSize,
                 }).toFixed(2)}{" "}
                 SOL
               </span>

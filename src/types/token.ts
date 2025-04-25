@@ -17,6 +17,7 @@ export interface FormDataType {
   twitter: string;
   telegram: string;
   discord: string;
+  largeImageSize: boolean; // Added for large image size toggle
 }
 
 export interface TokenResult {

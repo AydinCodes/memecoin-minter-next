@@ -1,5 +1,3 @@
-// src/components/token/token-form-options.tsx
-
 'use client';
 
 import React from 'react';
@@ -63,7 +61,6 @@ export default function TokenFormOptions({
               </div>
             </div>
             <div className="toggle-label text-gray-300 mr-3">Creator's Info (Optional)</div>
-            <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
           </div>
           <div className="toggle-cost flex items-center">
             <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
@@ -95,7 +92,6 @@ export default function TokenFormOptions({
               </div>
             </div>
             <div className="toggle-label text-gray-300 mr-3">Add Social Links & Tags</div>
-            <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
           </div>
           <div className="toggle-cost flex items-center">
             <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>

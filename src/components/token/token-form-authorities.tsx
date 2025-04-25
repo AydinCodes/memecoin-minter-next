@@ -90,7 +90,6 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Freeze</div>
-              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
               <input 
                 id="revokeFreeze" 
                 type="checkbox" 
@@ -132,7 +131,6 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Mint</div>
-              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
               <input 
                 id="revokeMint" 
                 type="checkbox" 
@@ -174,7 +172,6 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Update</div>
-              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
               <input 
                 id="revokeUpdate" 
                 type="checkbox" 

@@ -2343,10 +2343,13 @@ export function isValidTokenName(name: string): boolean {
 
 // ===== src/components/token/token-form-options.tsx =====
 
+// src/components/token/token-form-options.tsx
+
 'use client';
 
 import React from 'react';
 import SocialLinksForm from './social-links-form';
+import { FEE_CONSTANTS } from '@/services/fee-service';
 
 interface TokenFormOptionsProps {
   formData: {
@@ -2404,9 +2407,13 @@ export default function TokenFormOptions({
                 <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.creatorInfo ? 'translate-x-6' : ''}`}></div>
               </div>
             </div>
-            <div className="toggle-label text-gray-300">Creator's Info (Optional)</div>
+            <div className="toggle-label text-gray-300 mr-3">Creator's Info (Optional)</div>
+            <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
           </div>
-          <div className="toggle-cost text-purple-500">+0.1 SOL</div>
+          <div className="toggle-cost flex items-center">
+            <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
+            <span className="text-purple-500">{FEE_CONSTANTS.CREATOR_INFO_FEE.toFixed(2)} SOL</span>
+          </div>
         </div>
         <div className="toggle-section-description text-xs text-gray-500">
           Change the information of the creator in the metadata. By default, it is SolHype.
@@ -2432,9 +2439,13 @@ export default function TokenFormOptions({
                 <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.socialLinks ? 'translate-x-6' : ''}`}></div>
               </div>
             </div>
-            <div className="toggle-label text-gray-300">Add Social Links & Tags</div>
+            <div className="toggle-label text-gray-300 mr-3">Add Social Links & Tags</div>
+            <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
           </div>
-          <div className="toggle-cost text-purple-500">+0.1 SOL</div>
+          <div className="toggle-cost flex items-center">
+            <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
+            <span className="text-purple-500">{FEE_CONSTANTS.SOCIAL_LINKS_FEE.toFixed(2)} SOL</span>
+          </div>
         </div>
         <div className="toggle-section-description text-xs text-gray-500">
           Add links to your token metadata.
@@ -2452,25 +2463,27 @@ export default function TokenFormOptions({
 
 // src/components/token/token-form.tsx
 
-"use client"
+"use client";
 
-import { useState, useCallback, useEffect, useRef } from "react"
-import { useWallet, useConnection } from "@solana/wallet-adapter-react"
-import { useRouter, usePathname } from "next/navigation"
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { useRouter, usePathname } from "next/navigation";
+import { createTokenWithMetadata } from "@/services/token-service";
 import {
-  createTokenWithMetadata,
-} from "@/services/token-service"
-import { calculateFee, formatFee } from "@/services/fee-service"
-import TokenCreationSuccess from "./token-creation-success"
-import Loading from "../ui/loading"
-import TokenFormBasic from "./token-form-basic"
-import TokenFormOptions from "./token-form-options"
-import TokenFormAuthorities from "./token-form-authorities"
-import TokenFormCreator from "./token-form-creator"
-import WalletRequired from "../wallet/wallet-required"
-import { FormDataType, TokenResult } from "@/types/token"
-import { SOLANA_NETWORK_FEE } from "@/config"
-import { resetSessionUuid } from "@/services/ipfs-service"
+  calculateFee,
+  formatFee,
+  getOriginalPrice,
+} from "@/services/fee-service";
+import TokenCreationSuccess from "./token-creation-success";
+import Loading from "../ui/loading";
+import TokenFormBasic from "./token-form-basic";
+import TokenFormOptions from "./token-form-options";
+import TokenFormAuthorities from "./token-form-authorities";
+import TokenFormCreator from "./token-form-creator";
+import WalletRequired from "../wallet/wallet-required";
+import { FormDataType, TokenResult } from "@/types/token";
+import { SOLANA_NETWORK_FEE } from "@/config";
+import { resetSessionUuid } from "@/services/ipfs-service";
 
 // Humorous loading steps related to meme coins
 const STEPS = [
@@ -2480,7 +2493,7 @@ const STEPS = [
   "Dumping on the degens at 3 AM...",
   "Hiring shills for max FOMO...",
   "Coding a 99% dev tax, oops...",
-  "Tweeting 'LFG' for clout..."
+  "Tweeting 'LFG' for clout...",
 ];
 
 const DEFAULT_FORM_DATA: FormDataType = {
@@ -2490,7 +2503,7 @@ const DEFAULT_FORM_DATA: FormDataType = {
   supply: 1_000_000_000,
   description: "",
   logo: null,
-  revokeMint: true,
+  revokeMint: true, // At least one authority is enabled by default
   revokeFreeze: true,
   revokeUpdate: true,
   socialLinks: false,
@@ -2503,21 +2516,21 @@ const DEFAULT_FORM_DATA: FormDataType = {
 };
 
 export default function TokenForm() {
-  const walletAdapter = useWallet()
-  const { connection } = useConnection()
-  const router = useRouter()
-  const pathname = usePathname()
-  const formRef = useRef<HTMLDivElement>(null)
-  const logoInputRef = useRef<HTMLDivElement>(null)
+  const walletAdapter = useWallet();
+  const { connection } = useConnection();
+  const router = useRouter();
+  const pathname = usePathname();
+  const formRef = useRef<HTMLDivElement>(null);
+  const logoInputRef = useRef<HTMLDivElement>(null);
 
-  const [formData, setFormData] = useState<FormDataType>(DEFAULT_FORM_DATA)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [progressStep, setProgressStep] = useState(0)
-  const [tokenResult, setTokenResult] = useState<TokenResult | null>(null)
-  const [totalFee, setTotalFee] = useState<number>(0.4) // Initial fee calculation with all defaults
-  const [formSubmitAttempted, setFormSubmitAttempted] = useState(false) // Track form submission attempts
-  const [cancelled, setCancelled] = useState(false) // Track if token creation was cancelled
+  const [formData, setFormData] = useState<FormDataType>(DEFAULT_FORM_DATA);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [progressStep, setProgressStep] = useState(0);
+  const [tokenResult, setTokenResult] = useState<TokenResult | null>(null);
+  const [totalFee, setTotalFee] = useState<number>(0.4); // Initial fee calculation with all defaults
+  const [formSubmitAttempted, setFormSubmitAttempted] = useState(false); // Track form submission attempts
+  const [cancelled, setCancelled] = useState(false); // Track if token creation was cancelled
 
   // Register all useEffects before any conditional rendering
 
@@ -2529,50 +2542,50 @@ export default function TokenForm() {
         // Check if the clicked element or its parent is the "Create Token" link
         const target = e.target as HTMLElement;
         const link = target.closest('a[href="/create-token"]');
-        
+
         if (link) {
           e.preventDefault();
-          window.location.href = '/create-token';
+          window.location.href = "/create-token";
         }
       };
-      
-      window.addEventListener('click', handleCreateTokenClick);
-      return () => window.removeEventListener('click', handleCreateTokenClick);
+
+      window.addEventListener("click", handleCreateTokenClick);
+      return () => window.removeEventListener("click", handleCreateTokenClick);
     }
   }, [tokenResult]);
 
   // Reset form when navigating to this page
   useEffect(() => {
-    if (pathname === '/create-token') {
+    if (pathname === "/create-token") {
       // Reset the session UUID to ensure clean state
       resetSessionUuid();
-      setFormData(DEFAULT_FORM_DATA)
-      setTokenResult(null)
-      setError(null)
-      setCancelled(false)
-      setFormSubmitAttempted(false)
-      setIsSubmitting(false)
+      setFormData(DEFAULT_FORM_DATA);
+      setTokenResult(null);
+      setError(null);
+      setCancelled(false);
+      setFormSubmitAttempted(false);
+      setIsSubmitting(false);
     }
-  }, [pathname])
+  }, [pathname]);
 
   // Force reset form state completely when coming directly to the create-token page
   useEffect(() => {
     // Check if we're accessing the page directly (through URL or refresh)
     const isDirectNavigation = window.performance
-      ?.getEntriesByType('navigation')
-      .some((nav: any) => ['reload', 'navigate'].includes(nav.type));
+      ?.getEntriesByType("navigation")
+      .some((nav: any) => ["reload", "navigate"].includes(nav.type));
 
-    if (isDirectNavigation && pathname === '/create-token') {
+    if (isDirectNavigation && pathname === "/create-token") {
       // Reset all state
       resetSessionUuid();
-      setFormData(DEFAULT_FORM_DATA)
-      setTokenResult(null)
-      setError(null)
-      setCancelled(false)
-      setFormSubmitAttempted(false)
-      setIsSubmitting(false)
+      setFormData(DEFAULT_FORM_DATA);
+      setTokenResult(null);
+      setError(null);
+      setCancelled(false);
+      setFormSubmitAttempted(false);
+      setIsSubmitting(false);
     }
-  }, [pathname])
+  }, [pathname]);
 
   // Calculate fee whenever relevant form options change
   useEffect(() => {
@@ -2582,22 +2595,16 @@ export default function TokenForm() {
       revokeUpdate: formData.revokeUpdate,
       socialLinks: formData.socialLinks,
       creatorInfo: formData.creatorInfo,
-    })
-    console.log("Calculated fee:", fee, "with options:", {
-      revokeMint: formData.revokeMint,
-      revokeFreeze: formData.revokeFreeze,
-      revokeUpdate: formData.revokeUpdate,
-      socialLinks: formData.socialLinks,
-      creatorInfo: formData.creatorInfo,
-    })
-    setTotalFee(fee)
+    });
+
+    setTotalFee(fee);
   }, [
     formData.revokeMint,
     formData.revokeFreeze,
     formData.revokeUpdate,
     formData.socialLinks,
     formData.creatorInfo,
-  ])
+  ]);
 
   // Scroll to top effect for success and loading states
   useEffect(() => {
@@ -2610,18 +2617,22 @@ export default function TokenForm() {
   // Effect to scroll to logo input when there's a logo error
   useEffect(() => {
     if (error && error.includes("logo") && logoInputRef.current) {
-      logoInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      logoInputRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     }
   }, [error]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const { name, value, type } = e.target as HTMLInputElement
-    const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : undefined
-    
-    console.log(`Input changed: ${name} = ${type === 'checkbox' ? checked : value}`)
-    
+    const { name, value, type } = e.target as HTMLInputElement;
+    const checked =
+      type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
+
+   
+
     setFormData((prev) => ({
       ...prev,
       [name]:
@@ -2630,14 +2641,14 @@ export default function TokenForm() {
           : type === "number"
           ? parseInt(value)
           : value,
-    }))
-  }
+    }));
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFormData((prev) => ({ ...prev, logo: e.target.files![0] }))
+      setFormData((prev) => ({ ...prev, logo: e.target.files![0] }));
     }
-  }
+  };
 
   // Function to validate form data before submission
   const validateForm = (): string | null => {
@@ -2647,13 +2658,13 @@ export default function TokenForm() {
     if (!formData.logo) {
       return "Please upload a logo image";
     }
-    if (!formData.name || formData.name.trim() === '') {
+    if (!formData.name || formData.name.trim() === "") {
       return "Token name is required";
     }
-    if (!formData.symbol || formData.symbol.trim() === '') {
+    if (!formData.symbol || formData.symbol.trim() === "") {
       return "Token symbol is required";
     }
-    if (!formData.description || formData.description.trim() === '') {
+    if (!formData.description || formData.description.trim() === "") {
       return "Token description is required";
     }
     return null;
@@ -2666,26 +2677,26 @@ export default function TokenForm() {
     setIsSubmitting(false);
     setError("Token creation was cancelled.");
     resetSessionUuid(); // Make sure to reset session UUID
-    
+
     // Scroll back to the form
     setTimeout(() => {
-      formRef.current?.scrollIntoView({ behavior: 'smooth' });
+      formRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 100);
   }, []);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
-      e.preventDefault()
-      
+      e.preventDefault();
+
       // Reset from any previous canceled state
       setCancelled(false);
-      
+
       // Mark that a submission attempt was made
-      setFormSubmitAttempted(true)
-      
+      setFormSubmitAttempted(true);
+
       // Clear previous errors and reset cancellation state
-      setError(null)
-      
+      setError(null);
+
       // Validate form
       const validationError = validateForm();
       if (validationError) {
@@ -2696,10 +2707,10 @@ export default function TokenForm() {
       try {
         // Ensure we have a clean session before starting
         resetSessionUuid();
-        
-        setIsSubmitting(true)
-        setProgressStep(0)
-        
+
+        setIsSubmitting(true);
+        setProgressStep(0);
+
         // Force scroll to top when starting the loading process
         window.scrollTo(0, 0);
         document.body.scrollTop = 0; // For Safari
@@ -2716,30 +2727,30 @@ export default function TokenForm() {
               window.scrollTo(0, 0);
             }
           }
-        )
-        setTokenResult(result)
+        );
+        setTokenResult(result);
         // Ensure we're at the top for the success screen too
         window.scrollTo(0, 0);
       } catch (err: any) {
-        console.error("Token creation error:", err)
-        setError(err.message || "Unknown error occurred during token creation")
-        
+        console.error("Token creation error:", err);
+        setError(err.message || "Unknown error occurred during token creation");
+
         // Scroll back to the form on error
         setTimeout(() => {
-          formRef.current?.scrollIntoView({ behavior: 'smooth' });
+          formRef.current?.scrollIntoView({ behavior: "smooth" });
         }, 100);
       } finally {
         if (!cancelled) {
-          setIsSubmitting(false)
+          setIsSubmitting(false);
         }
       }
     },
     [walletAdapter, formData, totalFee, cancelled]
-  )
+  );
 
   // Render based on current state
   if (tokenResult) {
-    return <TokenCreationSuccess result={tokenResult} />
+    return <TokenCreationSuccess result={tokenResult} />;
   }
 
   if (isSubmitting) {
@@ -2750,12 +2761,14 @@ export default function TokenForm() {
         currentStepIndex={progressStep}
         onCancel={handleCancel}
       />
-    )
+    );
   }
 
   // If wallet is not connected, use the shared WalletRequired component
   if (!walletAdapter.connected) {
-    return <WalletRequired message="Please connect your wallet to create a new Solana token" />;
+    return (
+      <WalletRequired message="Please connect your wallet to create a new Solana token" />
+    );
   }
 
   // Calculate net fee after Solana network fee
@@ -2765,9 +2778,12 @@ export default function TokenForm() {
     <div ref={formRef}>
       {/* Instructions header */}
       <div className="max-w-3xl mx-auto mb-6 p-6 bg-[#171717] rounded-xl mt-12 border-l-4 border-purple-500">
-        <h2 className="text-2xl font-bold mb-3 text-white">Create Your Meme Coin</h2>
+        <h2 className="text-2xl font-bold mb-3 text-white">
+          Create Your Meme Coin
+        </h2>
         <p className="text-gray-300 mb-4">
-          Launch your viral meme coin in minutes! Fill out the form below to create a new Solana token with your own branding and customizations.
+          Launch your viral meme coin in minutes! Fill out the form below to
+          create a new Solana token with your own branding and customizations.
         </p>
         <ul className="text-gray-400 space-y-2 ml-6 list-disc">
           <li>Upload a catchy logo - this is what everyone will see!</li>
@@ -2782,7 +2798,9 @@ export default function TokenForm() {
         className="max-w-3xl mx-auto space-y-6 p-6 bg-[#171717] rounded-xl mb-12"
       >
         {error && (
-          <div className="text-red-400 bg-red-800/30 p-3 rounded mb-4">{error}</div>
+          <div className="text-red-400 bg-red-800/30 p-3 rounded mb-4">
+            {error}
+          </div>
         )}
 
         <div ref={logoInputRef}>
@@ -2807,17 +2825,38 @@ export default function TokenForm() {
           />
         )}
 
-        <TokenFormAuthorities
-          formData={formData}
-          setFormData={setFormData}
-        />
+        <TokenFormAuthorities formData={formData} setFormData={setFormData} />
 
         {/* Display dynamic feature‐fee total */}
-        <div className="flex justify-between items-center text-gray-300">
-          <span>Total fee:</span>
-          <span className="text-purple-500 font-semibold">
-            {formatFee(totalFee)}
-          </span>
+        {/* Display dynamic feature‐fee total */}
+        <div className="bg-[#222] p-4 rounded-lg mb-4">
+          <div className="flex justify-between items-center text-gray-300 mb-2">
+            <span className="flex items-center">
+              <span>Total fee:</span>
+              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded ml-2">
+                50% OFF
+              </div>
+            </span>
+            <div className="flex items-center">
+              <span className="text-gray-500 line-through mr-2">
+                {getOriginalPrice({
+                  revokeMint: formData.revokeMint,
+                  revokeFreeze: formData.revokeFreeze,
+                  revokeUpdate: formData.revokeUpdate,
+                  socialLinks: formData.socialLinks,
+                  creatorInfo: formData.creatorInfo,
+                }).toFixed(2)}{" "}
+                SOL
+              </span>
+              <span className="text-purple-500 font-semibold">
+                {formatFee(totalFee)}
+              </span>
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            Fee includes transaction costs and token creation service. Limited
+            time 50% discount applied!
+          </div>
         </div>
 
         <button
@@ -2826,15 +2865,16 @@ export default function TokenForm() {
         >
           Launch Token
         </button>
-        
+
         {/* Added submission note */}
         <div className="text-center text-gray-500 text-sm pt-2">
           Click to launch your token and approve the transaction in your wallet
         </div>
       </form>
     </div>
-  )
+  );
 }
+
 
 // ===== src/components/token/token-detail-view.tsx =====
 
@@ -3517,10 +3557,13 @@ export default function TokenErrorState({ message, onRetry }: TokenErrorStatePro
 
 // ===== src/components/token/token-form-authorities.tsx =====
 
+// src/components/token/token-form-authorities.tsx
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
 import { checkUpdateAuthorityStatus } from '@/utils/update-authority-utils';
+import { FEE_CONSTANTS } from '@/services/fee-service';
 
 interface TokenFormAuthoritiesProps {
   formData: {
@@ -3558,6 +3601,18 @@ export default function TokenFormAuthorities({
 
   // Handle checkbox click with proper event simulation
   const handleCheckboxClick = (field: 'revokeMint' | 'revokeFreeze' | 'revokeUpdate') => {
+    // Check if this would disable all checkboxes
+    const wouldDisableAll = 
+      (field === 'revokeMint' && formData.revokeMint && !formData.revokeFreeze && !formData.revokeUpdate) ||
+      (field === 'revokeFreeze' && !formData.revokeMint && formData.revokeFreeze && !formData.revokeUpdate) ||
+      (field === 'revokeUpdate' && !formData.revokeMint && !formData.revokeFreeze && formData.revokeUpdate);
+
+    // If this would disable all checkboxes, don't allow it
+    if (wouldDisableAll) {
+      console.log("Cannot disable all authorities - at least one must be enabled");
+      return;
+    }
+    
     // Update the formData state
     setFormData((prev: any) => ({
       ...prev,
@@ -3594,21 +3649,25 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Freeze</div>
+              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
               <input 
                 id="revokeFreeze" 
                 type="checkbox" 
                 name="revokeFreeze"
                 checked={formData.revokeFreeze}
                 onChange={(e) => {
-                  setFormData((prev: any) => ({
-                    ...prev,
-                    revokeFreeze: e.target.checked
-                  }));
+                  // Only allow change if it won't disable all checkboxes
+                  if (e.target.checked || formData.revokeMint || formData.revokeUpdate) {
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      revokeFreeze: e.target.checked
+                    }));
+                  }
                 }}
                 className="hidden" // Keep hidden but track state
               />
               <div 
-                className={`checkbox w-5 h-5 border ${formData.revokeFreeze ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
+                className={`checkbox w-5 h-5 border ml-3 ${formData.revokeFreeze ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
                 onClick={() => handleCheckboxClick('revokeFreeze')}
               >
                 {formData.revokeFreeze && (
@@ -3618,32 +3677,39 @@ export default function TokenFormAuthorities({
                 )}
               </div>
             </div>
+            <div className="form-checkbox-cost flex items-center">
+              <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
+              <span className="text-purple-500">{FEE_CONSTANTS.AUTHORITY_FEE.toFixed(2)} SOL</span>
+            </div>
           </div>
           <div className="form-checkbox-description text-xs text-gray-500">
             No one will be able to freeze holders' token accounts anymore
           </div>
-          <div className="form-checkbox-cost text-xs text-purple-500 mt-1">+0.1 SOL</div>
         </div>
 
         <div className="form-checkbox-field">
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Mint</div>
+              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
               <input 
                 id="revokeMint" 
                 type="checkbox" 
                 name="revokeMint"
                 checked={formData.revokeMint}
                 onChange={(e) => {
-                  setFormData((prev: any) => ({
-                    ...prev,
-                    revokeMint: e.target.checked
-                  }));
+                  // Only allow change if it won't disable all checkboxes
+                  if (e.target.checked || formData.revokeFreeze || formData.revokeUpdate) {
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      revokeMint: e.target.checked
+                    }));
+                  }
                 }}
                 className="hidden" // Keep hidden but track state
               />
               <div 
-                className={`checkbox w-5 h-5 border ${formData.revokeMint ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
+                className={`checkbox w-5 h-5 border ml-3 ${formData.revokeMint ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
                 onClick={() => handleCheckboxClick('revokeMint')}
               >
                 {formData.revokeMint && (
@@ -3653,32 +3719,39 @@ export default function TokenFormAuthorities({
                 )}
               </div>
             </div>
+            <div className="form-checkbox-cost flex items-center">
+              <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
+              <span className="text-purple-500">{FEE_CONSTANTS.AUTHORITY_FEE.toFixed(2)} SOL</span>
+            </div>
           </div>
           <div className="form-checkbox-description text-xs text-gray-500">
             No one will be able to create more tokens anymore
           </div>
-          <div className="form-checkbox-cost text-xs text-purple-500 mt-1">+0.1 SOL</div>
         </div>
 
         <div className="form-checkbox-field">
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Update</div>
+              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
               <input 
                 id="revokeUpdate" 
                 type="checkbox" 
                 name="revokeUpdate"
                 checked={formData.revokeUpdate}
                 onChange={(e) => {
-                  setFormData((prev: any) => ({
-                    ...prev,
-                    revokeUpdate: e.target.checked
-                  }));
+                  // Only allow change if it won't disable all checkboxes
+                  if (e.target.checked || formData.revokeMint || formData.revokeFreeze) {
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      revokeUpdate: e.target.checked
+                    }));
+                  }
                 }}
                 className="hidden" // Keep hidden but track state
               />
               <div 
-                className={`checkbox w-5 h-5 border ${formData.revokeUpdate ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
+                className={`checkbox w-5 h-5 border ml-3 ${formData.revokeUpdate ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
                 onClick={() => handleCheckboxClick('revokeUpdate')}
               >
                 {formData.revokeUpdate && (
@@ -3688,11 +3761,14 @@ export default function TokenFormAuthorities({
                 )}
               </div>
             </div>
+            <div className="form-checkbox-cost flex items-center">
+              <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
+              <span className="text-purple-500">{FEE_CONSTANTS.AUTHORITY_FEE.toFixed(2)} SOL</span>
+            </div>
           </div>
           <div className="form-checkbox-description text-xs text-gray-500">
             No one will be able to modify token metadata anymore
           </div>
-          <div className="form-checkbox-cost text-xs text-purple-500 mt-1">+0.1 SOL</div>
           
           {/* Display warning if there's an issue with update authority configuration */}
           {updateAuthorityWarning && (
@@ -6041,7 +6117,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { formatWalletAddress, getWalletBalance, saveWalletPublicKey } from '@/services/wallet-service';
-import { debugWallet } from '@/utils/wallet-debug';
 
 export default function WalletButton() {
   const { publicKey, connected, connecting, disconnecting, wallet } = useWallet();
@@ -6055,7 +6130,7 @@ export default function WalletButton() {
         const sol = await getWalletBalance(publicKey);
         setBalance(sol);
       } catch (error) {
-        console.error('Error fetching balance:', error);
+        // Handle error silently
       }
     } else {
       setBalance(null);
@@ -6077,24 +6152,6 @@ export default function WalletButton() {
     }
   }, [connected, publicKey, loadBalance]);
 
-  // Format public key for display
-  const getFormattedAddress = () => {
-    if (!publicKey) return '';
-    return formatWalletAddress(publicKey.toString());
-  };
-
-  // Add logging for debugging connection issues
-  useEffect(() => {
-    if (connecting) {
-      console.log('Wallet connecting...');
-    } else if (disconnecting) {
-      console.log('Wallet disconnecting...');
-    } else if (connected) {
-      console.log('Wallet connected:', getFormattedAddress());
-      debugWallet(wallet);
-    }
-  }, [connecting, disconnecting, connected, publicKey, wallet]);
-  
   if (!mounted) {
     // Return a placeholder with the same dimensions to prevent layout shift
     return <div className="wallet-button-placeholder"></div>;
@@ -6292,7 +6349,6 @@ function getCurrentWalletPublicKey(): string {
 function getSessionUuid(): string {
   if (!currentSessionUuid) {
     currentSessionUuid = uuidv4();
-    console.log(`Created new session UUID: ${currentSessionUuid}`);
 
     // Sync with cleanup service
     setCurrentSessionUuid(currentSessionUuid);
@@ -6302,7 +6358,6 @@ function getSessionUuid(): string {
 
 // Helper function to reset the session UUID (call this at the start of a new token creation)
 export function resetSessionUuid(): void {
-  console.log("Reset session UUID for new token creation");
   currentSessionUuid = null;
 
   // Sync with cleanup service
@@ -6366,7 +6421,6 @@ export async function uploadImageToIPFS(
     // Add the unique filename as metadata
     formData.append("fileName", newFileName);
 
-    console.log(`Uploading image as: ${newFileName}`);
 
     const res = await fetch("/api/upload-image", {
       method: "POST",
@@ -6383,7 +6437,6 @@ export async function uploadImageToIPFS(
     const { cid, gateway } = await res.json();
     const imageUrl = `https://${gateway}/ipfs/${cid}`;
 
-    console.log(`Image uploaded successfully: ${imageUrl}`);
     return imageUrl;
   } catch (error) {
     console.error("Error uploading image to IPFS:", error);
@@ -6484,9 +6537,6 @@ export async function uploadMetadataToIPFS(
       }
     };
 
-    console.log(
-      `Uploading metadata for: ${payload.name} (${payload.symbol}) as ${uniqueFileName}`
-    );
 
     const res = await fetch("/api/upload-metadata", {
       method: "POST",
@@ -6508,7 +6558,6 @@ export async function uploadMetadataToIPFS(
     const { cid, gateway } = await res.json();
     const metadataUrl = `https://${gateway}/ipfs/${cid}`;
 
-    console.log(`Metadata uploaded successfully: ${metadataUrl}`);
     return metadataUrl;
   } catch (error) {
     console.error("Error uploading metadata to IPFS:", error);
@@ -6598,9 +6647,6 @@ export async function updateMetadataWithMintAddress(
     const { cid, gateway } = await res.json();
     const metadataUrl = `https://${gateway}/ipfs/${cid}`;
 
-    console.log(
-      `Updated metadata uploaded successfully as ${uniqueFileName}: ${metadataUrl}`
-    );
 
     // Reset the session UUID after the token is fully created
     resetSessionUuid();
@@ -6645,7 +6691,6 @@ export function getCurrentSessionUuid(): string | null {
  */
 export function setCurrentSessionUuid(uuid: string | null): void {
   currentSessionUuid = uuid;
-  console.log(`Session UUID ${uuid ? `set to: ${uuid}` : 'cleared'}`);
 }
 
 /**
@@ -6776,21 +6821,15 @@ export async function createTokenWithMetadata(
   const networkFee = SOLANA_NETWORK_FEE;
   const netFeeAmount = Math.max(totalFee - networkFee, 0);
 
-  console.log("Creating token with displayed fee:", totalFee, "SOL");
-  console.log("Solana network fee:", networkFee, "SOL");
-  console.log("Net fee to fee recipient:", netFeeAmount, "SOL");
-  console.log("Token options:", {
-    revokeMint: formData.revokeMint,
-    revokeFreeze: formData.revokeFreeze,
-    revokeUpdate: formData.revokeUpdate,
-    socialLinks: formData.socialLinks,
-    creatorInfo: formData.creatorInfo,
-  });
 
   try {
     // STEP 0: IPFS image with unique name (now using {public_key}_{random_uuid}_image pattern)
     onProgress?.(0);
-    const imageUrl = await uploadImageToIPFS(formData.logo, formData.name, formData.symbol);
+    const imageUrl = await uploadImageToIPFS(
+      formData.logo,
+      formData.name,
+      formData.symbol
+    );
 
     // STEP 1: IPFS metadata JSON (now using {public_key}_{random_uuid}_metadata pattern)
     onProgress?.(1);
@@ -6812,7 +6851,7 @@ export async function createTokenWithMetadata(
       authorities: {
         mintRevoked: formData.revokeMint,
         freezeRevoked: formData.revokeFreeze,
-        updateRevoked: formData.revokeUpdate
+        updateRevoked: formData.revokeUpdate,
       },
       ...(formData.socialLinks && {
         website: formData.website,
@@ -6824,7 +6863,7 @@ export async function createTokenWithMetadata(
 
     // STEP 2: Choose flow based on whether we need to revoke update authority
     onProgress?.(2);
-    
+
     // Check whether to use server-side update authority (only when revoking update)
     if (formData.revokeUpdate) {
       return createTokenServerSide(
@@ -6851,11 +6890,12 @@ export async function createTokenWithMetadata(
     // Handle error with Pinata cleanup
     console.error("Error in token creation process:", error);
     await handleErrorWithCleanup(error);
-    
+
     // Rethrow the error for the UI to handle
     throw error;
   }
 }
+
 
 // ===== src/services/token-discovery-service.ts =====
 
@@ -6948,16 +6988,29 @@ export interface FeeOptions {
   creatorInfo: boolean
 }
 
-// Base fee plus optional feature fees
+// Fee constants with original and discounted rates
+export const FEE_CONSTANTS = {
+  BASE_FEE: 0,           // No base fee as requested
+  ORIGINAL_FEATURE_FEE: 0.2, // Original price before discount
+  AUTHORITY_FEE: 0.1,    // Discounted fee per authority revoked (50% off)
+  SOCIAL_LINKS_FEE: 0.1,  // Discounted fee for social links (50% off)
+  CREATOR_INFO_FEE: 0.1,  // Discounted fee for creator info (50% off)
+  MINIMUM_FEE: 0.1       // Minimum fee for any token creation
+};
+
+// Calculate the fee based on selected options
 export function calculateFee(options: FeeOptions): number {
-  let fee = 0.1; // Base fee for token creation - corrected to 0.1
+  let fee = FEE_CONSTANTS.BASE_FEE;
 
   // Add fee for each enabled feature
-  if (options.revokeMint)    fee += 0.1;
-  if (options.revokeFreeze)  fee += 0.1;
-  if (options.revokeUpdate)  fee += 0.1;
-  if (options.socialLinks)   fee += 0.1;
-  if (options.creatorInfo)   fee += 0.1;
+  if (options.revokeMint) fee += FEE_CONSTANTS.AUTHORITY_FEE;
+  if (options.revokeFreeze) fee += FEE_CONSTANTS.AUTHORITY_FEE;
+  if (options.revokeUpdate) fee += FEE_CONSTANTS.AUTHORITY_FEE;
+  if (options.socialLinks) fee += FEE_CONSTANTS.SOCIAL_LINKS_FEE;
+  if (options.creatorInfo) fee += FEE_CONSTANTS.CREATOR_INFO_FEE;
+
+  // Ensure minimum fee
+  fee = Math.max(fee, FEE_CONSTANTS.MINIMUM_FEE);
 
   // Return the total fee amount rounded to 2 decimal places
   return Math.round(fee * 100) / 100;
@@ -6965,6 +7018,28 @@ export function calculateFee(options: FeeOptions): number {
 
 // Format the fee for display
 export function formatFee(fee: number): string {
+  return `${fee.toFixed(2)} SOL`;
+}
+
+// Get the original price (non-discounted) for display
+export function getOriginalPrice(options: FeeOptions): number {
+  let originalPrice = 0;
+  
+  // Calculate original price (2x the discounted price for each feature)
+  if (options.revokeMint) originalPrice += FEE_CONSTANTS.ORIGINAL_FEATURE_FEE;
+  if (options.revokeFreeze) originalPrice += FEE_CONSTANTS.ORIGINAL_FEATURE_FEE;
+  if (options.revokeUpdate) originalPrice += FEE_CONSTANTS.ORIGINAL_FEATURE_FEE;
+  if (options.socialLinks) originalPrice += FEE_CONSTANTS.ORIGINAL_FEATURE_FEE;
+  if (options.creatorInfo) originalPrice += FEE_CONSTANTS.ORIGINAL_FEATURE_FEE;
+  
+  // Ensure minimum original price
+  originalPrice = Math.max(originalPrice, FEE_CONSTANTS.ORIGINAL_FEATURE_FEE);
+  
+  return Math.round(originalPrice * 100) / 100;
+}
+
+// Format the original price with strikethrough for display
+export function formatOriginalFee(fee: number): string {
   return `${fee.toFixed(2)} SOL`;
 }
 
@@ -7051,9 +7126,7 @@ export async function createTokenServerSide(
     const transaction = Transaction.from(
       Buffer.from(signedTransaction, "base64")
     );
-    console.log(
-      "Transaction constructed and signed by server for update authority"
-    );
+  
 
     onProgress?.(3);
 
@@ -7081,7 +7154,6 @@ export async function createTokenServerSide(
       walletSignedTransaction.serialize()
     );
     await connection.confirmTransaction(txSignature);
-    console.log("Transaction confirmed successfully!");
 
     onProgress?.(6);
 
@@ -7519,8 +7591,6 @@ export async function createTokenClientSide(
     ).blockhash;
     transaction.partialSign(mintKeypair);
 
-    console.log("Sending transaction to wallet for approval...");
-
     // Handle wallet rejection properly
     if (!signTransaction) {
       throw new Error("Wallet does not support transaction signing");
@@ -7830,7 +7900,6 @@ export const getSolanaConnection = (): Connection => {
 export const saveWalletPublicKey = (publicKey: string): void => {
   if (typeof window !== 'undefined') {
     localStorage.setItem('walletPublicKey', publicKey);
-    console.log(`Wallet public key saved: ${publicKey}`);
   }
 };
 
@@ -7862,7 +7931,6 @@ export const getWalletBalance = async (publicKey: PublicKey): Promise<number> =>
   try {
     const connection = getSolanaConnection();
     const balance = await connection.getBalance(publicKey);
-    console.log(`Wallet balance: ${balance / 1_000_000_000} SOL`);
     return balance / 1_000_000_000; // Convert lamports to SOL
   } catch (error) {
     console.error('Error getting wallet balance:', error);

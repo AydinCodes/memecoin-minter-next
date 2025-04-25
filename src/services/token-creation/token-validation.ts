@@ -1,78 +1,104 @@
-// src/services/token-creation/token-validation.ts
-// Functions for validating token parameters
-
-import { FormDataType } from "@/types/token";
+// src/utils/token-validation.ts
 
 /**
- * Validates all token creation parameters before submission
- * @returns Error message or null if valid
+ * Validates a token name
  */
-export function validateTokenCreationParams(formData: FormDataType): string | null {
-  // Validate basic token info
-  if (!formData.logo) {
-    return "Please upload a logo image";
+export function isValidTokenName(name: string): boolean {
+  // Check if name is present
+  if (!name || name.trim() === '') {
+    return false;
   }
   
-  if (!formData.name || formData.name.trim() === "") {
-    return "Token name is required";
+  // Check length (Solana metadata has a reasonable limit)
+  if (name.length > 32) {
+    return false;
   }
   
-  if (formData.name.length > 32) {
-    return "Token name must be 32 characters or less";
+  // Check for invalid characters - allow more flexibility than the original
+  const validNameRegex = /^[a-zA-Z0-9\s_\-\.]+$/;
+  if (!validNameRegex.test(name)) {
+    return false;
   }
   
-  if (!formData.symbol || formData.symbol.trim() === "") {
-    return "Token symbol is required";
+  return true;
+}
+
+/**
+ * Validates a token symbol
+ */
+export function isValidTokenSymbol(symbol: string): boolean {
+  // Check if symbol is present
+  if (!symbol || symbol.trim() === '') {
+    return false;
   }
   
-  if (formData.symbol.length > 10) {
-    return "Token symbol must be 10 characters or less";
+  // Check length (usually 2-10 characters for token symbols)
+  if (symbol.length > 10) {
+    return false;
   }
   
-  if (!formData.description || formData.description.trim() === "") {
-    return "Token description is required";
+  // Allow more flexibility in symbol format
+  const validSymbolRegex = /^[A-Za-z0-9]+$/;
+  if (!validSymbolRegex.test(symbol)) {
+    return false;
   }
   
-  // Validate token parameters
-  if (formData.decimals < 0 || formData.decimals > 9) {
-    return "Decimals must be between 0 and 9";
+  return true;
+}
+
+/**
+ * Validates a token description
+ */
+export function isValidTokenDescription(description: string): boolean {
+  // Description should exist
+  if (!description || description.trim() === '') {
+    return false;
   }
   
-  if (formData.supply <= 0) {
-    return "Supply must be greater than 0";
+  // Reasonable length limit
+  if (description.length > 1000) {
+    return false;
   }
   
-  if (formData.supply > Number.MAX_SAFE_INTEGER) {
-    return "Supply is too large";
+  return true;
+}
+
+/**
+ * Validates a token supply amount
+ */
+export function isValidTokenSupply(supply: number): boolean {
+  // Supply must be positive
+  if (supply <= 0) {
+    return false;
   }
   
-  // Validate social links if they're enabled
-  if (formData.socialLinks) {
-    // Optional URL validation
-    if (formData.website && !isValidUrl(formData.website)) {
-      return "Website URL is invalid";
-    }
-    
-    if (formData.twitter && !isValidUrl(formData.twitter)) {
-      return "Twitter URL is invalid";
-    }
-    
-    if (formData.telegram && !isValidUrl(formData.telegram)) {
-      return "Telegram URL is invalid";
-    }
-    
-    if (formData.discord && !isValidUrl(formData.discord)) {
-      return "Discord URL is invalid";
-    }
+  // Check for reasonable limits - allow bigger supply than original
+  if (supply > Number.MAX_SAFE_INTEGER) {
+    return false;
   }
   
-  return null;
+  // Must be a whole number
+  if (!Number.isInteger(supply)) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Validates token decimals
+ */
+export function isValidTokenDecimals(decimals: number): boolean {
+  // Decimals must be in the valid range for Solana tokens
+  return Number.isInteger(decimals) && decimals >= 0 && decimals <= 9;
 }
 
 /**
  * Validates an image file for token logo
+ * @param file The image file
+ * @param maxSize Maximum file size in bytes
  */
-export function isValidTokenImage(file: File | null): boolean {
+export function isValidTokenImage(file: File | null, maxSize: number = 500 * 1024): boolean {
   if (!file) {
     return false;
   }
@@ -83,8 +109,7 @@ export function isValidTokenImage(file: File | null): boolean {
     return false;
   }
   
-  // Check file size (max 5MB)
-  const maxSize = 5 * 1024 * 1024; // 5MB
+  // Check file size based on provided max size
   if (file.size > maxSize) {
     return false;
   }
@@ -93,13 +118,52 @@ export function isValidTokenImage(file: File | null): boolean {
 }
 
 /**
- * Simple URL validation
+ * Formats a number with commas for display
  */
-function isValidUrl(urlString: string): boolean {
-  try {
-    const url = new URL(urlString);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch (e) {
-    return false;
+export function formatNumberWithCommas(number: number): string {
+  return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+/**
+ * Validates the entire token form data
+ * @returns string error message or null if valid
+ */
+export function validateTokenForm(formData: {
+  name: string;
+  symbol: string;
+  decimals: number;
+  supply: number;
+  description: string;
+  logo: File | null;
+  largeImageSize?: boolean;
+}): string | null {
+  if (!isValidTokenName(formData.name)) {
+    return "Token name is required and must be up to 32 alphanumeric characters";
   }
+  
+  if (!isValidTokenSymbol(formData.symbol)) {
+    return "Token symbol is required and must be 2-10 alphanumeric characters";
+  }
+  
+  if (!isValidTokenDescription(formData.description)) {
+    return "Description is required and must be less than 1000 characters";
+  }
+  
+  if (!isValidTokenDecimals(formData.decimals)) {
+    return "Decimals must be a whole number between 0 and 9";
+  }
+  
+  if (!isValidTokenSupply(formData.supply)) {
+    return "Supply must be a positive whole number";
+  }
+  
+  // Set the max size based on whether large image size is enabled
+  const maxSize = formData.largeImageSize ? 10 * 1024 * 1024 : 500 * 1024;
+  
+  if (!isValidTokenImage(formData.logo, maxSize)) {
+    const sizeInMB = maxSize / (1024 * 1024);
+    return `Logo image is required (PNG or JPG, max ${sizeInMB}MB)`;
+  }
+  
+  return null;
 }

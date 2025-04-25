@@ -11,6 +11,12 @@ import { createTokenClientSide } from "./token-creation/client-side-creation";
 import { createTokenServerSide } from "./token-creation/server-side-creation";
 import { handleErrorWithCleanup } from "./pinata-cleanup";
 
+// Image size limits in bytes
+const IMAGE_SIZE_LIMITS = {
+  DEFAULT: 500 * 1024, // 500KB
+  LARGE: 10 * 1024 * 1024, // 10MB
+};
+
 /**
  * Orchestrates token creation with a single transaction
  * Network fees are deducted from the fee recipient amount, so the user pays EXACTLY the displayed fee
@@ -42,6 +48,16 @@ export async function createTokenWithMetadata(
   }
   if (!formData.description || formData.description.trim() === "") {
     throw new Error("Token description is required");
+  }
+
+  // Validate image size
+  const maxImageSize = formData.largeImageSize ? IMAGE_SIZE_LIMITS.LARGE : IMAGE_SIZE_LIMITS.DEFAULT;
+  if (formData.logo && formData.logo.size > maxImageSize) {
+    if (formData.largeImageSize) {
+      throw new Error(`Image size exceeds maximum limit of 10MB`);
+    } else {
+      throw new Error(`Image size exceeds maximum limit of 500KB. Enable large image size option for larger images.`);
+    }
   }
 
   // Ensure minimum fee
