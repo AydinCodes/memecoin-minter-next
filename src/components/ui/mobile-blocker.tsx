@@ -22,9 +22,15 @@ export default function MobileBlocker() {
       setViewportHeight(`${window.innerHeight}px`);
     };
     
-    // Check if the screen width is less than 768px (typical tablet breakpoint)
+    // Check if the device is mobile - use both width and user agent
     const checkMobile = () => {
-      const mobileCheck = window.innerWidth < 768;
+      // Check if under 768px OR mobile device regardless of orientation
+      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isSmallScreen = window.innerWidth < 768;
+      
+      // Always block on mobile devices, regardless of orientation or screen size
+      const mobileCheck = isMobileDevice || isSmallScreen;
+      
       setIsMobile(mobileCheck);
       
       // Lock or unlock body scroll based on mobile detection
@@ -76,12 +82,14 @@ export default function MobileBlocker() {
     // Add event listeners
     window.addEventListener('resize', checkMobile);
     window.addEventListener('resize', setRealViewportHeight);
+    window.addEventListener('orientationchange', checkMobile);
     window.addEventListener('orientationchange', setRealViewportHeight);
     
     // Clean up event listener and restore scrolling
     return () => {
       window.removeEventListener('resize', checkMobile);
       window.removeEventListener('resize', setRealViewportHeight);
+      window.removeEventListener('orientationchange', checkMobile);
       window.removeEventListener('orientationchange', setRealViewportHeight);
       document.removeEventListener('touchmove', preventDefaultTouchMove);
       document.body.style.overflow = '';

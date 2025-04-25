@@ -53,7 +53,13 @@ export default function RootLayout({
         <Script id="prevent-mobile-scroll" strategy="beforeInteractive">
           {`
             (function() {
-              if (window.innerWidth < 768) {
+              // Function to check if the device is mobile
+              function isMobileDevice() {
+                return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+              }
+              
+              // Function to disable scrolling
+              function disableScroll() {
                 document.documentElement.style.overflow = 'hidden';
                 document.documentElement.style.height = '100%';
                 document.body.style.overflow = 'hidden';
@@ -62,13 +68,25 @@ export default function RootLayout({
                 document.body.style.touchAction = 'none';
                 document.body.style.width = '100%';
               }
+              
+              // Handle orientation change
+              window.addEventListener('orientationchange', function() {
+                if (isMobileDevice()) {
+                  disableScroll();
+                }
+              });
+              
+              // Initial check
+              if (isMobileDevice()) {
+                disableScroll();
+              }
             })();
           `}
         </Script>
         
         {/* Inline style for immediate effect during page load */}
         <style dangerouslySetInnerHTML={{ __html: `
-          @media (max-width: 767px) {
+          @media (max-width: 1024px) and (orientation: landscape), (max-width: 767px) {
             html, body {
               overflow: hidden !important;
               position: fixed !important;
