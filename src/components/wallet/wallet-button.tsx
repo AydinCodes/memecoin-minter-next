@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { formatWalletAddress, getWalletBalance, saveWalletPublicKey } from '@/services/wallet-service';
-import { debugWallet } from '@/utils/wallet-debug';
 
 export default function WalletButton() {
   const { publicKey, connected, connecting, disconnecting, wallet } = useWallet();
@@ -18,7 +17,7 @@ export default function WalletButton() {
         const sol = await getWalletBalance(publicKey);
         setBalance(sol);
       } catch (error) {
-        console.error('Error fetching balance:', error);
+        // Handle error silently
       }
     } else {
       setBalance(null);
@@ -40,24 +39,6 @@ export default function WalletButton() {
     }
   }, [connected, publicKey, loadBalance]);
 
-  // Format public key for display
-  const getFormattedAddress = () => {
-    if (!publicKey) return '';
-    return formatWalletAddress(publicKey.toString());
-  };
-
-  // Add logging for debugging connection issues
-  useEffect(() => {
-    if (connecting) {
-      console.log('Wallet connecting...');
-    } else if (disconnecting) {
-      console.log('Wallet disconnecting...');
-    } else if (connected) {
-      console.log('Wallet connected:', getFormattedAddress());
-      debugWallet(wallet);
-    }
-  }, [connecting, disconnecting, connected, publicKey, wallet]);
-  
   if (!mounted) {
     // Return a placeholder with the same dimensions to prevent layout shift
     return <div className="wallet-button-placeholder"></div>;

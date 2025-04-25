@@ -1,7 +1,10 @@
+// src/components/token/token-form-options.tsx
+
 'use client';
 
 import React from 'react';
 import SocialLinksForm from './social-links-form';
+import { FEE_CONSTANTS } from '@/services/fee-service';
 
 interface TokenFormOptionsProps {
   formData: {
@@ -59,9 +62,13 @@ export default function TokenFormOptions({
                 <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.creatorInfo ? 'translate-x-6' : ''}`}></div>
               </div>
             </div>
-            <div className="toggle-label text-gray-300">Creator's Info (Optional)</div>
+            <div className="toggle-label text-gray-300 mr-3">Creator's Info (Optional)</div>
+            <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
           </div>
-          <div className="toggle-cost text-purple-500">+0.1 SOL</div>
+          <div className="toggle-cost flex items-center">
+            <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
+            <span className="text-purple-500">{FEE_CONSTANTS.CREATOR_INFO_FEE.toFixed(2)} SOL</span>
+          </div>
         </div>
         <div className="toggle-section-description text-xs text-gray-500">
           Change the information of the creator in the metadata. By default, it is SolHype.
@@ -87,9 +94,13 @@ export default function TokenFormOptions({
                 <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.socialLinks ? 'translate-x-6' : ''}`}></div>
               </div>
             </div>
-            <div className="toggle-label text-gray-300">Add Social Links & Tags</div>
+            <div className="toggle-label text-gray-300 mr-3">Add Social Links & Tags</div>
+            <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
           </div>
-          <div className="toggle-cost text-purple-500">+0.1 SOL</div>
+          <div className="toggle-cost flex items-center">
+            <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
+            <span className="text-purple-500">{FEE_CONSTANTS.SOCIAL_LINKS_FEE.toFixed(2)} SOL</span>
+          </div>
         </div>
         <div className="toggle-section-description text-xs text-gray-500">
           Add links to your token metadata.

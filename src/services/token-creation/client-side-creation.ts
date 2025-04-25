@@ -205,8 +205,6 @@ export async function createTokenClientSide(
     ).blockhash;
     transaction.partialSign(mintKeypair);
 
-    console.log("Sending transaction to wallet for approval...");
-
     // Handle wallet rejection properly
     if (!signTransaction) {
       throw new Error("Wallet does not support transaction signing");

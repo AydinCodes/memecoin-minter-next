@@ -29,7 +29,6 @@ function getCurrentWalletPublicKey(): string {
 function getSessionUuid(): string {
   if (!currentSessionUuid) {
     currentSessionUuid = uuidv4();
-    console.log(`Created new session UUID: ${currentSessionUuid}`);
 
     // Sync with cleanup service
     setCurrentSessionUuid(currentSessionUuid);
@@ -39,7 +38,6 @@ function getSessionUuid(): string {
 
 // Helper function to reset the session UUID (call this at the start of a new token creation)
 export function resetSessionUuid(): void {
-  console.log("Reset session UUID for new token creation");
   currentSessionUuid = null;
 
   // Sync with cleanup service
@@ -103,7 +101,6 @@ export async function uploadImageToIPFS(
     // Add the unique filename as metadata
     formData.append("fileName", newFileName);
 
-    console.log(`Uploading image as: ${newFileName}`);
 
     const res = await fetch("/api/upload-image", {
       method: "POST",
@@ -120,7 +117,6 @@ export async function uploadImageToIPFS(
     const { cid, gateway } = await res.json();
     const imageUrl = `https://${gateway}/ipfs/${cid}`;
 
-    console.log(`Image uploaded successfully: ${imageUrl}`);
     return imageUrl;
   } catch (error) {
     console.error("Error uploading image to IPFS:", error);
@@ -221,9 +217,6 @@ export async function uploadMetadataToIPFS(
       }
     };
 
-    console.log(
-      `Uploading metadata for: ${payload.name} (${payload.symbol}) as ${uniqueFileName}`
-    );
 
     const res = await fetch("/api/upload-metadata", {
       method: "POST",
@@ -245,7 +238,6 @@ export async function uploadMetadataToIPFS(
     const { cid, gateway } = await res.json();
     const metadataUrl = `https://${gateway}/ipfs/${cid}`;
 
-    console.log(`Metadata uploaded successfully: ${metadataUrl}`);
     return metadataUrl;
   } catch (error) {
     console.error("Error uploading metadata to IPFS:", error);
@@ -335,9 +327,6 @@ export async function updateMetadataWithMintAddress(
     const { cid, gateway } = await res.json();
     const metadataUrl = `https://${gateway}/ipfs/${cid}`;
 
-    console.log(
-      `Updated metadata uploaded successfully as ${uniqueFileName}: ${metadataUrl}`
-    );
 
     // Reset the session UUID after the token is fully created
     resetSessionUuid();

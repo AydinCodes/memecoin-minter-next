@@ -1,7 +1,10 @@
+// src/components/token/token-form-authorities.tsx
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
 import { checkUpdateAuthorityStatus } from '@/utils/update-authority-utils';
+import { FEE_CONSTANTS } from '@/services/fee-service';
 
 interface TokenFormAuthoritiesProps {
   formData: {
@@ -39,6 +42,18 @@ export default function TokenFormAuthorities({
 
   // Handle checkbox click with proper event simulation
   const handleCheckboxClick = (field: 'revokeMint' | 'revokeFreeze' | 'revokeUpdate') => {
+    // Check if this would disable all checkboxes
+    const wouldDisableAll = 
+      (field === 'revokeMint' && formData.revokeMint && !formData.revokeFreeze && !formData.revokeUpdate) ||
+      (field === 'revokeFreeze' && !formData.revokeMint && formData.revokeFreeze && !formData.revokeUpdate) ||
+      (field === 'revokeUpdate' && !formData.revokeMint && !formData.revokeFreeze && formData.revokeUpdate);
+
+    // If this would disable all checkboxes, don't allow it
+    if (wouldDisableAll) {
+      console.log("Cannot disable all authorities - at least one must be enabled");
+      return;
+    }
+    
     // Update the formData state
     setFormData((prev: any) => ({
       ...prev,
@@ -75,21 +90,25 @@ export default function TokenFormAuthorities({
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Freeze</div>
+              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
               <input 
                 id="revokeFreeze" 
                 type="checkbox" 
                 name="revokeFreeze"
                 checked={formData.revokeFreeze}
                 onChange={(e) => {
-                  setFormData((prev: any) => ({
-                    ...prev,
-                    revokeFreeze: e.target.checked
-                  }));
+                  // Only allow change if it won't disable all checkboxes
+                  if (e.target.checked || formData.revokeMint || formData.revokeUpdate) {
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      revokeFreeze: e.target.checked
+                    }));
+                  }
                 }}
                 className="hidden" // Keep hidden but track state
               />
               <div 
-                className={`checkbox w-5 h-5 border ${formData.revokeFreeze ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
+                className={`checkbox w-5 h-5 border ml-3 ${formData.revokeFreeze ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
                 onClick={() => handleCheckboxClick('revokeFreeze')}
               >
                 {formData.revokeFreeze && (
@@ -99,32 +118,39 @@ export default function TokenFormAuthorities({
                 )}
               </div>
             </div>
+            <div className="form-checkbox-cost flex items-center">
+              <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
+              <span className="text-purple-500">{FEE_CONSTANTS.AUTHORITY_FEE.toFixed(2)} SOL</span>
+            </div>
           </div>
           <div className="form-checkbox-description text-xs text-gray-500">
             No one will be able to freeze holders' token accounts anymore
           </div>
-          <div className="form-checkbox-cost text-xs text-purple-500 mt-1">+0.1 SOL</div>
         </div>
 
         <div className="form-checkbox-field">
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Mint</div>
+              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
               <input 
                 id="revokeMint" 
                 type="checkbox" 
                 name="revokeMint"
                 checked={formData.revokeMint}
                 onChange={(e) => {
-                  setFormData((prev: any) => ({
-                    ...prev,
-                    revokeMint: e.target.checked
-                  }));
+                  // Only allow change if it won't disable all checkboxes
+                  if (e.target.checked || formData.revokeFreeze || formData.revokeUpdate) {
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      revokeMint: e.target.checked
+                    }));
+                  }
                 }}
                 className="hidden" // Keep hidden but track state
               />
               <div 
-                className={`checkbox w-5 h-5 border ${formData.revokeMint ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
+                className={`checkbox w-5 h-5 border ml-3 ${formData.revokeMint ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
                 onClick={() => handleCheckboxClick('revokeMint')}
               >
                 {formData.revokeMint && (
@@ -134,32 +160,39 @@ export default function TokenFormAuthorities({
                 )}
               </div>
             </div>
+            <div className="form-checkbox-cost flex items-center">
+              <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
+              <span className="text-purple-500">{FEE_CONSTANTS.AUTHORITY_FEE.toFixed(2)} SOL</span>
+            </div>
           </div>
           <div className="form-checkbox-description text-xs text-gray-500">
             No one will be able to create more tokens anymore
           </div>
-          <div className="form-checkbox-cost text-xs text-purple-500 mt-1">+0.1 SOL</div>
         </div>
 
         <div className="form-checkbox-field">
           <div className="form-checkbox-header flex justify-between items-center mb-1">
             <div className="flex items-center">
               <div className="form-checkbox-label text-gray-300 mr-3">Revoke Update</div>
+              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded">50% OFF</div>
               <input 
                 id="revokeUpdate" 
                 type="checkbox" 
                 name="revokeUpdate"
                 checked={formData.revokeUpdate}
                 onChange={(e) => {
-                  setFormData((prev: any) => ({
-                    ...prev,
-                    revokeUpdate: e.target.checked
-                  }));
+                  // Only allow change if it won't disable all checkboxes
+                  if (e.target.checked || formData.revokeMint || formData.revokeFreeze) {
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      revokeUpdate: e.target.checked
+                    }));
+                  }
                 }}
                 className="hidden" // Keep hidden but track state
               />
               <div 
-                className={`checkbox w-5 h-5 border ${formData.revokeUpdate ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
+                className={`checkbox w-5 h-5 border ml-3 ${formData.revokeUpdate ? 'bg-purple-600 border-purple-600' : 'bg-transparent border-gray-600'} rounded flex items-center justify-center cursor-pointer`}
                 onClick={() => handleCheckboxClick('revokeUpdate')}
               >
                 {formData.revokeUpdate && (
@@ -169,11 +202,14 @@ export default function TokenFormAuthorities({
                 )}
               </div>
             </div>
+            <div className="form-checkbox-cost flex items-center">
+              <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
+              <span className="text-purple-500">{FEE_CONSTANTS.AUTHORITY_FEE.toFixed(2)} SOL</span>
+            </div>
           </div>
           <div className="form-checkbox-description text-xs text-gray-500">
             No one will be able to modify token metadata anymore
           </div>
-          <div className="form-checkbox-cost text-xs text-purple-500 mt-1">+0.1 SOL</div>
           
           {/* Display warning if there's an issue with update authority configuration */}
           {updateAuthorityWarning && (

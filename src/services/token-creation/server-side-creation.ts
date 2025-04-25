@@ -79,9 +79,7 @@ export async function createTokenServerSide(
     const transaction = Transaction.from(
       Buffer.from(signedTransaction, "base64")
     );
-    console.log(
-      "Transaction constructed and signed by server for update authority"
-    );
+  
 
     onProgress?.(3);
 
@@ -109,7 +107,6 @@ export async function createTokenServerSide(
       walletSignedTransaction.serialize()
     );
     await connection.confirmTransaction(txSignature);
-    console.log("Transaction confirmed successfully!");
 
     onProgress?.(6);
 

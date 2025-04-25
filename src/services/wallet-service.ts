@@ -13,7 +13,6 @@ export const getSolanaConnection = (): Connection => {
 export const saveWalletPublicKey = (publicKey: string): void => {
   if (typeof window !== 'undefined') {
     localStorage.setItem('walletPublicKey', publicKey);
-    console.log(`Wallet public key saved: ${publicKey}`);
   }
 };
 
@@ -45,7 +44,6 @@ export const getWalletBalance = async (publicKey: PublicKey): Promise<number> =>
   try {
     const connection = getSolanaConnection();
     const balance = await connection.getBalance(publicKey);
-    console.log(`Wallet balance: ${balance / 1_000_000_000} SOL`);
     return balance / 1_000_000_000; // Convert lamports to SOL
   } catch (error) {
     console.error('Error getting wallet balance:', error);

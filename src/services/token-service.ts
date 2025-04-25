@@ -57,21 +57,15 @@ export async function createTokenWithMetadata(
   const networkFee = SOLANA_NETWORK_FEE;
   const netFeeAmount = Math.max(totalFee - networkFee, 0);
 
-  console.log("Creating token with displayed fee:", totalFee, "SOL");
-  console.log("Solana network fee:", networkFee, "SOL");
-  console.log("Net fee to fee recipient:", netFeeAmount, "SOL");
-  console.log("Token options:", {
-    revokeMint: formData.revokeMint,
-    revokeFreeze: formData.revokeFreeze,
-    revokeUpdate: formData.revokeUpdate,
-    socialLinks: formData.socialLinks,
-    creatorInfo: formData.creatorInfo,
-  });
 
   try {
     // STEP 0: IPFS image with unique name (now using {public_key}_{random_uuid}_image pattern)
     onProgress?.(0);
-    const imageUrl = await uploadImageToIPFS(formData.logo, formData.name, formData.symbol);
+    const imageUrl = await uploadImageToIPFS(
+      formData.logo,
+      formData.name,
+      formData.symbol
+    );
 
     // STEP 1: IPFS metadata JSON (now using {public_key}_{random_uuid}_metadata pattern)
     onProgress?.(1);
@@ -93,7 +87,7 @@ export async function createTokenWithMetadata(
       authorities: {
         mintRevoked: formData.revokeMint,
         freezeRevoked: formData.revokeFreeze,
-        updateRevoked: formData.revokeUpdate
+        updateRevoked: formData.revokeUpdate,
       },
       ...(formData.socialLinks && {
         website: formData.website,
@@ -105,7 +99,7 @@ export async function createTokenWithMetadata(
 
     // STEP 2: Choose flow based on whether we need to revoke update authority
     onProgress?.(2);
-    
+
     // Check whether to use server-side update authority (only when revoking update)
     if (formData.revokeUpdate) {
       return createTokenServerSide(
@@ -132,7 +126,7 @@ export async function createTokenWithMetadata(
     // Handle error with Pinata cleanup
     console.error("Error in token creation process:", error);
     await handleErrorWithCleanup(error);
-    
+
     // Rethrow the error for the UI to handle
     throw error;
   }

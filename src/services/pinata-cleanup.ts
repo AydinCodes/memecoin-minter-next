@@ -21,7 +21,6 @@ export function getCurrentSessionUuid(): string | null {
  */
 export function setCurrentSessionUuid(uuid: string | null): void {
   currentSessionUuid = uuid;
-  console.log(`Session UUID ${uuid ? `set to: ${uuid}` : 'cleared'}`);
 }
 
 /**
