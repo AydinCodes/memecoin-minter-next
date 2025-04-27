@@ -5,9 +5,7 @@ import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
-
 import { LedgerWalletAdapter } from '@solana/wallet-adapter-ledger';
-// Removed the TorusWalletAdapter as it's causing dependency issues
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
 import { SOLANA_NETWORK } from '@/config';
@@ -31,14 +29,35 @@ export function ClientWalletProvider({ children }: ClientWalletProviderProps) {
     : WalletAdapterNetwork.Devnet;
 
   // Set up the RPC endpoint
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+  const endpoint = useMemo(() => {
+    // Check for custom RPC URLs from environment variables
+    const customMainnetRPC = process.env.NEXT_PUBLIC_SOLANA_MAINNET_RPC;
+    const customDevnetRPC = process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC;
+    
+    // Debug log network configuration (will be visible in browser console)
+    console.log(`Initializing wallet provider for network: ${networkEnv}`);
+    console.log(`Custom Mainnet RPC available: ${!!customMainnetRPC}`);
+    console.log(`Custom Devnet RPC available: ${!!customDevnetRPC}`);
+    
+    // Use custom RPC URLs if available, otherwise fall back to public endpoints
+    if (networkEnv === 'mainnet-beta' && customMainnetRPC) {
+      console.log('Using custom mainnet RPC endpoint in ConnectionProvider');
+      return customMainnetRPC;
+    } else if (networkEnv === 'devnet' && customDevnetRPC) {
+      console.log('Using custom devnet RPC endpoint in ConnectionProvider');
+      return customDevnetRPC;
+    }
+    
+    // Fall back to public endpoints
+    console.log(`Using public ${networkEnv} RPC endpoint in ConnectionProvider`);
+    return clusterApiUrl(network);
+  }, [network, networkEnv]);
 
-  // Add a more comprehensive list of wallet adapters (except Torus which causes issues)
+  // Add a more comprehensive list of wallet adapters
   const wallets = useMemo(
     () => [
       new PhantomWalletAdapter(),
       new SolflareWalletAdapter(),
-
       new LedgerWalletAdapter()
     ],
     [network]
@@ -48,7 +67,7 @@ export function ClientWalletProvider({ children }: ClientWalletProviderProps) {
   if (!mounted) return null;
 
   return (
-    <ConnectionProvider endpoint={endpoint}>
+    <ConnectionProvider endpoint={endpoint} config={{ commitment: 'confirmed' }}>
       <WalletProvider wallets={wallets} autoConnect={false}>
         <WalletModalProvider>
           {children}

@@ -10,6 +10,7 @@ import { getSolanaConnection, saveWalletPublicKey } from "./wallet-service";
 import { createTokenClientSide } from "./token-creation/client-side-creation";
 import { createTokenServerSide } from "./token-creation/server-side-creation";
 import { handleErrorWithCleanup } from "./pinata-cleanup";
+import { FEE_CONSTANTS } from "./fee-service";
 
 // Image size limits in bytes
 const IMAGE_SIZE_LIMITS = {
@@ -61,7 +62,7 @@ export async function createTokenWithMetadata(
   }
 
   // Ensure minimum fee
-  const minimumFeeInSOL = 0.1;
+  const minimumFeeInSOL = FEE_CONSTANTS.MINIMUM_FEE;
   if (totalFee < minimumFeeInSOL) {
     console.warn(
       `Fee is too low (${totalFee}), using minimum fee of ${minimumFeeInSOL} SOL`
@@ -141,9 +142,25 @@ export async function createTokenWithMetadata(
   } catch (error) {
     // Handle error with Pinata cleanup
     console.error("Error in token creation process:", error);
+    
+    // Enhance error message based on error type
+    let errorMessage = "An error occurred during token creation.";
+    
+    if (error instanceof Error) {
+      if (error.message.includes("403") || error.message.includes("Access forbidden")) {
+        errorMessage = "RPC access error. The Solana network endpoint is currently unavailable or has reached its request limit. If you're using mainnet, please configure a paid RPC endpoint.";
+      } else if (error.message.includes("429") || error.message.includes("Too many requests")) {
+        errorMessage = "Rate limit exceeded. The RPC endpoint has too many requests. Please try again later or use a dedicated RPC endpoint.";
+      } else if (error.message.includes("wallet") || error.message.includes("Wallet")) {
+        errorMessage = error.message; // Keep wallet-related errors as is
+      } else if (error.message.includes("balance") || error.message.includes("insufficient")) {
+        errorMessage = "Insufficient SOL balance to complete this transaction. Please add more SOL to your wallet.";
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
     await handleErrorWithCleanup(error);
-
-    // Rethrow the error for the UI to handle
-    throw error;
+    throw new Error(errorMessage);
   }
-}
+} 

@@ -3,6 +3,10 @@
 // Solana network configuration
 export const SOLANA_NETWORK = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
 
+// RPC endpoints
+export const SOLANA_MAINNET_RPC = process.env.NEXT_PUBLIC_SOLANA_MAINNET_RPC;
+export const SOLANA_DEVNET_RPC = process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC;
+
 // Fee recipient wallet - address that will receive token creation fees
 export const FEE_RECIPIENT_WALLET = process.env.NEXT_PUBLIC_FEE_WALLET || '8oUmkz9VmF9upLxUg6qp6iaq5N4A86bUuo37SJvXvzWt';
 
@@ -40,8 +44,7 @@ export const getExplorerUrl = (address: string, isTransaction = false): string =
 };
 
 // Metaplex Token Metadata Program ID (constant across all Solana networks)
-// UPDATED: This is the correct Metaplex Token Metadata Program ID
 export const TOKEN_METADATA_PROGRAM_ID = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
 
 // Program ID for the SPL Token Program
-export const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+export const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'; 
