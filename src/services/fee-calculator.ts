@@ -12,17 +12,19 @@ export interface FeeOptions {
   revokeUpdate: boolean;
   socialLinks: boolean;
   creatorInfo: boolean;
+  largeImageSize?: boolean;
 }
 
 /**
  * Fee calculation constants
  */
 export const FEE_CONSTANTS = {
-  BASE_FEE: 0.1,        // Base fee for token creation
-  AUTHORITY_FEE: 0.1,   // Fee per authority revoked
-  SOCIAL_LINKS_FEE: 0.1, // Fee for adding social links
-  CREATOR_INFO_FEE: 0.1, // Fee for custom creator info
-  MINIMUM_FEE: 0.1      // Minimum fee for any token creation
+  BASE_FEE: 0.05,          // Base fee for token creation (halved from 0.1)
+  AUTHORITY_FEE: 0.05,     // Fee per authority revoked (halved from 0.1)
+  SOCIAL_LINKS_FEE: 0.05,  // Fee for adding social links (halved from 0.1)
+  CREATOR_INFO_FEE: 0.05,  // Fee for custom creator info (halved from 0.1)
+  LARGE_IMAGE_FEE: 0.05,   // Fee for large image size (halved from 0.1)
+  MINIMUM_FEE: 0.05        // Minimum fee for any token creation (halved from 0.1)
 };
 
 /**
@@ -38,6 +40,7 @@ export function calculateFee(options: FeeOptions): number {
   if (options.revokeUpdate) fee += FEE_CONSTANTS.AUTHORITY_FEE;
   if (options.socialLinks) fee += FEE_CONSTANTS.SOCIAL_LINKS_FEE;
   if (options.creatorInfo) fee += FEE_CONSTANTS.CREATOR_INFO_FEE;
+  if (options.largeImageSize) fee += FEE_CONSTANTS.LARGE_IMAGE_FEE;
 
   // Ensure minimum fee
   fee = Math.max(fee, FEE_CONSTANTS.MINIMUM_FEE);
@@ -100,6 +103,10 @@ export function getFeeBreakdown(options: FeeOptions): {
   
   if (options.creatorInfo) {
     components.push({ name: "Creator info", amount: FEE_CONSTANTS.CREATOR_INFO_FEE });
+  }
+  
+  if (options.largeImageSize) {
+    components.push({ name: "Large image size", amount: FEE_CONSTANTS.LARGE_IMAGE_FEE });
   }
   
   return {

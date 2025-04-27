@@ -11,13 +11,13 @@ export interface FeeOptions {
 
 // Fee constants with original and discounted rates
 export const FEE_CONSTANTS = {
-  BASE_FEE: 0,           // No base fee as requested
-  ORIGINAL_FEATURE_FEE: 0.2, // Original price before discount
-  AUTHORITY_FEE: 0.1,    // Discounted fee per authority revoked (50% off)
-  SOCIAL_LINKS_FEE: 0.1,  // Discounted fee for social links (50% off)
-  CREATOR_INFO_FEE: 0.1,  // Discounted fee for creator info (50% off)
-  LARGE_IMAGE_FEE: 0.1,   // Fee for enabling large image size
-  MINIMUM_FEE: 0.1       // Minimum fee for any token creation
+  BASE_FEE: 0,              // No base fee as requested
+  ORIGINAL_FEATURE_FEE: 0.1, // Original price before discount (was 0.2)
+  AUTHORITY_FEE: 0.05,      // Discounted fee per authority revoked (halved from 0.1)
+  SOCIAL_LINKS_FEE: 0.05,   // Discounted fee for social links (halved from 0.1)
+  CREATOR_INFO_FEE: 0.05,   // Discounted fee for creator info (halved from 0.1)
+  LARGE_IMAGE_FEE: 0.05,    // Fee for enabling large image size (halved from 0.1)
+  MINIMUM_FEE: 0.05         // Minimum fee for any token creation (halved from 0.1)
 };
 
 // Calculate the fee based on selected options

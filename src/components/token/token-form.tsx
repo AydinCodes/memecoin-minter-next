@@ -176,7 +176,8 @@ export default function TokenForm() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value, type } = e.target as HTMLInputElement;
-    const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
+    const checked =
+      type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
 
     // Normal form field handling without special cases
     // The special logic for largeImageSize is now handled directly in the toggle button's onClick
@@ -194,21 +195,21 @@ export default function TokenForm() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const sizeLimit = formData.largeImageSize 
-        ? IMAGE_SIZE_LIMITS.LARGE 
+      const sizeLimit = formData.largeImageSize
+        ? IMAGE_SIZE_LIMITS.LARGE
         : IMAGE_SIZE_LIMITS.DEFAULT;
-      
+
       // Hard cap at 10MB regardless of settings
       const hardCap = IMAGE_SIZE_LIMITS.LARGE;
-      
+
       // Check if the file exceeds the hard cap
       if (file.size > hardCap) {
         setImageSizeError(`The image is too large. Maximum size is 10MB.`);
         // Reset the file input
-        e.target.value = '';
+        e.target.value = "";
         return;
       }
-      
+
       // Check if the file size is within the current limit
       if (file.size > sizeLimit) {
         if (formData.largeImageSize) {
@@ -217,22 +218,28 @@ export default function TokenForm() {
         } else {
           // If in default mode and too big, but could use large image option
           setImageSizeError(
-            `The image is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). ` +
-            `Enable large image size option below for an additional fee.`
+            `The image is too large (${(file.size / (1024 * 1024)).toFixed(
+              2
+            )}MB). ` +
+              `Enable large image size option below for an additional fee.`
           );
         }
         // Reset the file input
-        e.target.value = '';
+        e.target.value = "";
         return;
       }
-      
+
       // Clear any previous size errors
       setImageSizeError(null);
-      
+
       // Set the logo in form data
       setFormData((prev) => ({ ...prev, logo: file }));
-      
-      console.log(`File accepted: ${file.name}, size: ${(file.size / 1024).toFixed(2)}KB, largeImageSize: ${formData.largeImageSize}`);
+
+      console.log(
+        `File accepted: ${file.name}, size: ${(file.size / 1024).toFixed(
+          2
+        )}KB, largeImageSize: ${formData.largeImageSize}`
+      );
     }
   };
 
@@ -253,13 +260,13 @@ export default function TokenForm() {
     if (!formData.description || formData.description.trim() === "") {
       return "Token description is required";
     }
-    
+
     // Make sure image size limits are respected
     if (formData.logo) {
-      const sizeLimit = formData.largeImageSize 
-        ? IMAGE_SIZE_LIMITS.LARGE 
+      const sizeLimit = formData.largeImageSize
+        ? IMAGE_SIZE_LIMITS.LARGE
         : IMAGE_SIZE_LIMITS.DEFAULT;
-        
+
       if (formData.logo.size > sizeLimit) {
         if (formData.largeImageSize) {
           return `The image is too large. Maximum size is 10MB.`;
@@ -268,7 +275,7 @@ export default function TokenForm() {
         }
       }
     }
-    
+
     return null;
   };
 
@@ -412,57 +419,75 @@ export default function TokenForm() {
             handleFileChange={handleFileChange}
             formSubmitted={formSubmitAttempted}
             imageSizeError={imageSizeError}
-            sizeLimit={formData.largeImageSize ? IMAGE_SIZE_LIMITS.LARGE : IMAGE_SIZE_LIMITS.DEFAULT}
+            sizeLimit={
+              formData.largeImageSize
+                ? IMAGE_SIZE_LIMITS.LARGE
+                : IMAGE_SIZE_LIMITS.DEFAULT
+            }
           />
-          
+
           {/* Large Image Size Toggle */}
           <div className="toggle-section mb-4 mt-2">
             <div className="toggle-section-header flex justify-between items-center mb-2">
               <div className="toggle-header-left flex items-center">
                 <div className="toggle-wrapper mr-3">
-                  <input 
-                    id="largeImageSize" 
-                    type="checkbox" 
+                  <input
+                    id="largeImageSize"
+                    type="checkbox"
                     name="largeImageSize"
                     checked={formData.largeImageSize}
                     onChange={handleInputChange}
                     className="hidden"
                   />
-                  <div 
-                    className={`toggle w-12 h-6 rounded-full p-1 cursor-pointer ${formData.largeImageSize ? 'bg-purple-600' : 'bg-gray-700'}`}
+                  <div
+                    className={`toggle w-12 h-6 rounded-full p-1 cursor-pointer ${
+                      formData.largeImageSize ? "bg-purple-600" : "bg-gray-700"
+                    }`}
                     onClick={() => {
                       // Simply update the form data and clear the logo
-                      setFormData(prev => ({
+                      setFormData((prev) => ({
                         ...prev,
                         largeImageSize: !prev.largeImageSize,
-                        logo: null // Clear the logo when toggling
+                        logo: null, // Clear the logo when toggling
                       }));
-                      
+
                       // Clear any logo-related errors
                       setImageSizeError(null);
                       if (error?.includes("logo")) {
                         setError(null);
                       }
-                      
+
                       // Reset the file input to clear any previous file selection
-                      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+                      const fileInput = document.querySelector(
+                        'input[type="file"]'
+                      ) as HTMLInputElement;
                       if (fileInput) {
-                        fileInput.value = '';
+                        fileInput.value = "";
                       }
                     }}
                   >
-                    <div className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${formData.largeImageSize ? 'translate-x-6' : ''}`}></div>
+                    <div
+                      className={`toggle-marker h-4 w-4 bg-white rounded-full transform transition-transform ${
+                        formData.largeImageSize ? "translate-x-6" : ""
+                      }`}
+                    ></div>
                   </div>
                 </div>
-                <div className="toggle-label text-gray-300 mr-3">Large Image Size (Optional)</div>
+                <div className="toggle-label text-gray-300 mr-3">
+                  Large Image Size (Optional)
+                </div>
               </div>
               <div className="toggle-cost flex items-center">
-                <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
-                <span className="text-purple-500">{FEE_CONSTANTS.AUTHORITY_FEE.toFixed(2)} SOL</span>
+                <span className="text-gray-500 line-through mr-2">
+                  {FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL
+                </span>
+                <span className="text-purple-500">
+                  {FEE_CONSTANTS.LARGE_IMAGE_FEE.toFixed(2)} SOL
+                </span>
               </div>
             </div>
             <div className="toggle-section-description text-xs text-gray-500">
-              {formData.largeImageSize 
+              {formData.largeImageSize
                 ? "Large image size enabled (up to 10MB). Please upload your image again."
                 : "Enable this option to use images up to 10MB (default limit is 500KB)."}
             </div>
