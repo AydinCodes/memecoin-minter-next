@@ -1,5 +1,3 @@
-// src/components/ui/loading.tsx
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -46,10 +44,14 @@ export default function Loading({
     // Clean up Pinata files
     await cleanupSessionFiles();
 
+    // Refresh the page
+    window.location.reload();
+
+    // Note: The code below will not execute due to page refresh
     // Call the parent's onCancel handler if provided
-    if (onCancel) {
-      onCancel();
-    }
+    // if (onCancel) {
+    //   onCancel();
+    // }
   };
 
   // Determine if we should show wallet notification based on step
