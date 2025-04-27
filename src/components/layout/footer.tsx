@@ -31,6 +31,12 @@ export default function Footer() {
               >
                 My Tokens
               </Link>
+              <Link 
+                href="/support" 
+                className="text-gray-400 hover:text-white text-sm transition-colors"
+              >
+                Support
+              </Link>
               <a 
                 href="https://raydium.io/swap" 
                 target="_blank" 

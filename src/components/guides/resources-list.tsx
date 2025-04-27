@@ -116,7 +116,7 @@ export default function ResourcesList() {
       
       <div className="mt-10 p-4 bg-[#171717] rounded-xl border border-gray-800">
         <p className="text-gray-400 text-center">
-          Need more help with your meme coin? Join our <a href="https://discord.gg/solana" target="_blank" rel="noopener noreferrer" className="text-purple-500 hover:text-purple-400 underline">Discord community</a> for support and updates.
+          Need more help with your meme coin? <Link href="/support" rel="noopener noreferrer" className="text-purple-500 hover:text-purple-400 underline">Contact us</Link>.
         </p>
       </div>
     </div>

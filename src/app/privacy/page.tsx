@@ -113,8 +113,9 @@ export default function PrivacyPolicy() {
             <div>
               <h2 className="text-xl font-semibold text-white mb-2">11. Contact Us</h2>
               <p>
-                If you have any questions about this Privacy Policy, please contact us on Discord.
+                If you have any questions about this Privacy Policy, please <Link href="/support" rel="noopener noreferrer" className="text-purple-500 hover:text-purple-400 underline">contact us</Link>.
               </p>
+
             </div>
           </div>
         </div>
