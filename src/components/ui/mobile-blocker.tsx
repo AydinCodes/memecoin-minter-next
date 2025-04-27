@@ -45,13 +45,6 @@ export default function MobileBlocker() {
         document.body.style.width = '100%';
         document.body.style.top = '0';
         document.body.style.left = '0';
-        
-        // Add classes for additional CSS control
-        document.documentElement.classList.add('mobile-blocked');
-        document.body.classList.add('mobile-blocked');
-        
-        // Prevent touchmove events
-        document.addEventListener('touchmove', preventDefaultTouchMove, { passive: false });
       } else {
         // Restore normal scrolling
         document.body.style.overflow = '';
@@ -60,19 +53,7 @@ export default function MobileBlocker() {
         document.body.style.width = '';
         document.body.style.top = '';
         document.body.style.left = '';
-        
-        // Remove classes
-        document.documentElement.classList.remove('mobile-blocked');
-        document.body.classList.remove('mobile-blocked');
-        
-        // Remove touchmove prevention
-        document.removeEventListener('touchmove', preventDefaultTouchMove);
       }
-    };
-    
-    // Function to prevent default touchmove behavior
-    const preventDefaultTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
     };
     
     // Check on initial load
@@ -91,15 +72,12 @@ export default function MobileBlocker() {
       window.removeEventListener('resize', setRealViewportHeight);
       window.removeEventListener('orientationchange', checkMobile);
       window.removeEventListener('orientationchange', setRealViewportHeight);
-      document.removeEventListener('touchmove', preventDefaultTouchMove);
       document.body.style.overflow = '';
       document.body.style.height = '';
       document.body.style.position = '';
       document.body.style.width = '';
       document.body.style.top = '';
       document.body.style.left = '';
-      document.documentElement.classList.remove('mobile-blocked');
-      document.body.classList.remove('mobile-blocked');
     };
   }, []);
   
@@ -111,21 +89,19 @@ export default function MobileBlocker() {
   
   return (
     <div 
-      className="fixed inset-0 bg-gradient-to-br from-black to-purple-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 mobile-blocker-overlay"
-      onClick={(e) => e.preventDefault()} // Extra measure to prevent any click events
-      onTouchMove={(e) => e.preventDefault()} // Extra measure to prevent touch events
+      className="fixed inset-0 bg-gradient-to-br from-black to-purple-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6"
       style={{ 
         height: viewportHeight,
         minHeight: viewportHeight,
         maxHeight: viewportHeight
       }}
     >
-      {/* Background particles */}
-      <div className="absolute inset-0 pointer-events-none">
-        {Array.from({ length: 12 }).map((_, i) => ( // Reduced number of particles for better performance
+      {/* Background particles - simplified */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {Array.from({ length: 8 }).map((_, i) => (
           <motion.div
             key={i}
-            className="absolute rounded-full bg-purple-500/20 mobile-blocker-particle"
+            className="absolute rounded-full bg-purple-500/20"
             initial={{ 
               x: Math.random() * 100 + '%',
               y: Math.random() * 100 + '%',
@@ -161,7 +137,7 @@ export default function MobileBlocker() {
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="mb-8"
+        className="mb-6"
       >
         <AnimatedLogo />
       </motion.div>
@@ -170,40 +146,13 @@ export default function MobileBlocker() {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.2 }}
-        className="bg-[#171717] rounded-xl p-8 max-w-md w-full text-center border border-purple-500/30 shadow-lg shadow-purple-500/10"
+        className="text-center"
       >
-        <div className="w-16 h-16 bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4 mobile-icon-pulse">
-          <span className="material-symbols-rounded text-purple-400 text-3xl">
-            phone_iphone
-          </span>
-        </div>
-        
-        <h2 className="text-2xl font-bold text-white mb-4">
+        <h2 className="text-2xl font-bold text-white mb-3">
           Mobile Not Supported
         </h2>
-        
-        <p className="text-gray-300 mb-6">
-          SolHype is currently only available on desktop devices. Please visit us on a computer to create and manage your Solana tokens.
-        </p>
-        
-        <div className="flex items-center justify-center gap-4">
-          <div className="bg-[#222] p-4 rounded-lg text-purple-400 text-sm flex flex-col items-center device-card desktop-badge">
-            <span className="material-symbols-rounded text-2xl mb-2">computer</span>
-            <p>Desktop</p>
-            <p className="text-green-400 text-xs mt-1">Supported</p>
-          </div>
-          
-          <div className="w-8 h-0.5 bg-gray-700"></div>
-          
-          <div className="bg-[#222] p-4 rounded-lg text-gray-400 text-sm flex flex-col items-center device-card mobile-badge">
-            <span className="material-symbols-rounded text-2xl mb-2">smartphone</span>
-            <p>Mobile</p>
-            <p className="text-red-400 text-xs mt-1">Not Supported</p>
-          </div>
-        </div>
-        
-        <p className="text-xs text-gray-500 mt-8">
-          For the full SolHype experience, please use a desktop browser with a minimum screen width of 768px.
+        <p className="text-gray-300 text-sm">
+          Please visit on desktop to use SolHype
         </p>
       </motion.div>
     </div>
