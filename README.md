@@ -1,209 +1,108 @@
 # SolHype - Solana Meme Coin & Token Creator
 
-SolHype is a user-friendly web application designed for creating and launching Solana tokens and meme coins with ease. The platform provides a streamlined interface for token creation, with advanced options for customizing token parameters, metadata, and security settings.
+## Project Overview
 
-## Features
+SolHype is a sophisticated web application that democratizes the creation of Solana blockchain tokens and meme coins. Built with Next.js 15, TypeScript, and Solana's web3 libraries, this platform eliminates the technical barriers typically associated with blockchain token deployment. Users can create fully customized tokens with just a few clicks, without writing a single line of code.
 
-- **Easy Token Creation**: Create Solana tokens and meme coins in minutes without any coding
-- **Wallet Integration**: Seamless connection with popular Solana wallets (Phantom, Solflare, Ledger)
-- **Authority Management**: Options to revoke mint, freeze, and update authorities to build investor trust
-- **Social Integration**: Add social media links directly to your token's metadata
-- **Creator Information**: Customize creator details in your token metadata
-- **IPFS Storage**: Token logos and metadata securely stored on IPFS via Pinata
-- **Token Management**: View and manage all your created tokens in one place
-- **Liquidity Integration**: Direct links to create liquidity pools on Raydium DEX
-- **Mobile Blocking**: Desktop-optimized experience with mobile device detection
+![SolHype Token Creation Platform](https://solhype.net/solhype-logo.svg)
 
-## Getting Started
+**Live Demo:** [https://solhype.com](https://solhype.com)  
+**GitHub Repository:** [https://github.com/aydincodes/solhype](https://github.com/aydincodes/solhype)
 
-### Prerequisites
+## Project Highlights
 
-- Node.js 18+ and npm/bun
-- A Pinata account with JWT token for IPFS storage
-- A Solana wallet (Phantom, Solflare, etc.)
+- **Full-Stack Web3 Application**: Integrates Next.js with Solana blockchain to create a seamless token creation experience
+- **Blockchain Transaction Management**: Handles complex on-chain transactions with proper error handling and recovery
+- **Decentralized Storage Integration**: Uses IPFS via Pinata for permanent, decentralized storage of token metadata and images
+- **Advanced UI/UX Design**: Features animated, responsive interfaces with real-time feedback during blockchain transactions
+- **Wallet Integration**: Implements secure connections with multiple Solana wallet providers
+- **Server-Side & Client-Side Signing**: Supports complex token authority management including server-side authority revocation
+- **SEO Optimization**: Built with server components and proper metadata for search engine discovery
 
-### Installation
+## Technical Challenges Solved
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/solhype.git
-   cd solhype
-   ```
+### 1. Seamless Blockchain Integration
 
-2. Install dependencies:
-   ```
-   npm install
-   # or
-   bun install
-   ```
+SolHype abstracts away the complexities of Solana smart contracts, SPL token creation, and metadata account management. The application handles the intricate process of creating and signing multi-instruction transactions while providing a user-friendly interface.
 
-3. Set up environment variables by copying the example file:
-   ```
-   cp .env.local.example .env.local
-   ```
+### 2. Two-Phase Token Creation
 
-4. Edit `.env.local` and add your:
-   - Pinata JWT token
-   - Pinata gateway URL
-   - Solana network preference (devnet or mainnet-beta)
-   - Fee recipient wallet address
-   - Private key for update authority revocation (optional)
+To ensure maximum security and flexibility, SolHype implements a two-phase token creation process:
 
-5. Start the development server:
-   ```
-   npm run dev
-   # or
-   bun run dev
-   ```
+1. **Preparation Phase**: Initial metadata and images are uploaded to IPFS
+2. **Blockchain Phase**: Tokens are created on-chain with the appropriate authorities and metadata links
+3. **Finalization Phase**: Metadata is updated with the new token's address and permanent links
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser
+### 3. Authority Management
 
-## Token Creation Process
+The platform gives users fine-grained control over token authorities:
 
-1. Connect your wallet using the wallet button in the navbar
-2. Fill in token details (name, symbol, supply, decimals, etc.)
-3. Upload a logo for your token (PNG or JPG, up to 500KB standard or 10MB with large image option)
-4. Add a detailed description for your token
-5. Configure optional features like social links and creator information
-6. Choose which authorities to revoke (recommended for investor trust)
-7. Review the total fee and click "Launch Token"
-8. Approve the transaction in your wallet
-9. Once successful, you'll receive the token address, explorer link, and options to create liquidity
+- **Mint Authority**: Controls token supply (revocable for fixed supply)
+- **Freeze Authority**: Controls ability to freeze token accounts (revocable for user security)
+- **Update Authority**: Controls metadata changes (revocable with server-side signing)
 
-## Fees
+### 4. Decentralized Storage Architecture
 
-The application charges a small fee for token creation with a 50% discount promotion:
+Token metadata and images are stored permanently on IPFS, ensuring:
 
-- Base fee: 0.05 SOL
-- Additional fees for each feature:
-  - Authority revocation (mint, freeze, update): 0.05 SOL each
-  - Social links: 0.05 SOL
-  - Creator information: 0.05 SOL
-  - Large image size: 0.05 SOL
+- **Censorship Resistance**: Content cannot be taken down by any single entity
+- **Permanence**: Data remains available even if the application goes offline
+- **Verifiability**: On-chain references to decentralized content maintain integrity
 
-All fees are sent to the designated fee wallet configured in the environment variables.
+## Technical Stack
 
-## Project Structure
+### Frontend
+- **Framework**: Next.js 15 with App Router
+- **Language**: TypeScript
+- **UI Libraries**: TailwindCSS 4, Framer Motion
+- **State Management**: React Context API and custom hooks
+- **Web3 Integration**: Solana Wallet Adapter
 
-```
-solhype/
-├── src/
-│   ├── app/                      # Next.js app router
-│   │   ├── api/                  # API routes for various services
-│   │   │   ├── create-token/     # Token creation API
-│   │   │   ├── sign-transaction/ # Transaction signing API
-│   │   │   ├── upload-image/     # IPFS image upload API
-│   │   │   ├── upload-metadata/  # IPFS metadata upload API 
-│   │   │   ├── user-tokens/      # User token discovery API
-│   │   │   └── ...
-│   │   ├── create-token/         # Token creation page
-│   │   ├── my-tokens/            # Token management page
-│   │   ├── guides/               # Guides & resources page
-│   │   ├── support/              # Support request page
-│   │   ├── privacy/              # Privacy policy page
-│   │   ├── terms/                # Terms of service page
-│   │   └── ...
-│   ├── components/               # React components
-│   │   ├── home/                 # Homepage components
-│   │   ├── layout/               # Layout components (navbar, footer)
-│   │   ├── token/                # Token-related components
-│   │   ├── ui/                   # UI components (loading, animations)
-│   │   ├── wallet/               # Wallet connection components
-│   │   └── guides/               # Guide components
-│   ├── services/                 # Service functions
-│   │   ├── token-creation/       # Token creation logic
-│   │   ├── fee-service.ts        # Fee calculation service
-│   │   ├── ipfs-service.ts       # IPFS storage service
-│   │   ├── pinata-cleanup.ts     # IPFS cleanup service
-│   │   ├── token-service.ts      # Main token service
-│   │   └── wallet-service.ts     # Wallet interaction service
-│   ├── styles/                   # Global styles and animations
-│   ├── utils/                    # Utility functions
-│   ├── types/                    # TypeScript type definitions
-│   └── config/                   # Configuration files
-├── public/                       # Static assets
-└── ...
-```
+### Backend
+- **Server**: Next.js API Routes
+- **Blockchain**: Solana (SPL Token, Metaplex Token Metadata)
+- **Storage**: IPFS via Pinata
+- **Authentication**: Wallet-based authentication
+- **Email**: Nodemailer for support requests
 
-## Key Technologies
+### DevOps
+- **Version Control**: Git/GitHub
+- **Deployment**: Vercel
+- **CI/CD**: GitHub Actions
 
-- **Next.js 14**: React framework with app router and server components
-- **TypeScript**: For type safety and improved developer experience
-- **@solana/web3.js**: Solana JavaScript API
-- **@solana/spl-token**: For token creation and management
-- **@solana/wallet-adapter**: Wallet connection libraries
-- **Framer Motion**: For animations and transitions
-- **TailwindCSS**: For styling and responsive design
-- **IPFS/Pinata**: For decentralized storage of token assets
+## Performance Optimizations
 
-## Environment Variables
+- **Dynamic Component Loading**: Separate client and server components for optimal performance
+- **Responsive Design**: Desktop-optimized experience with mobile detection
+- **Progressive Loading**: Step-by-step form with real-time validation
+- **Error Handling**: Comprehensive error detection and recovery
 
-```
-# Solana Network settings
-NEXT_PUBLIC_SOLANA_NETWORK=devnet  # or mainnet-beta
+## Business Applications
 
-# Fee recipient wallet address
-NEXT_PUBLIC_FEE_WALLET=your_wallet_address_here
+SolHype addresses a significant market need for simplified token creation tools. It serves:
 
-# Pinata IPFS settings
-NEXT_PUBLIC_PINATA_GATEWAY=your_gateway_here
-PINATA_JWT=your_jwt_token_here
+1. **Entrepreneurs**: Launching new blockchain projects without technical expertise
+2. **Communities**: Creating tokens for governance or rewards
+3. **Developers**: Rapid prototyping of token-based applications
+4. **Meme Coin Creators**: Launching viral tokens with robust social features
 
-# Solana network fee
-NEXT_PUBLIC_SOLANA_NETWORK_FEE=0.01862
+## Learning Outcomes
 
-# Server-side update authority private key (base58 encoded)
-REVOKE_UPDATE_PRIVATE_KEY=your_private_key_here
-```
+Building SolHype provided valuable experience in:
 
-## Deployment
+- **Blockchain Development**: Deep understanding of Solana's token program and metadata standards
+- **Web3 UX Design**: Creating intuitive interfaces for complex blockchain operations
+- **Transaction Security**: Implementing proper transaction signing and security practices
+- **Decentralized Architecture**: Building applications that leverage both centralized and decentralized components
 
-To deploy SolHype to production:
+## Future Development Roadmap
 
-1. Build the application:
-   ```
-   npm run build
-   # or
-   bun run build
-   ```
+1. **Multi-Chain Support**: Expanding to Ethereum, Polygon, and other EVM chains
+2. **Token Management Dashboard**: Enhanced analytics and management tools
+3. **Social Features**: Community building tools for token communities
+4. **Enhanced Metadata**: Support for rich media and interactive token features
+5. **Governance Tools**: DAO creation and governance feature integration
 
-2. Start the production server:
-   ```
-   npm start
-   # or
-   bun start
-   ```
+---
 
-For cloud deployments, we recommend using Vercel, Netlify, or similar platforms with Next.js optimization.
-
-## Features in Detail
-
-### Token Creation
-- Complete customization of token parameters (name, symbol, decimals, supply)
-- Logo upload with support for standard (500KB) or large images (10MB)
-- Detailed token description and creator information
-- Social media link integration
-
-### Authority Management
-- Revoke mint authority to create a fixed supply token
-- Revoke freeze authority to prevent token freezing
-- Revoke update authority to make metadata immutable
-
-### Token Management
-- View all tokens created with your wallet
-- Direct links to Solana Explorer, Raydium DEX, and IPFS
-- Token analytics and authority status information
-
-### User Experience
-- Step-by-step guides for token creation and management
-- Animated loading screens with transaction progress
-- Comprehensive error handling and validation
-- Desktop-optimized interface with mobile blocking
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For support, please visit the [Support Page](https://yourdomain.com/support) or open an issue on GitHub.
+*SolHype demonstrates a practical implementation of blockchain technology that bridges the gap between technical complexity and user-friendly applications, making token creation accessible to everyone.*
