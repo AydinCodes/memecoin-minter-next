@@ -4,6 +4,20 @@ import bs58 from 'bs58';
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import { SOLANA_NETWORK } from '@/config';
 
+// Use server-side only RPC endpoints
+function getServerSideRpcUrl() {
+  const network = SOLANA_NETWORK === 'mainnet-beta' ? 'mainnet-beta' : 'devnet';
+  
+  if (network === 'mainnet-beta' && process.env.SOLANA_MAINNET_RPC) {
+    return process.env.SOLANA_MAINNET_RPC;
+  } else if (network === 'devnet' && process.env.SOLANA_DEVNET_RPC) {
+    return process.env.SOLANA_DEVNET_RPC;
+  } else {
+    // This will be used as fallback if no server-side endpoints are configured
+    return null;
+  }
+}
+
 // This API endpoint is for validating the environment is correctly set up
 // We don't actually create tokens here - that happens client-side
 // But we confirm the update authority keypair is valid
@@ -32,11 +46,15 @@ export async function GET(request: NextRequest) {
       // Return a redacted version of the public key for confirmation
       const redactedPublicKey = `${updateAuthorityPublicKey.substring(0, 4)}...${updateAuthorityPublicKey.substring(updateAuthorityPublicKey.length - 4)}`;
       
+      // Check if we have server-side RPC endpoints configured
+      const serverSideRpcUrl = getServerSideRpcUrl();
+      
       return NextResponse.json({ 
         ok: true, 
         message: "Update authority configuration is valid", 
         updateAuthority: redactedPublicKey,
-        network: SOLANA_NETWORK
+        network: SOLANA_NETWORK,
+        rpcConfigured: !!serverSideRpcUrl
       });
     } catch (error) {
       console.error("Error validating update authority keypair:", error);

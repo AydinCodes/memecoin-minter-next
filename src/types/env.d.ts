@@ -15,6 +15,10 @@ declare namespace NodeJS {
     // Solana network fee
     NEXT_PUBLIC_SOLANA_NETWORK_FEE: string;
 
+    // Server-side RPC endpoints (not exposed to client)
+    SOLANA_MAINNET_RPC: string;
+    SOLANA_DEVNET_RPC: string;
+
     REVOKE_UPDATE_PRIVATE_KEY: string;
   }
 }

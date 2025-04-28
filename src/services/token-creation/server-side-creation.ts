@@ -6,12 +6,12 @@ import {
   Transaction,
   Keypair,
   LAMPORTS_PER_SOL,
-  TransactionConfirmationStrategy,
 } from "@solana/web3.js";
 import type { WalletContextState } from "@solana/wallet-adapter-react";
 import { FormDataType, TokenResult } from "@/types/token";
 import { updateMetadataWithMintAddress } from "../ipfs-service";
 import { handleErrorWithCleanup } from "../pinata-cleanup";
+import { getLatestBlockhash, sendAndConfirmTransaction } from "../wallet-service";
 
 /**
  * Creates a token using server-side signing for update authority
@@ -45,15 +45,12 @@ export async function createTokenServerSide(
       "base64"
     );
     
-    // Get latest blockhash with improved error handling
-    let blockhash;
-    try {
-      const { blockhash: recentBlockhash } = await connection.getLatestBlockhash("finalized");
-      blockhash = recentBlockhash;
-    } catch (blockHashError) {
-      console.error("Error getting recent blockhash:", blockHashError);
-      throw new Error("Network communication error. Unable to get recent blockhash from Solana. Please check your RPC endpoint configuration.");
+    // Get latest blockhash from server API with improved error handling
+    const latestBlockhashResult = await getLatestBlockhash();
+    if (!latestBlockhashResult) {
+      throw new Error("Network communication error. Unable to get recent blockhash from Solana. Please check your internet connection.");
     }
+    const blockhash = latestBlockhashResult.blockhash;
 
     // Request server-side signing
     let response;
@@ -68,7 +65,7 @@ export async function createTokenServerSide(
           tokenSymbol: formData.symbol,
           tokenDecimals: formData.decimals,
           tokenSupply: formData.supply,
-          payerPublicKey: publicKey.toString(), // Safe to call toString() now
+          payerPublicKey: publicKey.toString(),
           hasCreators: true, // IMPORTANT FIX: Always include creators
           revokeUpdate: formData.revokeUpdate,
           revokeMint: formData.revokeMint,
@@ -135,47 +132,17 @@ export async function createTokenServerSide(
       throw new Error("Transaction signing failed");
     }
 
-    // Send and confirm transaction
-    let txSignature;
-    try {
-      txSignature = await connection.sendRawTransaction(
-        walletSignedTransaction.serialize()
-      );
-      
-      // Improved confirmation with proper typing
-      const latestBlockHash = await connection.getLatestBlockhash("finalized");
-      
-      // Create a TransactionConfirmationStrategy object
-      const confirmationStrategy: TransactionConfirmationStrategy = {
-        signature: txSignature,
-        blockhash: latestBlockHash.blockhash,
-        lastValidBlockHeight: latestBlockHash.lastValidBlockHeight
-      };
-      
-      // Confirm transaction with proper typing
-      const confirmationResult = await connection.confirmTransaction(
-        confirmationStrategy, 
-        "confirmed"
-      );
-      
-      if (confirmationResult.value.err) {
-        throw new Error(`Transaction confirmed but failed: ${JSON.stringify(confirmationResult.value.err)}`);
-      }
-    } catch (sendError) {
-      console.error("Error sending/confirming transaction:", sendError);
-      
-      // Add specific error handling for RPC errors during send
-      if (sendError instanceof Error) {
-        if (sendError.message.includes("403") || sendError.message.includes("forbidden")) {
-          throw new Error("RPC access forbidden. Please check your RPC endpoint configuration for mainnet.");
-        } else if (sendError.message.includes("429") || sendError.message.includes("Too many request")) {
-          throw new Error("RPC rate limit exceeded. Please try again later or use a different RPC endpoint.");
-        } else if (sendError.message.includes("timeout") || sendError.message.includes("timed out")) {
-          throw new Error("Transaction confirmation timed out. The network may be congested or your RPC endpoint may be slow.");
-        }
-      }
-      
-      throw sendError;
+    // Send and confirm transaction through API
+    const serializedTransaction = Buffer.from(walletSignedTransaction.serialize()).toString('base64');
+    const sendResult = await sendAndConfirmTransaction(serializedTransaction);
+    
+    if (!sendResult.success) {
+      throw new Error(sendResult.error || "Transaction failed");
+    }
+    
+    const txSignature = sendResult.signature;
+    if (!txSignature) {
+      throw new Error("Transaction sent but no signature returned");
     }
 
     onProgress?.(6);
@@ -217,11 +184,11 @@ export async function createTokenServerSide(
     
     if (error instanceof Error) {
       if (error.message.includes("403") || error.message.includes("Access forbidden")) {
-        errorMessage = "RPC access error. The Solana network endpoint is unavailable or has reached its request limit. If you're using mainnet, please configure a paid RPC endpoint.";
+        errorMessage = "RPC access error. The Solana network endpoint is unavailable or has reached its request limit. Please try again later.";
       } else if (error.message.includes("429") || error.message.includes("Too many requests")) {
-        errorMessage = "Rate limit exceeded. The RPC endpoint has too many requests. Please try again later or use a dedicated RPC endpoint.";
+        errorMessage = "Rate limit exceeded. The RPC endpoint has too many requests. Please try again later.";
       } else if (error.message.includes("blockhash")) {
-        errorMessage = "Network error retrieving latest blockhash. Please check your internet connection or RPC endpoint configuration.";
+        errorMessage = "Network error retrieving latest blockhash. Please check your internet connection.";
       } else if (error.message.includes("insufficient funds") || error.message.includes("0x1")) {
         errorMessage = "Insufficient SOL balance to complete the transaction. Please add more SOL to your wallet.";
       } else {

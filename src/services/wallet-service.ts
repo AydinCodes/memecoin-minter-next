@@ -1,5 +1,4 @@
 // src/services/wallet-service.ts
-import { WalletAdapter } from '@solana/wallet-adapter-base';
 import { Connection, clusterApiUrl, PublicKey } from '@solana/web3.js';
 import { SOLANA_NETWORK } from '@/config';
 
@@ -15,27 +14,9 @@ export const getSolanaConnection = (): Connection => {
   
   const network = SOLANA_NETWORK === 'mainnet-beta' ? 'mainnet-beta' : 'devnet';
   
-  // Check for custom RPC URLs from environment variables
-  const customMainnetRPC = process.env.NEXT_PUBLIC_SOLANA_MAINNET_RPC;
-  const customDevnetRPC = process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC;
-  
-  console.log(`Network: ${network}`);
-  console.log(`Custom Mainnet RPC available: ${!!customMainnetRPC}`);
-  console.log(`Custom Devnet RPC available: ${!!customDevnetRPC}`);
-  
-  // Use custom RPC URLs if available, otherwise fall back to public endpoints
-  let connectionUrl: string;
-  if (network === 'mainnet-beta' && customMainnetRPC) {
-    console.log('Using custom mainnet RPC endpoint');
-    connectionUrl = customMainnetRPC;
-  } else if (network === 'devnet' && customDevnetRPC) {
-    console.log('Using custom devnet RPC endpoint');
-    connectionUrl = customDevnetRPC;
-  } else {
-    // Fall back to public endpoints
-    console.log(`Using public ${network} RPC endpoint`);
-    connectionUrl = clusterApiUrl(network);
-  }
+  // Use public endpoints for client-side
+  console.log(`Using public ${network} RPC endpoint for client-side`);
+  const connectionUrl = clusterApiUrl(network);
   
   // Create and cache the connection
   try {
@@ -44,7 +25,7 @@ export const getSolanaConnection = (): Connection => {
     return globalConnection;
   } catch (error) {
     console.error('Error creating Solana connection:', error);
-    // Fall back to default public RPC if custom fails
+    // Fall back to default public RPC
     globalConnection = new Connection(clusterApiUrl(network), 'confirmed');
     return globalConnection;
   }
@@ -72,28 +53,21 @@ export const isWalletConnected = (wallet: any): boolean => {
   return !!wallet && !!wallet.publicKey;
 };
 
-// Get the wallet's SOL balance with improved error handling
+// Get the wallet's SOL balance using the API endpoint
 export const getWalletBalance = async (publicKey: PublicKey): Promise<number | null> => {
   try {
-    const connection = getSolanaConnection();
-    const balance = await connection.getBalance(publicKey);
-    return balance / 1_000_000_000; // Convert lamports to SOL
-  } catch (error) {
-    console.error('Error getting wallet balance:', error);
+    const response = await fetch(`/api/wallet-balance?publicKey=${publicKey.toString()}`);
     
-    // Check for specific RPC errors
-    if (error instanceof Error) {
-      const errorMessage = error.message;
-      if (errorMessage.includes('403') || errorMessage.includes('forbidden')) {
-        console.error('RPC access forbidden. Please check your RPC endpoint configuration.');
-      } else if (errorMessage.includes('429')) {
-        console.error('RPC rate limit exceeded. Try again later or use a different RPC endpoint.');
-      } else if (errorMessage.includes('timeout')) {
-        console.error('RPC request timed out. Network may be congested.');
-      }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response from wallet-balance API:', errorText);
+      return null;
     }
     
-    // Return null to indicate an error occurred
+    const data = await response.json();
+    return data.success ? data.balance : null;
+  } catch (error) {
+    console.error('Error getting wallet balance:', error);
     return null;
   }
 };
@@ -109,4 +83,64 @@ export const getExplorerUrl = (addressOrSignature: string, isTransaction = false
   const network = SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : '';
   const type = isTransaction ? 'tx' : 'address';
   return `https://explorer.solana.com/${type}/${addressOrSignature}${network}`;
+};
+
+// Get the latest blockhash from the API
+export const getLatestBlockhash = async (): Promise<{ blockhash: string, lastValidBlockHeight: number } | null> => {
+  try {
+    const response = await fetch('/api/blockhash');
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response from blockhash API:', errorText);
+      return null;
+    }
+    
+    const data = await response.json();
+    return data.success ? { 
+      blockhash: data.blockhash, 
+      lastValidBlockHeight: data.lastValidBlockHeight 
+    } : null;
+  } catch (error) {
+    console.error('Error getting latest blockhash:', error);
+    return null;
+  }
+};
+
+// Send and confirm a transaction using the API
+export const sendAndConfirmTransaction = async (serializedTransaction: string): Promise<{ 
+  success: boolean; 
+  signature?: string; 
+  error?: string; 
+}> => {
+  try {
+    const response = await fetch('/api/transaction', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ serializedTransaction })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { 
+        success: false, 
+        error: errorData.error || 'Failed to send transaction'
+      };
+    }
+    
+    const data = await response.json();
+    return { 
+      success: data.success, 
+      signature: data.signature,
+      error: data.error
+    };
+  } catch (error) {
+    console.error('Error sending transaction:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error sending transaction'
+    };
+  }
 };

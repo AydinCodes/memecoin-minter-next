@@ -1,3 +1,5 @@
+// src/components/wallet/wallet-provider-client.tsx
+
 'use client';
 
 import { ReactNode, useEffect, useMemo, useState } from 'react';
@@ -28,27 +30,12 @@ export function ClientWalletProvider({ children }: ClientWalletProviderProps) {
     ? WalletAdapterNetwork.Mainnet
     : WalletAdapterNetwork.Devnet;
 
-  // Set up the RPC endpoint
+  // Set up the RPC endpoint - always use public endpoints on client side
   const endpoint = useMemo(() => {
-    // Check for custom RPC URLs from environment variables
-    const customMainnetRPC = process.env.NEXT_PUBLIC_SOLANA_MAINNET_RPC;
-    const customDevnetRPC = process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC;
-    
     // Debug log network configuration (will be visible in browser console)
     console.log(`Initializing wallet provider for network: ${networkEnv}`);
-    console.log(`Custom Mainnet RPC available: ${!!customMainnetRPC}`);
-    console.log(`Custom Devnet RPC available: ${!!customDevnetRPC}`);
     
-    // Use custom RPC URLs if available, otherwise fall back to public endpoints
-    if (networkEnv === 'mainnet-beta' && customMainnetRPC) {
-      console.log('Using custom mainnet RPC endpoint in ConnectionProvider');
-      return customMainnetRPC;
-    } else if (networkEnv === 'devnet' && customDevnetRPC) {
-      console.log('Using custom devnet RPC endpoint in ConnectionProvider');
-      return customDevnetRPC;
-    }
-    
-    // Fall back to public endpoints
+    // Always use public endpoints for client-side
     console.log(`Using public ${networkEnv} RPC endpoint in ConnectionProvider`);
     return clusterApiUrl(network);
   }, [network, networkEnv]);

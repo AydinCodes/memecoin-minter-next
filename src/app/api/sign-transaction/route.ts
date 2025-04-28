@@ -120,8 +120,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Update authority not configured on server" }, { status: 500 });
     }
 
-    const network    = SOLANA_NETWORK === 'mainnet-beta' ? 'mainnet-beta' : 'devnet';
-    const connection = new Connection(clusterApiUrl(network));
+    // Use server-side RPC endpoints
+    const network = SOLANA_NETWORK === 'mainnet-beta' ? 'mainnet-beta' : 'devnet';
+    let connectionUrl: string;
+    
+    if (network === 'mainnet-beta' && process.env.SOLANA_MAINNET_RPC) {
+      connectionUrl = process.env.SOLANA_MAINNET_RPC;
+    } else if (network === 'devnet' && process.env.SOLANA_DEVNET_RPC) {
+      connectionUrl = process.env.SOLANA_DEVNET_RPC;
+    } else {
+      // Fall back to public endpoints if server-side RPCs not configured
+      connectionUrl = clusterApiUrl(network);
+    }
+    
+    const connection = new Connection(connectionUrl);
 
     // Reconstruct the mint keypair
     const mintSecret  = Buffer.from(mintPrivateKey, 'base64');
@@ -141,7 +153,7 @@ export async function POST(request: NextRequest) {
     // Build the transaction
     const transaction = new Transaction();
     transaction.recentBlockhash = recentBlockhash;
-    transaction.feePayer       = payer;
+    transaction.feePayer = payer;
 
     // Optional fee transfer
     if (includeFeeTx && feeWalletPubkey && feeAmountInLamports > 0) {
