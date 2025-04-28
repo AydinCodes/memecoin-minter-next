@@ -1,5 +1,5 @@
 // src/services/token-creation/server-side-creation.ts
-// Handles server-side token creation flow (when revokeUpdate is true)
+// Handles server-side token creation flow for both with and without revoking update authority
 
 import {
   Connection,
@@ -14,8 +14,7 @@ import { handleErrorWithCleanup } from "../pinata-cleanup";
 import { getLatestBlockhash, sendAndConfirmTransaction } from "../wallet-service";
 
 /**
- * Creates a token using server-side signing for update authority
- * Used when revokeUpdate is true
+ * Creates a token using server-side transaction construction for both scenarios
  */
 export async function createTokenServerSide(
   walletAdapter: WalletContextState,
@@ -52,9 +51,10 @@ export async function createTokenServerSide(
     }
     const blockhash = latestBlockhashResult.blockhash;
 
-    // Request server-side signing
+    // Request server-side transaction construction
     let response;
     try {
+      // Keep the request payload as simple as possible
       response = await fetch("/api/sign-transaction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,19 +66,18 @@ export async function createTokenServerSide(
           tokenDecimals: formData.decimals,
           tokenSupply: formData.supply,
           payerPublicKey: publicKey.toString(),
-          hasCreators: true, // IMPORTANT FIX: Always include creators
           revokeUpdate: formData.revokeUpdate,
           revokeMint: formData.revokeMint,
           revokeFreeze: formData.revokeFreeze,
           recentBlockhash: blockhash,
           feeWalletPubkey: process.env.NEXT_PUBLIC_FEE_WALLET,
           feeAmountInLamports,
-          includeFeeTx: netFeeAmount > 0,
+          includeFeeTx: netFeeAmount > 0
         }),
       });
     } catch (fetchError) {
-      console.error("Network error during server signing request:", fetchError);
-      throw new Error("Network error: Unable to communicate with the server for transaction signing. Please check your internet connection.");
+      console.error("Network error during server request:", fetchError);
+      throw new Error("Network error: Unable to communicate with the server. Please check your internet connection.");
     }
 
     if (!response.ok) {
@@ -95,7 +94,7 @@ export async function createTokenServerSide(
       } else if (response.status === 429) {
         throw new Error("Too many requests to the server. Please try again later.");
       } else {
-        throw new Error(`Failed to sign transaction on server: ${errorText}`);
+        throw new Error(`Failed to process transaction on server: ${errorText}`);
       }
     }
 
@@ -113,13 +112,12 @@ export async function createTokenServerSide(
 
     onProgress?.(3);
 
-    // Properly handle wallet rejection
+    // Sign with wallet
     let walletSignedTransaction;
     try {
       walletSignedTransaction = await signTransaction(transaction);
     } catch (walletError) {
       console.error("Wallet signature rejected by user:", walletError);
-      // Handle the error with cleanup
       await handleErrorWithCleanup(
         new Error("Transaction was canceled by the user")
       );
@@ -127,7 +125,6 @@ export async function createTokenServerSide(
     }
 
     if (!walletSignedTransaction) {
-      // Handle the error with cleanup
       await handleErrorWithCleanup(new Error("Transaction signing failed"));
       throw new Error("Transaction signing failed");
     }
@@ -148,18 +145,16 @@ export async function createTokenServerSide(
     onProgress?.(6);
 
     // Update metadata with mint address
-    // Now using {public_key}_{token_key} naming pattern
     let updatedMetadataUrl;
     try {
       updatedMetadataUrl = await updateMetadataWithMintAddress(
         metadataUrl,
         mintAddress,
         formData,
-        imageUrl // Pass the actual image URL
+        imageUrl
       );
     } catch (updateError) {
       console.error("Error updating metadata after successful token creation:", updateError);
-      // Continue despite metadata update error - the token is still created
       updatedMetadataUrl = metadataUrl;
     }
 
@@ -175,8 +170,7 @@ export async function createTokenServerSide(
       explorerUrl: `https://explorer.solana.com/address/${mintAddress}${clusterParam}`,
     };
   } catch (error) {
-    console.error("Error in server-side update authority flow:", error);
-    // Make sure to clean up Pinata files in case of an error
+    console.error("Error in server-side token creation:", error);
     await handleErrorWithCleanup(error);
 
     // Improved error messaging

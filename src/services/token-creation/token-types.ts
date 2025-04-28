@@ -53,6 +53,7 @@ export interface ServerSignParams {
   feeWalletPubkey?: string;
   feeAmountInLamports: number;
   includeFeeTx: boolean;
+  useServerUpdateAuthority?: boolean; // New parameter to distinguish flows
 }
 
 /**

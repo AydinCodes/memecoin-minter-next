@@ -59,9 +59,9 @@ function serializeMetadataV3(data: {
         Buffer.from([c.share])
       ]))
     );
-    const len = Buffer.alloc(4);
-    len.writeUInt32LE(data.creators.length, 0);
-    creatorsBuff = Buffer.concat([Buffer.from([1]), len, vec]);
+    const creatorsLength = Buffer.alloc(4);
+    creatorsLength.writeUInt32LE(data.creators.length, 0);
+    creatorsBuff = Buffer.concat([Buffer.from([1]), creatorsLength, vec]);
   }
 
   const collectionBuff = data.collection
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       recentBlockhash,
       feeWalletPubkey,
       feeAmountInLamports,
-      includeFeeTx = false
+      includeFeeTx = false,
     } = await request.json();
 
     // Validate required fields...
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required transaction data" }, { status: 400 });
     }
 
-    // Server‐side update authority key
+    // Server‐side update authority key - only needed when revoking update
     const updateAuthorityPrivateKey = process.env.REVOKE_UPDATE_PRIVATE_KEY;
     if (revokeUpdate && !updateAuthorityPrivateKey) {
       return NextResponse.json({ error: "Update authority not configured on server" }, { status: 500 });
@@ -138,15 +138,6 @@ export async function POST(request: NextRequest) {
     // Reconstruct the mint keypair
     const mintSecret  = Buffer.from(mintPrivateKey, 'base64');
     const mintKeypair = Keypair.fromSecretKey(new Uint8Array(mintSecret));
-
-    // Choose update authority keypair
-    let updateAuthorityKeypair: Keypair;
-    if (revokeUpdate) {
-      const serverSecret = bs58.decode(updateAuthorityPrivateKey!);
-      updateAuthorityKeypair = Keypair.fromSecretKey(serverSecret);
-    } else {
-      updateAuthorityKeypair = mintKeypair;
-    }
 
     const payer = new PublicKey(payerPublicKey);
 
@@ -218,90 +209,146 @@ export async function POST(request: NextRequest) {
       metadataProgramId
     );
 
-    // **1.** Prepare creators array - IMPORTANT FIX: Always include creators
-    // The payer (wallet owner) must be the creator, but with verified=false
-    // They will sign the transaction later, which implicitly verifies them
-    const creators = [
-      {
-        address: payer,
-        verified: false,  // CRITICAL FIX: Set verified to false since the server can't verify on behalf of the user
-        share: 100,
-      }
-    ];
-
-    // **2.** Create Metadata instruction
-    transaction.add({
-      programId: metadataProgramId,
-      keys: [
-        { pubkey: metadataPDA, isSigner: false, isWritable: true },
-        { pubkey: mintKeypair.publicKey, isSigner: false, isWritable: false },
-        { pubkey: payer, isSigner: true, isWritable: false },                // mint authority
-        { pubkey: payer, isSigner: true, isWritable: false },                // payer
-        { pubkey: updateAuthorityKeypair.publicKey, isSigner: true, isWritable: false }, // update authority
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      data: Buffer.concat([
-        Buffer.from([33]), // createMetadataAccountV3 discriminator
-        serializeMetadataV3({
-          name: tokenName,
-          symbol: tokenSymbol,
-          uri: metadataUrl,
-          sellerFeeBasisPoints: 0,
-          creators,  // Always include creators
-          collection: null,
-          uses: null,
-          isMutable: !revokeUpdate,
-        }),
-      ]),
-    });
-
-    // **3.** Optional authority revocations
-    if (revokeMint) {
-      transaction.add(
-        createSetAuthorityInstruction(
-          mintKeypair.publicKey,
-          payer,
-          AuthorityType.MintTokens,
-          null,
-          [],
-          TOKEN_PROGRAM_ID
-        )
-      );
-    }
-    if (revokeFreeze) {
-      transaction.add(
-        createSetAuthorityInstruction(
-          mintKeypair.publicKey,
-          payer,
-          AuthorityType.FreezeAccount,
-          null,
-          [],
-          TOKEN_PROGRAM_ID
-        )
-      );
-    }
-
-    // **4.** Sign with server key if revoking update authority
+    // Handle the two different cases
     if (revokeUpdate) {
-      console.log("Signing with server update authority:", updateAuthorityKeypair.publicKey.toString());
+      // ===== CASE 1: revokeUpdate = true =====
+      // This is the original working code from the provided example
+      // Get the server's update authority keypair
+      const serverSecret = bs58.decode(updateAuthorityPrivateKey!);
+      const updateAuthorityKeypair = Keypair.fromSecretKey(serverSecret);
+      const updateAuthorityPublicKey = updateAuthorityKeypair.publicKey;
+      
+      // Creators with verified = false
+      const creators = [
+        {
+          address: payer,
+          verified: false,
+          share: 100,
+        }
+      ];
+      
+      // Metadata instruction with server as update authority signer
+      transaction.add({
+        programId: metadataProgramId,
+        keys: [
+          { pubkey: metadataPDA, isSigner: false, isWritable: true },
+          { pubkey: mintKeypair.publicKey, isSigner: false, isWritable: false },
+          { pubkey: payer, isSigner: true, isWritable: false },                // mint authority
+          { pubkey: payer, isSigner: true, isWritable: false },                // payer
+          { pubkey: updateAuthorityPublicKey, isSigner: true, isWritable: false }, // update authority with server
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        ],
+        data: Buffer.concat([
+          Buffer.from([33]), // createMetadataAccountV3 discriminator
+          serializeMetadataV3({
+            name: tokenName,
+            symbol: tokenSymbol,
+            uri: metadataUrl,
+            sellerFeeBasisPoints: 0,
+            creators,
+            collection: null,
+            uses: null,
+            isMutable: !revokeUpdate,
+          }),
+        ]),
+      });
+      
+      // Sign with the server's update authority keypair
       transaction.partialSign(updateAuthorityKeypair);
+      
+      // Always sign with the mint keypair
+      transaction.partialSign(mintKeypair);
+      
+      // Serialize and return for wallet to sign & send
+      const serialized = transaction.serialize({ requireAllSignatures: false });
+      const b64 = Buffer.from(serialized).toString('base64');
+      
+      return NextResponse.json({
+        success: true,
+        signedTransaction: b64,
+        updateAuthority: updateAuthorityPublicKey.toString(),
+        mintAddress: mintKeypair.publicKey.toString(),
+      });
+    } else {
+      // ===== CASE 2: revokeUpdate = false =====
+      // Based on the client-side version that was working
+      
+      // Create metadata using the exact pattern that worked in client-side
+      // Creators with verified = true when wallet is update authority
+      const creators = [
+        {
+          address: payer,
+          verified: true,  // Set to true when wallet is update authority
+          share: 100,
+        }
+      ];
+      
+      // Metadata instruction with payer as update authority but NOT a signer in that role
+      transaction.add({
+        programId: metadataProgramId,
+        keys: [
+          { pubkey: metadataPDA, isSigner: false, isWritable: true },
+          { pubkey: mintKeypair.publicKey, isSigner: false, isWritable: false },
+          { pubkey: payer, isSigner: true, isWritable: false }, // mint authority
+          { pubkey: payer, isSigner: true, isWritable: false }, // payer
+          { pubkey: payer, isSigner: false, isWritable: false }, // update authority - not a signer!
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        ],
+        data: Buffer.concat([
+          Buffer.from([33]), // createMetadataAccountV3 discriminator
+          serializeMetadataV3({
+            name: tokenName,
+            symbol: tokenSymbol,
+            uri: metadataUrl,
+            sellerFeeBasisPoints: 0,
+            creators,
+            collection: null,
+            uses: null,
+            isMutable: false, // Hardcode to false as per client-side
+          }),
+        ]),
+      });
+      
+      // Optional authority revocations
+      if (revokeMint) {
+        transaction.add(
+          createSetAuthorityInstruction(
+            mintKeypair.publicKey,
+            payer,
+            AuthorityType.MintTokens,
+            null,
+            [],
+            TOKEN_PROGRAM_ID
+          )
+        );
+      }
+      if (revokeFreeze) {
+        transaction.add(
+          createSetAuthorityInstruction(
+            mintKeypair.publicKey,
+            payer,
+            AuthorityType.FreezeAccount,
+            null,
+            [],
+            TOKEN_PROGRAM_ID
+          )
+        );
+      }
+      
+      // Always sign with the mint keypair
+      transaction.partialSign(mintKeypair);
+      
+      // Serialize and return for wallet to sign & send
+      const serialized = transaction.serialize({ requireAllSignatures: false });
+      const b64 = Buffer.from(serialized).toString('base64');
+      
+      return NextResponse.json({
+        success: true,
+        signedTransaction: b64,
+        updateAuthority: payer.toString(),
+        mintAddress: mintKeypair.publicKey.toString(),
+      });
     }
-
-    // Always sign with the mint keypair
-    console.log("Signing with mint keypair:", mintKeypair.publicKey.toString());
-    transaction.partialSign(mintKeypair);
-
-    // **5.** Serialize and return for wallet to sign & send
-    const serialized = transaction.serialize({ requireAllSignatures: false });
-    const b64 = Buffer.from(serialized).toString('base64');
-
-    return NextResponse.json({
-      success: true,
-      signedTransaction: b64,
-      updateAuthority: updateAuthorityKeypair.publicKey.toString(),
-      mintAddress: mintKeypair.publicKey.toString(),
-    });
-
   } catch (error) {
     console.error("Error in sign-transaction:", error);
     return NextResponse.json(

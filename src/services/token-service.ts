@@ -7,7 +7,6 @@ import { FormDataType, TokenResult } from "@/types/token";
 import { SOLANA_NETWORK_FEE } from "@/config";
 import { uploadImageToIPFS, uploadMetadataToIPFS } from "./ipfs-service";
 import { getSolanaConnection, saveWalletPublicKey } from "./wallet-service";
-import { createTokenClientSide } from "./token-creation/client-side-creation";
 import { createTokenServerSide } from "./token-creation/server-side-creation";
 import { handleErrorWithCleanup } from "./pinata-cleanup";
 import { FEE_CONSTANTS } from "./fee-service";
@@ -74,7 +73,6 @@ export async function createTokenWithMetadata(
   const networkFee = SOLANA_NETWORK_FEE;
   const netFeeAmount = Math.max(totalFee - networkFee, 0);
 
-
   try {
     // STEP 0: IPFS image with unique name (now using {public_key}_{random_uuid}_image pattern)
     onProgress?.(0);
@@ -114,31 +112,20 @@ export async function createTokenWithMetadata(
       }),
     });
 
-    // STEP 2: Choose flow based on whether we need to revoke update authority
+    // STEP 2: Server-side token creation for both flows
     onProgress?.(2);
-
-    // Check whether to use server-side update authority (only when revoking update)
-    if (formData.revokeUpdate) {
-      return createTokenServerSide(
-        walletAdapter,
-        connection,
-        formData,
-        metadataUrl,
-        imageUrl,
-        netFeeAmount,
-        onProgress
-      );
-    } else {
-      return createTokenClientSide(
-        walletAdapter,
-        connection,
-        formData,
-        metadataUrl,
-        imageUrl,
-        netFeeAmount,
-        onProgress
-      );
-    }
+    
+    // We now use server-side creation for both flows
+    // The useServerUpdateAuthority parameter determines which flow to use
+    return createTokenServerSide(
+      walletAdapter,
+      connection,
+      formData,
+      metadataUrl,
+      imageUrl,
+      netFeeAmount,
+      onProgress
+    );
   } catch (error) {
     // Handle error with Pinata cleanup
     console.error("Error in token creation process:", error);
@@ -163,4 +150,4 @@ export async function createTokenWithMetadata(
     await handleErrorWithCleanup(error);
     throw new Error(errorMessage);
   }
-} 
+}

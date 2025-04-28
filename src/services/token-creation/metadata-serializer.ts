@@ -2,6 +2,7 @@
 // Handles serialization of token metadata for on-chain storage
 
 import { PublicKey } from "@solana/web3.js";
+import { TokenMetadataParams, TokenCreator, TokenCollection } from "./token-types";
 
 /**
  * Serializes a UTF-8 string with u32-length prefix (LE)
@@ -11,37 +12,6 @@ export function serializeString(value: string): Uint8Array {
   const length = Buffer.alloc(4);
   length.writeUInt32LE(buffer.length, 0);
   return Buffer.concat([length, buffer]);
-}
-
-/**
- * Metadata parameters for token creation
- */
-interface TokenMetadataParams {
-  name: string;
-  symbol: string;
-  uri: string;
-  sellerFeeBasisPoints: number;
-  creators: TokenCreator[] | null;
-  collection: TokenCollection | null;
-  uses: any | null;
-  isMutable: boolean;
-}
-
-/**
- * Creator information for token metadata
- */
-interface TokenCreator {
-  address: PublicKey;
-  verified: boolean;
-  share: number;
-}
-
-/**
- * Collection information for token metadata
- */
-interface TokenCollection {
-  key: string;
-  verified: boolean;
 }
 
 /**
