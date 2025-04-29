@@ -1,5 +1,6 @@
 // src/services/token-service.ts
 // Main orchestration of token creation process
+// Updated to ensure we're using signAndSendTransaction
 
 import { WalletContextState } from "@solana/wallet-adapter-react";
 import { Connection } from "@solana/web3.js";
@@ -18,7 +19,7 @@ const IMAGE_SIZE_LIMITS = {
 };
 
 /**
- * Orchestrates token creation with a single transaction
+ * Orchestrates token creation with a single transaction using signAndSendTransaction
  * Network fees are deducted from the fee recipient amount, so the user pays EXACTLY the displayed fee
  */
 export async function createTokenWithMetadata(
@@ -27,7 +28,13 @@ export async function createTokenWithMetadata(
   totalFee: number,
   onProgress?: (step: number) => void
 ): Promise<TokenResult> {
-  const { publicKey, connected } = walletAdapter;
+  const { publicKey, connected, sendTransaction } = walletAdapter;
+  
+  // Make sure wallet has sendTransaction capability
+  if (!sendTransaction) {
+    throw new Error("This wallet does not support the sendTransaction method required. Please use a compatible wallet like Phantom.");
+  }
+  
   if (!connected || !publicKey) {
     throw new Error("Wallet not connected. Please connect your wallet first.");
   }
@@ -74,7 +81,7 @@ export async function createTokenWithMetadata(
   const netFeeAmount = Math.max(totalFee - networkFee, 0);
 
   try {
-    // STEP 0: IPFS image with unique name (now using {public_key}_{random_uuid}_image pattern)
+    // STEP 0: IPFS image with unique name
     onProgress?.(0);
     const imageUrl = await uploadImageToIPFS(
       formData.logo,
@@ -82,7 +89,7 @@ export async function createTokenWithMetadata(
       formData.symbol
     );
 
-    // STEP 1: IPFS metadata JSON (now using {public_key}_{random_uuid}_metadata pattern)
+    // STEP 1: IPFS metadata JSON
     onProgress?.(1);
     const metadataUrl = await uploadMetadataToIPFS({
       name: formData.name,
@@ -112,7 +119,7 @@ export async function createTokenWithMetadata(
       }),
     });
 
-    // STEP 2: Server-side token creation for both flows
+    // STEP 2: Server-side token creation using signAndSendTransaction method
     onProgress?.(2);
     
     // We now use server-side creation for both flows

@@ -1,4 +1,6 @@
 // src/services/wallet-service.ts
+// Modified to focus on signAndSendTransaction method
+
 import { Connection, clusterApiUrl, PublicKey } from '@solana/web3.js';
 import { SOLANA_NETWORK } from '@/config';
 
@@ -107,40 +109,5 @@ export const getLatestBlockhash = async (): Promise<{ blockhash: string, lastVal
   }
 };
 
-// Send and confirm a transaction using the API
-export const sendAndConfirmTransaction = async (serializedTransaction: string): Promise<{ 
-  success: boolean; 
-  signature?: string; 
-  error?: string; 
-}> => {
-  try {
-    const response = await fetch('/api/transaction', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ serializedTransaction })
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { 
-        success: false, 
-        error: errorData.error || 'Failed to send transaction'
-      };
-    }
-    
-    const data = await response.json();
-    return { 
-      success: data.success, 
-      signature: data.signature,
-      error: data.error
-    };
-  } catch (error) {
-    console.error('Error sending transaction:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error sending transaction'
-    };
-  }
-};
+// We're removing sendAndConfirmTransaction as we'll now rely on wallet.sendTransaction
+// to handle both signing and sending to avoid Phantom malicious warning

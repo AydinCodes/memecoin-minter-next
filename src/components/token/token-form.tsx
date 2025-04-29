@@ -248,6 +248,12 @@ export default function TokenForm() {
     if (!walletAdapter.connected) {
       return "Please connect your wallet first";
     }
+
+    // Check if wallet supports sendTransaction method (Phantom compatibility)
+    if (!walletAdapter.sendTransaction) {
+      return "Your wallet doesn't support the required transaction method. Please use Phantom wallet for best compatibility.";
+    }
+
     if (!formData.logo) {
       return "Please upload a logo image";
     }
@@ -323,6 +329,13 @@ export default function TokenForm() {
         // Force scroll to top when starting the loading process
         window.scrollTo(0, 0);
         document.body.scrollTop = 0; // For Safari
+
+        // Add explicit check for Phantom compatibility
+        if (!walletAdapter.sendTransaction) {
+          throw new Error(
+            "This wallet doesn't support the signAndSendTransaction method required by Phantom. Please use Phantom wallet for best compatibility."
+          );
+        }
 
         const result = await createTokenWithMetadata(
           walletAdapter,
@@ -444,7 +457,6 @@ export default function TokenForm() {
                       formData.largeImageSize ? "bg-purple-600" : "bg-gray-700"
                     }`}
                     onClick={() => {
-                      // Simply update the form data and clear the logo
                       setFormData((prev) => ({
                         ...prev,
                         largeImageSize: !prev.largeImageSize,
@@ -538,6 +550,35 @@ export default function TokenForm() {
           <div className="text-xs text-gray-500">
             Fee includes transaction costs and token creation service. Limited
             time 50% discount applied!
+          </div>
+        </div>
+
+        {/* Include Phantom Wallet Recommendation */}
+        <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 mb-4">
+          <div className="flex items-start">
+            <div className="flex-shrink-0 mt-1">
+              <svg
+                className="w-5 h-5 text-blue-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                ></path>
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <p className="text-blue-300 text-sm">
+                For the best experience, we recommend using the{" "}
+                <strong>Phantom wallet</strong>. Some other wallets may display
+                security warnings.
+              </p>
+            </div>
           </div>
         </div>
 

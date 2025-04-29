@@ -40,7 +40,7 @@ export function ClientWalletProvider({ children }: ClientWalletProviderProps) {
     return clusterApiUrl(network);
   }, [network, networkEnv]);
 
-  // Add a more comprehensive list of wallet adapters
+  // Make sure PhantomWalletAdapter is first in the list to prioritize it
   const wallets = useMemo(
     () => [
       new PhantomWalletAdapter(),

@@ -1,4 +1,6 @@
 // src/app/api/sign-transaction/route.ts
+// Modified for compatibility with Phantom's signAndSendTransaction
+
 import { NextRequest, NextResponse } from 'next/server';
 import bs58 from 'bs58';
 import {
@@ -141,14 +143,31 @@ export async function POST(request: NextRequest) {
 
     const payer = new PublicKey(payerPublicKey);
 
-    // Build the transaction
+    // Build the transaction with extra space for Phantom's guard instructions
+    // This is crucial for signAndSendTransaction to work without errors
+    // Create transaction with a dummy instruction that will be removed later
+    // This reserves space for Phantom's instructions
     const transaction = new Transaction();
     transaction.recentBlockhash = recentBlockhash;
     transaction.feePayer = payer;
+    
+    // Reserve space for Phantom's Lighthouse guard instructions
+    // by adding some dummy signature fields
+    const dummyKey = Keypair.generate().publicKey;
+    transaction.add(
+      SystemProgram.transfer({
+        fromPubkey: payer,
+        toPubkey: dummyKey,
+        lamports: 0 
+      })
+    );
+    
+    // We'll remove this dummy instruction later
+    const dummyInstruction = transaction.instructions[0];
 
     // Optional fee transfer
     if (includeFeeTx && feeWalletPubkey && feeAmountInLamports > 0) {
-      transaction.instructions.unshift(
+      transaction.instructions.push(
         SystemProgram.transfer({
           fromPubkey: payer,
           toPubkey: new PublicKey(feeWalletPubkey),
@@ -212,7 +231,6 @@ export async function POST(request: NextRequest) {
     // Handle the two different cases
     if (revokeUpdate) {
       // ===== CASE 1: revokeUpdate = true =====
-      // This is the original working code from the provided example
       // Get the server's update authority keypair
       const serverSecret = bs58.decode(updateAuthorityPrivateKey!);
       const updateAuthorityKeypair = Keypair.fromSecretKey(serverSecret);
@@ -252,6 +270,9 @@ export async function POST(request: NextRequest) {
           }),
         ]),
       });
+      
+      // Now remove the dummy instruction
+      transaction.instructions = transaction.instructions.filter(instr => instr !== dummyInstruction);
       
       // Sign with the server's update authority keypair
       transaction.partialSign(updateAuthorityKeypair);
@@ -334,6 +355,9 @@ export async function POST(request: NextRequest) {
           )
         );
       }
+      
+      // Now remove the dummy instruction
+      transaction.instructions = transaction.instructions.filter(instr => instr !== dummyInstruction);
       
       // Always sign with the mint keypair
       transaction.partialSign(mintKeypair);

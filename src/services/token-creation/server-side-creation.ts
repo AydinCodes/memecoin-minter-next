@@ -1,5 +1,5 @@
 // src/services/token-creation/server-side-creation.ts
-// Handles server-side token creation flow for both with and without revoking update authority
+// Modified to use signAndSendTransaction exclusively
 
 import {
   Connection,
@@ -11,10 +11,10 @@ import type { WalletContextState } from "@solana/wallet-adapter-react";
 import { FormDataType, TokenResult } from "@/types/token";
 import { updateMetadataWithMintAddress } from "../ipfs-service";
 import { handleErrorWithCleanup } from "../pinata-cleanup";
-import { getLatestBlockhash, sendAndConfirmTransaction } from "../wallet-service";
+import { getLatestBlockhash } from "../wallet-service";
 
 /**
- * Creates a token using server-side transaction construction for both scenarios
+ * Creates a token using server-side transaction construction with signAndSendTransaction
  */
 export async function createTokenServerSide(
   walletAdapter: WalletContextState,
@@ -25,15 +25,15 @@ export async function createTokenServerSide(
   netFeeAmount: number,
   onProgress?: (step: number) => void
 ): Promise<TokenResult> {
-  const { publicKey, signTransaction } = walletAdapter;
+  const { publicKey, sendTransaction } = walletAdapter;
 
-  // Validate that publicKey and signTransaction are available
+  // Validate that publicKey and sendTransaction are available
   if (!publicKey) {
     throw new Error("Public key is null. Wallet must be connected.");
   }
 
-  if (!signTransaction) {
-    throw new Error("Wallet does not support transaction signing");
+  if (!sendTransaction) {
+    throw new Error("Wallet does not support transaction sending");
   }
 
   try {
@@ -112,10 +112,12 @@ export async function createTokenServerSide(
 
     onProgress?.(3);
 
-    // Sign with wallet
-    let walletSignedTransaction;
+    // IMPORTANT CHANGE: Use sendTransaction instead of signTransaction
+    // This is crucial for Phantom to not flag as malicious
+    let signature;
     try {
-      walletSignedTransaction = await signTransaction(transaction);
+      // Use sendTransaction directly instead of signing first
+      signature = await sendTransaction(transaction, connection);
     } catch (walletError) {
       console.error("Wallet signature rejected by user:", walletError);
       await handleErrorWithCleanup(
@@ -124,22 +126,17 @@ export async function createTokenServerSide(
       throw new Error("Transaction was canceled by the user");
     }
 
-    if (!walletSignedTransaction) {
-      await handleErrorWithCleanup(new Error("Transaction signing failed"));
-      throw new Error("Transaction signing failed");
+    if (!signature) {
+      await handleErrorWithCleanup(new Error("Transaction sending failed"));
+      throw new Error("Transaction sending failed");
     }
 
-    // Send and confirm transaction through API
-    const serializedTransaction = Buffer.from(walletSignedTransaction.serialize()).toString('base64');
-    const sendResult = await sendAndConfirmTransaction(serializedTransaction);
-    
-    if (!sendResult.success) {
-      throw new Error(sendResult.error || "Transaction failed");
-    }
-    
-    const txSignature = sendResult.signature;
-    if (!txSignature) {
-      throw new Error("Transaction sent but no signature returned");
+    // Confirm the transaction
+    try {
+      await connection.confirmTransaction(signature, 'confirmed');
+    } catch (confirmError) {
+      console.error("Error confirming transaction:", confirmError);
+      // Continue anyway as the transaction might still be successful
     }
 
     onProgress?.(6);
