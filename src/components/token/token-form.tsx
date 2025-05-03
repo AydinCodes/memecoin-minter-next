@@ -17,7 +17,7 @@ import TokenFormAuthorities from "./token-form-authorities";
 import TokenFormCreator from "./token-form-creator";
 import WalletRequired from "../wallet/wallet-required";
 import { FormDataType, TokenResult } from "@/types/token";
-import { SOLANA_NETWORK_FEE } from "@/config";
+import { SOLANA_NETWORK_FEE, TOTAL_FEE } from "@/config";
 import { resetSessionUuid } from "@/services/ipfs-service";
 import { FEE_CONSTANTS } from "@/services/fee-service";
 
@@ -71,7 +71,7 @@ export default function TokenForm() {
   const [error, setError] = useState<string | null>(null);
   const [progressStep, setProgressStep] = useState(0);
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null);
-  const [totalFee, setTotalFee] = useState<number>(0.4); // Initial fee calculation with all defaults
+  const [totalFee, setTotalFee] = useState<number>(0.05); // Initial fee calculation is 0.05 SOL minimum
   const [formSubmitAttempted, setFormSubmitAttempted] = useState(false); // Track form submission attempts
   const [cancelled, setCancelled] = useState(false); // Track if token creation was cancelled
   const [imageSizeError, setImageSizeError] = useState<string | null>(null);
@@ -135,24 +135,9 @@ export default function TokenForm() {
 
   // Calculate fee whenever relevant form options change
   useEffect(() => {
-    const fee = calculateFee({
-      revokeMint: formData.revokeMint,
-      revokeFreeze: formData.revokeFreeze,
-      revokeUpdate: formData.revokeUpdate,
-      socialLinks: formData.socialLinks,
-      creatorInfo: formData.creatorInfo,
-      largeImageSize: formData.largeImageSize,
-    });
-
+    const fee = formData.largeImageSize ? 0.1 : 0.05; // 0.05 SOL for regular, 0.1 SOL for large images
     setTotalFee(fee);
-  }, [
-    formData.revokeMint,
-    formData.revokeFreeze,
-    formData.revokeUpdate,
-    formData.socialLinks,
-    formData.creatorInfo,
-    formData.largeImageSize,
-  ]);
+  }, [formData.largeImageSize]);
 
   // Scroll to top effect for success and loading states
   useEffect(() => {
@@ -251,7 +236,7 @@ export default function TokenForm() {
 
     // Check if wallet supports sendTransaction method (Phantom compatibility)
     if (!walletAdapter.sendTransaction) {
-      return "Your wallet doesn't support the required transaction method. Please use Phantom wallet for best compatibility.";
+      return "Your wallet doesn't support the required transaction method. Please use a compatible wallet.";
     }
 
     if (!formData.logo) {
@@ -330,10 +315,10 @@ export default function TokenForm() {
         window.scrollTo(0, 0);
         document.body.scrollTop = 0; // For Safari
 
-        // Add explicit check for Phantom compatibility
+        // Add explicit check for transaction support
         if (!walletAdapter.sendTransaction) {
           throw new Error(
-            "This wallet doesn't support the signAndSendTransaction method required by Phantom. Please use Phantom wallet for best compatibility."
+            "This wallet doesn't support the required transaction method."
           );
         }
 
@@ -486,16 +471,11 @@ export default function TokenForm() {
                   </div>
                 </div>
                 <div className="toggle-label text-gray-300 mr-3">
-                  Large Image Size (Optional)
+                  Large Image Size
                 </div>
               </div>
               <div className="toggle-cost flex items-center">
-                <span className="text-gray-500 line-through mr-2">
-                  {FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL
-                </span>
-                <span className="text-purple-500">
-                  {FEE_CONSTANTS.LARGE_IMAGE_FEE.toFixed(2)} SOL
-                </span>
+                <span className="text-purple-500">0.05 SOL</span>
               </div>
             </div>
             <div className="toggle-section-description text-xs text-gray-500">
@@ -526,59 +506,19 @@ export default function TokenForm() {
           <div className="flex justify-between items-center text-gray-300 mb-2">
             <span className="flex items-center">
               <span>Total fee:</span>
-              <div className="bg-green-900/30 text-green-300 text-xs px-2 py-1 rounded ml-2">
-                50% OFF
-              </div>
             </span>
             <div className="flex items-center">
-              <span className="text-gray-500 line-through mr-2">
-                {getOriginalPrice({
-                  revokeMint: formData.revokeMint,
-                  revokeFreeze: formData.revokeFreeze,
-                  revokeUpdate: formData.revokeUpdate,
-                  socialLinks: formData.socialLinks,
-                  creatorInfo: formData.creatorInfo,
-                  largeImageSize: formData.largeImageSize,
-                }).toFixed(2)}{" "}
-                SOL
-              </span>
-              <span className="text-purple-500 font-semibold">
-                {formatFee(totalFee)}
-              </span>
+              {formData.largeImageSize ? (
+                <span className="text-purple-500 font-semibold">0.1 SOL</span>
+              ) : (
+                <span className="text-purple-500 font-semibold">0.05 SOL</span>
+              )}
             </div>
           </div>
           <div className="text-xs text-gray-500">
-            Fee includes transaction costs and token creation service. Limited
-            time 50% discount applied!
-          </div>
-        </div>
-
-        {/* Include Phantom Wallet Recommendation */}
-        <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 mb-4">
-          <div className="flex items-start">
-            <div className="flex-shrink-0 mt-1">
-              <svg
-                className="w-5 h-5 text-blue-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                ></path>
-              </svg>
-            </div>
-            <div className="ml-3 flex-1">
-              <p className="text-blue-300 text-sm">
-                For the best experience, we recommend using the{" "}
-                <strong>Phantom wallet</strong>. Some other wallets may display
-                security warnings.
-              </p>
-            </div>
+            {formData.largeImageSize
+              ? "Fee includes transaction costs for large image size capability."
+              : "Base fee for token creation. Includes all standard features."}
           </div>
         </div>
 

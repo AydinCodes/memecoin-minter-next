@@ -4,7 +4,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { checkUpdateAuthorityStatus } from '@/utils/update-authority-utils';
-import { FEE_CONSTANTS } from '@/services/fee-service';
 
 interface TokenFormAuthoritiesProps {
   formData: {
@@ -118,8 +117,7 @@ export default function TokenFormAuthorities({
               </div>
             </div>
             <div className="form-checkbox-cost flex items-center">
-              <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
-              <span className="text-purple-500">{FEE_CONSTANTS.AUTHORITY_FEE.toFixed(2)} SOL</span>
+              <span className="text-purple-500">FREE</span>
             </div>
           </div>
           <div className="form-checkbox-description text-xs text-gray-500">
@@ -159,8 +157,7 @@ export default function TokenFormAuthorities({
               </div>
             </div>
             <div className="form-checkbox-cost flex items-center">
-              <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
-              <span className="text-purple-500">{FEE_CONSTANTS.AUTHORITY_FEE.toFixed(2)} SOL</span>
+              <span className="text-purple-500">FREE</span>
             </div>
           </div>
           <div className="form-checkbox-description text-xs text-gray-500">
@@ -200,8 +197,7 @@ export default function TokenFormAuthorities({
               </div>
             </div>
             <div className="form-checkbox-cost flex items-center">
-              <span className="text-gray-500 line-through mr-2">{FEE_CONSTANTS.ORIGINAL_FEATURE_FEE.toFixed(2)} SOL</span>
-              <span className="text-purple-500">{FEE_CONSTANTS.AUTHORITY_FEE.toFixed(2)} SOL</span>
+              <span className="text-purple-500">FREE</span>
             </div>
           </div>
           <div className="form-checkbox-description text-xs text-gray-500">

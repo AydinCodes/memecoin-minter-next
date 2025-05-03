@@ -1,16 +1,16 @@
 // src/app/api/sign-transaction/route.ts
 // Modified for compatibility with Phantom's signAndSendTransaction
 
-import { NextRequest, NextResponse } from 'next/server';
-import bs58 from 'bs58';
+import { NextRequest, NextResponse } from "next/server";
+import bs58 from "bs58";
 import {
   Transaction,
   Keypair,
   PublicKey,
   SystemProgram,
   Connection,
-  clusterApiUrl
-} from '@solana/web3.js';
+  clusterApiUrl,
+} from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   createInitializeMintInstruction,
@@ -20,9 +20,9 @@ import {
   createSetAuthorityInstruction,
   AuthorityType,
   MINT_SIZE,
-  getMinimumBalanceForRentExemptMint
+  getMinimumBalanceForRentExemptMint,
 } from "@solana/spl-token";
-import { TOKEN_METADATA_PROGRAM_ID, SOLANA_NETWORK } from '@/config';
+import { TOKEN_METADATA_PROGRAM_ID, SOLANA_NETWORK } from "@/config";
 
 /** Helper: serialize a UTF‑8 string with u32‑length prefix (LE) */
 function serializeString(value: string): Uint8Array {
@@ -43,9 +43,9 @@ function serializeMetadataV3(data: {
   uses: any | null;
   isMutable: boolean;
 }): Uint8Array {
-  const nameBuff   = serializeString(data.name);
+  const nameBuff = serializeString(data.name);
   const symbolBuff = serializeString(data.symbol);
-  const uriBuff    = serializeString(data.uri);
+  const uriBuff = serializeString(data.uri);
 
   const feeBuff = Buffer.alloc(2);
   feeBuff.writeUInt16LE(data.sellerFeeBasisPoints, 0);
@@ -55,11 +55,13 @@ function serializeMetadataV3(data: {
     creatorsBuff = Buffer.from([0]);
   } else {
     const vec = Buffer.concat(
-      data.creators.map(c => Buffer.concat([
-        c.address.toBuffer(),
-        Buffer.from([c.verified ? 1 : 0]),
-        Buffer.from([c.share])
-      ]))
+      data.creators.map((c) =>
+        Buffer.concat([
+          c.address.toBuffer(),
+          Buffer.from([c.verified ? 1 : 0]),
+          Buffer.from([c.share]),
+        ])
+      )
     );
     const creatorsLength = Buffer.alloc(4);
     creatorsLength.writeUInt32LE(data.creators.length, 0);
@@ -70,13 +72,13 @@ function serializeMetadataV3(data: {
     ? Buffer.concat([
         Buffer.from([1]),
         new PublicKey(data.collection.key).toBuffer(),
-        Buffer.from([data.collection.verified ? 1 : 0])
+        Buffer.from([data.collection.verified ? 1 : 0]),
       ])
     : Buffer.from([0]);
 
-  const usesBuff              = Buffer.from([0]);
+  const usesBuff = Buffer.from([0]);
   const collectionDetailsBuff = Buffer.from([0]);
-  const isMutableBuff         = Buffer.from([data.isMutable ? 1 : 0]);
+  const isMutableBuff = Buffer.from([data.isMutable ? 1 : 0]);
 
   return Buffer.concat([
     nameBuff,
@@ -112,33 +114,46 @@ export async function POST(request: NextRequest) {
     } = await request.json();
 
     // Validate required fields...
-    if (!mintPrivateKey || !metadataUrl || !tokenName || !tokenSymbol || !payerPublicKey) {
-      return NextResponse.json({ error: "Missing required transaction data" }, { status: 400 });
+    if (
+      !mintPrivateKey ||
+      !metadataUrl ||
+      !tokenName ||
+      !tokenSymbol ||
+      !payerPublicKey
+    ) {
+      return NextResponse.json(
+        { error: "Missing required transaction data" },
+        { status: 400 }
+      );
     }
 
     // Server‐side update authority key - only needed when revoking update
     const updateAuthorityPrivateKey = process.env.REVOKE_UPDATE_PRIVATE_KEY;
     if (revokeUpdate && !updateAuthorityPrivateKey) {
-      return NextResponse.json({ error: "Update authority not configured on server" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Update authority not configured on server" },
+        { status: 500 }
+      );
     }
 
     // Use server-side RPC endpoints
-    const network = SOLANA_NETWORK === 'mainnet-beta' ? 'mainnet-beta' : 'devnet';
+    const network =
+      SOLANA_NETWORK === "mainnet-beta" ? "mainnet-beta" : "devnet";
     let connectionUrl: string;
-    
-    if (network === 'mainnet-beta' && process.env.SOLANA_MAINNET_RPC) {
+
+    if (network === "mainnet-beta" && process.env.SOLANA_MAINNET_RPC) {
       connectionUrl = process.env.SOLANA_MAINNET_RPC;
-    } else if (network === 'devnet' && process.env.SOLANA_DEVNET_RPC) {
+    } else if (network === "devnet" && process.env.SOLANA_DEVNET_RPC) {
       connectionUrl = process.env.SOLANA_DEVNET_RPC;
     } else {
       // Fall back to public endpoints if server-side RPCs not configured
       connectionUrl = clusterApiUrl(network);
     }
-    
+
     const connection = new Connection(connectionUrl);
 
     // Reconstruct the mint keypair
-    const mintSecret  = Buffer.from(mintPrivateKey, 'base64');
+    const mintSecret = Buffer.from(mintPrivateKey, "base64");
     const mintKeypair = Keypair.fromSecretKey(new Uint8Array(mintSecret));
 
     const payer = new PublicKey(payerPublicKey);
@@ -150,7 +165,7 @@ export async function POST(request: NextRequest) {
     const transaction = new Transaction();
     transaction.recentBlockhash = recentBlockhash;
     transaction.feePayer = payer;
-    
+
     // Reserve space for Phantom's Lighthouse guard instructions
     // by adding some dummy signature fields
     const dummyKey = Keypair.generate().publicKey;
@@ -158,15 +173,18 @@ export async function POST(request: NextRequest) {
       SystemProgram.transfer({
         fromPubkey: payer,
         toPubkey: dummyKey,
-        lamports: 0 
+        lamports: 0,
       })
     );
-    
+
     // We'll remove this dummy instruction later
     const dummyInstruction = transaction.instructions[0];
 
     // Optional fee transfer
     if (includeFeeTx && feeWalletPubkey && feeAmountInLamports > 0) {
+      console.log(
+        `Adding fee transaction of ${feeAmountInLamports} lamports to ${feeWalletPubkey}`
+      );
       transaction.instructions.push(
         SystemProgram.transfer({
           fromPubkey: payer,
@@ -209,12 +227,7 @@ export async function POST(request: NextRequest) {
     );
     const mintAmount = BigInt(tokenSupply) * BigInt(10 ** tokenDecimals);
     transaction.add(
-      createMintToInstruction(
-        mintKeypair.publicKey,
-        ata,
-        payer,
-        mintAmount
-      )
+      createMintToInstruction(mintKeypair.publicKey, ata, payer, mintAmount)
     );
 
     // Metadata PDA
@@ -235,26 +248,34 @@ export async function POST(request: NextRequest) {
       const serverSecret = bs58.decode(updateAuthorityPrivateKey!);
       const updateAuthorityKeypair = Keypair.fromSecretKey(serverSecret);
       const updateAuthorityPublicKey = updateAuthorityKeypair.publicKey;
-      
+
       // Creators with verified = false
       const creators = [
         {
           address: payer,
           verified: false,
           share: 100,
-        }
+        },
       ];
-      
+
       // Metadata instruction with server as update authority signer
       transaction.add({
         programId: metadataProgramId,
         keys: [
           { pubkey: metadataPDA, isSigner: false, isWritable: true },
           { pubkey: mintKeypair.publicKey, isSigner: false, isWritable: false },
-          { pubkey: payer, isSigner: true, isWritable: false },                // mint authority
-          { pubkey: payer, isSigner: true, isWritable: false },                // payer
-          { pubkey: updateAuthorityPublicKey, isSigner: true, isWritable: false }, // update authority with server
-          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          { pubkey: payer, isSigner: true, isWritable: false }, // mint authority
+          { pubkey: payer, isSigner: true, isWritable: false }, // payer
+          {
+            pubkey: updateAuthorityPublicKey,
+            isSigner: true,
+            isWritable: false,
+          }, // update authority with server
+          {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+          },
         ],
         data: Buffer.concat([
           Buffer.from([33]), // createMetadataAccountV3 discriminator
@@ -270,20 +291,22 @@ export async function POST(request: NextRequest) {
           }),
         ]),
       });
-      
+
       // Now remove the dummy instruction
-      transaction.instructions = transaction.instructions.filter(instr => instr !== dummyInstruction);
-      
+      transaction.instructions = transaction.instructions.filter(
+        (instr) => instr !== dummyInstruction
+      );
+
       // Sign with the server's update authority keypair
       transaction.partialSign(updateAuthorityKeypair);
-      
+
       // Always sign with the mint keypair
       transaction.partialSign(mintKeypair);
-      
+
       // Serialize and return for wallet to sign & send
       const serialized = transaction.serialize({ requireAllSignatures: false });
-      const b64 = Buffer.from(serialized).toString('base64');
-      
+      const b64 = Buffer.from(serialized).toString("base64");
+
       return NextResponse.json({
         success: true,
         signedTransaction: b64,
@@ -293,17 +316,17 @@ export async function POST(request: NextRequest) {
     } else {
       // ===== CASE 2: revokeUpdate = false =====
       // Based on the client-side version that was working
-      
+
       // Create metadata using the exact pattern that worked in client-side
       // Creators with verified = true when wallet is update authority
       const creators = [
         {
           address: payer,
-          verified: true,  // Set to true when wallet is update authority
+          verified: true, // Set to true when wallet is update authority
           share: 100,
-        }
+        },
       ];
-      
+
       // Metadata instruction with payer as update authority but NOT a signer in that role
       transaction.add({
         programId: metadataProgramId,
@@ -313,7 +336,11 @@ export async function POST(request: NextRequest) {
           { pubkey: payer, isSigner: true, isWritable: false }, // mint authority
           { pubkey: payer, isSigner: true, isWritable: false }, // payer
           { pubkey: payer, isSigner: false, isWritable: false }, // update authority - not a signer!
-          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+          },
         ],
         data: Buffer.concat([
           Buffer.from([33]), // createMetadataAccountV3 discriminator
@@ -329,7 +356,7 @@ export async function POST(request: NextRequest) {
           }),
         ]),
       });
-      
+
       // Optional authority revocations
       if (revokeMint) {
         transaction.add(
@@ -355,17 +382,19 @@ export async function POST(request: NextRequest) {
           )
         );
       }
-      
+
       // Now remove the dummy instruction
-      transaction.instructions = transaction.instructions.filter(instr => instr !== dummyInstruction);
-      
+      transaction.instructions = transaction.instructions.filter(
+        (instr) => instr !== dummyInstruction
+      );
+
       // Always sign with the mint keypair
       transaction.partialSign(mintKeypair);
-      
+
       // Serialize and return for wallet to sign & send
       const serialized = transaction.serialize({ requireAllSignatures: false });
-      const b64 = Buffer.from(serialized).toString('base64');
-      
+      const b64 = Buffer.from(serialized).toString("base64");
+
       return NextResponse.json({
         success: true,
         signedTransaction: b64,
@@ -376,7 +405,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error in sign-transaction:", error);
     return NextResponse.json(
-      { error: `Failed to sign transaction: ${error instanceof Error ? error.message : error}` },
+      {
+        error: `Failed to sign transaction: ${
+          error instanceof Error ? error.message : error
+        }`,
+      },
       { status: 500 }
     );
   }

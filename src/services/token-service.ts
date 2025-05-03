@@ -1,16 +1,14 @@
 // src/services/token-service.ts
 // Main orchestration of token creation process
-// Updated to ensure we're using signAndSendTransaction
 
 import { WalletContextState } from "@solana/wallet-adapter-react";
 import { Connection } from "@solana/web3.js";
 import { FormDataType, TokenResult } from "@/types/token";
-import { SOLANA_NETWORK_FEE } from "@/config";
+import { SOLANA_NETWORK_FEE, TOTAL_FEE } from "@/config";
 import { uploadImageToIPFS, uploadMetadataToIPFS } from "./ipfs-service";
 import { getSolanaConnection, saveWalletPublicKey } from "./wallet-service";
 import { createTokenServerSide } from "./token-creation/server-side-creation";
 import { handleErrorWithCleanup } from "./pinata-cleanup";
-import { FEE_CONSTANTS } from "./fee-service";
 
 // Image size limits in bytes
 const IMAGE_SIZE_LIMITS = {
@@ -32,7 +30,7 @@ export async function createTokenWithMetadata(
   
   // Make sure wallet has sendTransaction capability
   if (!sendTransaction) {
-    throw new Error("This wallet does not support the sendTransaction method required. Please use a compatible wallet like Phantom.");
+    throw new Error("This wallet does not support the sendTransaction method required. Please use a compatible wallet.");
   }
   
   if (!connected || !publicKey) {
@@ -67,18 +65,19 @@ export async function createTokenWithMetadata(
     }
   }
 
-  // Ensure minimum fee
-  const minimumFeeInSOL = FEE_CONSTANTS.MINIMUM_FEE;
-  if (totalFee < minimumFeeInSOL) {
-    console.warn(
-      `Fee is too low (${totalFee}), using minimum fee of ${minimumFeeInSOL} SOL`
-    );
-    totalFee = minimumFeeInSOL;
+  // Set the appropriate fee based on the option selected
+  let actualFee = TOTAL_FEE || 0.05; // Use the configured TOTAL_FEE or default to 0.05
+  
+  // If large image size is enabled, use higher fee
+  if (formData.largeImageSize) {
+    actualFee = 0.1; // Override with 0.1 SOL for large images
   }
 
   // Calculate the net fee after subtracting the Solana network fee
   const networkFee = SOLANA_NETWORK_FEE;
-  const netFeeAmount = Math.max(totalFee - networkFee, 0);
+  const netFeeAmount = Math.max(actualFee - networkFee, 0);
+
+  console.log(`Total fee: ${actualFee} SOL, Network fee: ${networkFee} SOL, Net fee: ${netFeeAmount} SOL`);
 
   try {
     // STEP 0: IPFS image with unique name
@@ -122,15 +121,14 @@ export async function createTokenWithMetadata(
     // STEP 2: Server-side token creation using signAndSendTransaction method
     onProgress?.(2);
     
-    // We now use server-side creation for both flows
-    // The useServerUpdateAuthority parameter determines which flow to use
+    // Pass the actual fee to use for this transaction
     return createTokenServerSide(
       walletAdapter,
       connection,
       formData,
       metadataUrl,
       imageUrl,
-      netFeeAmount,
+      netFeeAmount, // Pass the calculated net fee amount
       onProgress
     );
   } catch (error) {
@@ -144,7 +142,7 @@ export async function createTokenWithMetadata(
       if (error.message.includes("403") || error.message.includes("Access forbidden")) {
         errorMessage = "RPC access error. The Solana network endpoint is currently unavailable or has reached its request limit. If you're using mainnet, please configure a paid RPC endpoint.";
       } else if (error.message.includes("429") || error.message.includes("Too many requests")) {
-        errorMessage = "Rate limit exceeded. The RPC endpoint has too many requests. Please try again later or use a dedicated RPC endpoint.";
+        errorMessage = "Rate limit exceeded. The RPC endpoint has too many requests. Please try again later.";
       } else if (error.message.includes("wallet") || error.message.includes("Wallet")) {
         errorMessage = error.message; // Keep wallet-related errors as is
       } else if (error.message.includes("balance") || error.message.includes("insufficient")) {

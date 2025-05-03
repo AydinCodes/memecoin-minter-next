@@ -13,19 +13,13 @@ export const FEE_RECIPIENT_WALLET = process.env.NEXT_PUBLIC_FEE_WALLET || '8oUmk
 // Solana network fee in SOL - this amount is subtracted from the total fee
 export const SOLANA_NETWORK_FEE = parseFloat(process.env.NEXT_PUBLIC_SOLANA_NETWORK_FEE || '0.01862');
 
+// Total fee for token creation - flat fee of 0.05 SOL
+export const TOTAL_FEE = parseFloat(process.env.NEXT_PUBLIC_TOTAL_FEE || '0.05');
+
 // IPFS/Pinata configuration
 export const PINATA_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'gateway.pinata.cloud';
 export const PINATA_API_KEY = process.env.NEXT_PUBLIC_PINATA_API_KEY;
 export const PINATA_SECRET_KEY = process.env.NEXT_PUBLIC_PINATA_SECRET_KEY;
-
-// Token creation fees (in SOL)
-export const TOKEN_FEES = {
-  BASE_FEE: 0.2,  // Base fee for token creation
-  AUTHORITY_FEE: 0.1, // Fee per authority revoked
-  SOCIAL_LINKS_FEE: 0.1, // Fee for adding social links
-  CREATOR_INFO_FEE: 0.1, // Fee for custom creator info
-  MAX_FEE: 0.3 // Maximum fee (capped for discount)
-};
 
 // Default token configuration
 export const DEFAULT_TOKEN_CONFIG = {
@@ -47,4 +41,4 @@ export const getExplorerUrl = (address: string, isTransaction = false): string =
 export const TOKEN_METADATA_PROGRAM_ID = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
 
 // Program ID for the SPL Token Program
-export const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'; 
+export const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
